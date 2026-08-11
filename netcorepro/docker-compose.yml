@@ -79,24 +79,24 @@ services:
   #  Optional Nginx front door. Enable with:  docker compose --profile proxy up -d
   #  Handles gzip, static caching, upload body size and (optionally) TLS.
   # ---------------------------------------------------------------------------
-  proxy:
-    image: nginx:1.27-alpine
-    container_name: netcorepro-proxy
-    restart: unless-stopped
-    profiles: ["proxy"]
-    depends_on:
-      app:
-        condition: service_healthy
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Drop fullchain.pem / privkey.pem here and uncomment the TLS block
-      # inside docker/nginx.conf to serve HTTPS.
-      - ./docker/certs:/etc/nginx/certs:ro
-    networks:
-      - netcorepro
+  # proxy:
+  #   image: nginx:1.27-alpine
+  #   container_name: netcorepro-proxy
+  #   restart: unless-stopped
+  #   profiles: ["proxy"]
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+  #   ports:
+  #     - "${HTTP_PORT:-80}:80"
+  #     - "${HTTPS_PORT:-443}:443"
+  #   volumes:
+  #     - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+  #     # Drop fullchain.pem / privkey.pem here and uncomment the TLS block
+  #     # inside docker/nginx.conf to serve HTTPS.
+  #     - ./docker/certs:/etc/nginx/certs:ro
+  #   networks:
+  #     - netcorepro
 
 volumes:
   netcorepro_data:

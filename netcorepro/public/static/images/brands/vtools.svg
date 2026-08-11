@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 90" width="240" height="90">
+  <rect width="240" height="90" rx="12" fill="#ffffff"/>
+  <path d="M28 28 L44 62 L60 28" fill="none" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="146" y="55" text-anchor="middle" font-family="'Segoe UI','Arial',sans-serif" font-size="29" font-weight="800" fill="#1e3a8a">VTOOLS</text>
+</svg>

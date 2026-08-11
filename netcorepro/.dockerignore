@@ -1,0 +1,39 @@
+# =============================================================================
+#  NetCore Pro — build-context exclusions
+#  Author: A.K
+#  Keeps the image small and prevents secrets from leaking into layers.
+# =============================================================================
+
+# Dependencies are installed inside the image, never copied from the host.
+node_modules
+npm-debug.log*
+
+# Secrets — the runtime reads them from the compose `env_file`, not the image.
+.env
+.env.*
+!.env.example
+
+# Version control & editor noise
+.git
+.gitignore
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Runtime state that must live in volumes, not in the image
+data/*.db-wal
+data/*.db-shm
+data/*.bak*
+*.log
+pm2-*.log
+
+# Local backups and archives
+backups/
+*.tar.gz
+*.zip
+
+# Documentation & reports (not needed at runtime)
+docs/
+*.md
+!package.json

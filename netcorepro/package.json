@@ -1,0 +1,29 @@
+{
+  "name": "netcorepro",
+  "version": "1.0.0",
+  "description": "NetCore Pro - B2B network equipment shop (Hono SSR + SQLite)",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "NODE_ENV=development node dist/server.js",
+    "seed": "node dist/db/seed.js",
+    "build:assets": "node scripts/build-assets.mjs",
+    "fetch:vendors": "node scripts/fetch-vendors.mjs",
+    "build:tailwind": "tailwindcss -c tailwind.config.cjs -i tailwind.input.css -o public/static/css/tailwind.min.css --minify"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.5.0",
+    "hono": "^4.6.10",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

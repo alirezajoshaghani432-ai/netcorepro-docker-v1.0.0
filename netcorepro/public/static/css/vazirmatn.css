@@ -1,0 +1,31 @@
+/* Vazirmatn — trimmed to 4 weights for performance.
+ * CSS font-matching maps other weights to the nearest declared face:
+ * 100-400 -> Regular, 500-600 -> Medium, 700 -> Bold, 800-900 -> ExtraBold. */
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 400;
+  font-display: swap;
+  src: url('/static/fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url('/static/fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 800 900;
+  font-display: swap;
+  src: url('/static/fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2');
+}

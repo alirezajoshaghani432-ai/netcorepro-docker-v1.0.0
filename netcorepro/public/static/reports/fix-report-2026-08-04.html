@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>گزارش رفع مشکلات NetCorePro — نسخهٔ نهایی</title>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+:root{--blue:#2563eb;--blue-d:#1e40af;--green:#059669;--amber:#d97706;--red:#dc2626;--ink:#1e293b;--mut:#64748b;--bg:#f1f5f9;--card:#fff;--line:#e2e8f0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Vazirmatn,Tahoma,sans-serif;background:var(--bg);color:var(--ink);line-height:1.9}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+header.hero{background:linear-gradient(135deg,var(--blue-d),var(--blue));color:#fff;border-radius:20px;padding:40px 32px;margin-bottom:28px;position:relative;overflow:hidden}
+header.hero::after{content:'';position:absolute;left:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08)}
+header.hero h1{font-size:26px;margin-bottom:8px}
+header.hero p{opacity:.9;font-size:14px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.badge{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:99px;padding:4px 14px;font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;margin-bottom:22px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.card h2{font-size:19px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.card h3{font-size:15px;margin:18px 0 8px;color:var(--blue-d)}
+.num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;background:var(--blue);color:#fff;font-size:15px;flex-shrink:0}
+.ok{color:var(--green);font-weight:700}
+.warn{color:var(--amber);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:right;vertical-align:top}
+th{background:#f8fafc;font-weight:700}
+code,pre{font-family:Consolas,Monaco,monospace;direction:ltr;text-align:left}
+code{background:#eef2ff;color:#4338ca;border-radius:6px;padding:2px 7px;font-size:12px}
+pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:16px 18px;font-size:12px;overflow-x:auto;margin:10px 0;line-height:1.7}
+.pill{display:inline-block;border-radius:99px;padding:3px 12px;font-size:12px;font-weight:700}
+.pill.g{background:#d1fae5;color:#065f46}
+.pill.b{background:#dbeafe;color:#1e40af}
+.pill.a{background:#fef3c7;color:#92400e}
+ul.checks{list-style:none;margin:8px 0}
+ul.checks li{padding:5px 0;font-size:13.5px}
+ul.checks li::before{content:'✓ ';color:var(--green);font-weight:900}
+.score{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #a7f3d0;border-radius:16px;padding:20px 24px;margin:14px 0}
+.score .n{font-size:42px;font-weight:900;color:var(--green)}
+.qa-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.qa-row:last-child{border:0}
+.qa-tag{flex-shrink:0;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700;background:#e0e7ff;color:#3730a3}
+footer{text-align:center;color:var(--mut);font-size:12px;margin-top:30px}
+.linkbox a{color:var(--blue);text-decoration:none;font-weight:600;word-break:break-all}
+.decision{background:#fffbeb;border-right:4px solid var(--amber);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:13.5px}
+.decision b{color:#92400e}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+<h1>🛠️ گزارش رفع مشکلات فروشگاه NetCorePro</h1>
+<p>سرور شخصی: 185.250.249.187:8090 &nbsp;|&nbsp; تاریخ: ۱۴ مرداد ۱۴۰۵ (2026-08-04)</p>
+<div class="badges">
+<span class="badge">✅ ۳ مشکل اصلی رفع شد</span>
+<span class="badge">🔁 ۳ دور QA کامل</span>
+<span class="badge">🧪 تست E2E با Playwright</span>
+<span class="badge">🚀 مستقر روی سرور</span>
+</div>
+</header>
+
+<div class="card">
+<h2><span class="num">۱</span> منوی دسته‌بندی کالاها (مگامنو)</h2>
+<p><b>مشکل:</b> منوی «دسته‌بندی کالاها» به‌جای نمایش <b>نام دسته‌ها</b>، نام تک‌تک <b>محصولات</b> (مثل «نوار چسب برق VTOOLS» یا «پچ پنل لگراند») را نشان می‌داد. این هم از نظر تجربهٔ کاربری غلط بود و هم چیدمان منو را به‌هم می‌ریخت.</p>
+
+<h3>ریشهٔ مشکل</h3>
+<p style="font-size:13.5px">دو عامل هم‌زمان: (الف) تابع <code>getNavCategories()</code> در فایل <code>layout.js</code> وقتی دسته‌ای زیردسته نداشت، ستون منو را با <b>نام محصولات</b> همان دسته پُر می‌کرد. (ب) در دیتابیس اصلاً ساختار زیردسته وجود نداشت — همهٔ ۳۰ دسته هم‌سطح بودند.</p>
+
+<h3>راه‌حل اجراشده</h3>
+<ul class="checks">
+<li>بازنویسی کامل <code>getNavCategories()</code>: اکنون فقط <b>زیردسته‌ها</b> را با <b>شمارش کالا (N)</b> برمی‌گرداند — هرگز نام محصول نمایش داده نمی‌شود.</li>
+<li>ساخت درخت دستهٔ دوسطحی در دیتابیس: <b>۲۱ زیردستهٔ جدید</b> (سوییچ ۵/۸ پورت، کابل Cat6/اوت‌دور، آداپتور ۱۲/۴۸ ولت، مودم 4G/روتر بی‌سیم، سینی رک/بلانک پنل/ملزومات نصب، پچ پنل/فلکسی و…) با اسکریپت مهاجرت تکرارپذیر <code>migrate_categories_v4.mjs</code>.</li>
+<li>هر ستون منو لینک «مشاهده همه (N کالا)» دارد و فیلتر دستهٔ والد به‌طور خودکار محصولات زیردسته‌ها را هم شامل می‌شود.</li>
+<li>رک دیواری و رک ایستاده به‌عنوان زیردستهٔ «رک‌های آماد سیستم» تو در تو شدند.</li>
+<li>محصول تستی زائد غیرفعال شد و رک 42U به دستهٔ درست منتقل شد.</li>
+</ul>
+
+<div class="decision">
+<b>آیا این بهترین تصمیم بود؟</b> بله برای این مقیاس. گزینهٔ جایگزین، منوی سه‌سطحی یا مدیریت دستی منو از پنل ادمین بود؛ اما با ~۸۰ محصول، درخت دوسطحیِ خودکار (که مستقیماً از دیتابیس ساخته می‌شود) هم نگه‌داری صفر دارد و هم با افزودن محصول/دسته جدید خودش به‌روز می‌شود. <b>بهبود آینده:</b> آیکون اختصاصی برای هر دستهٔ ریشه و امکان مرتب‌سازی دستی زیردسته‌ها از پنل ادمین.
+</div>
+</div>
+
+<div class="card">
+<h2><span class="num">۲</span> تکمیل سفارش (Checkout)</h2>
+<p><b>مشکل:</b> صفحهٔ «تکمیل سفارش» لود نمی‌شد — کاربر بعد از سبد خرید به صفحهٔ خالی می‌رسید و امکان ثبت سفارش نبود. <span class="pill a">مشکل بحرانی — قطع کامل فروش</span></p>
+
+<h3>ریشهٔ مشکل (کشف با دیباگ مرورگر)</h3>
+<p style="font-size:13.5px">سایت از ناوبری SPA (pjax) استفاده می‌کند: هنگام کلیک روی لینک‌ها فقط محتوای <code>&lt;main&gt;</code> جایگزین و اسکریپت‌های درون‌صفحه <b>دوباره اجرا</b> می‌شوند. چون اسکریپت‌ها متغیرهایی مثل <code>const SHIPPING</code> را در سطح بالا تعریف کرده بودند، اجرای دوم خطای جاوااسکریپتی <code>Identifier 'SHIPPING' has already been declared</code> می‌داد و رندر صفحهٔ چک‌اوت (<code>#checkout-root</code>) هرگز اجرا نمی‌شد → صفحهٔ خالی.</p>
+
+<h3>راه‌حل اجراشده</h3>
+<pre>// قبل — کرش در ناوبری دوم:
+const SHIPPING = {...};   // ❌ Identifier already declared
+
+// بعد — امن در اجرای مکرر:
+var SHIPPING = {...};     // ✅ قابل بازتعریف</pre>
+<ul class="checks">
+<li>۱۳ اعلان <code>const/let</code> سطح‌بالا در اسکریپت‌های درون‌خطی <code>pages.js</code> به <code>var</code> تبدیل شد (SHIPPING، PAYCFG، PRODUCT، ORDER_NO، ME و…).</li>
+<li>تست کامل E2E: محصول → سبد → تکمیل سفارش → <b>ثبت موفق سفارش</b> (هم با ناوبری SPA و هم لود مستقیم URL). سفارش تستی پس از تأیید از دیتابیس پاک شد.</li>
+</ul>
+
+<div class="decision">
+<b>آیا این بهترین تصمیم بود؟</b> این کم‌ریسک‌ترین و سریع‌ترین رفع قطعی بود و رفتار هیچ بخش دیگری را تغییر نمی‌دهد. راه‌حل «ایده‌آل معماری» پیچیدن هر اسکریپت درون‌خطی در IIFE (تابع خوداجرا) است تا اصلاً متغیر سراسری ساخته نشود — اما نیازمند بازنویسی گسترده و ریسک رگرسیون روی سایت زنده بود. <b>بهبود آینده:</b> مهاجرت تدریجی اسکریپت‌ها به IIFE یا ماژول.
+</div>
+</div>
+
+<div class="card">
+<h2><span class="num">۳</span> محصولات داشبورد ادمین</h2>
+<p><b>مشکل:</b> در پنل مدیریت، بخش «محصولات» لود نمی‌شد.</p>
+
+<h3>ریشهٔ مشکل (غیرمنتظره!)</h3>
+<p style="font-size:13.5px">کد صفحهٔ محصولات ادمین سالم بود. مشکل واقعی این بود که <b>هش پسورد ادمین در دیتابیس با پسورد مستندشده مطابقت نداشت</b> — احتمالاً در جابه‌جایی قبلی دیتابیس تغییر کرده بود. نتیجه: توکن نامعتبر → پاسخ 401 از API → جدول محصولات خالی می‌ماند و صفحه «لود نشده» به نظر می‌رسید.</p>
+
+<h3>راه‌حل اجراشده</h3>
+<ul class="checks">
+<li>بازنشانی پسورد ادمین با bcrypt مستقیماً در دیتابیس سرور به همان مقدار مستند: <code>Admin@1404</code></li>
+<li>راستی‌آزمایی: ورود موفق و نمایش کامل <b>۸۱ ردیف محصول</b> در جدول ادمین با تصاویر و قیمت‌ها.</li>
+<li>فرم افزودن/ویرایش محصول اکنون دسته‌ها را سلسله‌مراتبی نشان می‌دهد (سازگار با ساختار جدید).</li>
+</ul>
+
+<div class="decision">
+<b>آیا این بهترین تصمیم بود؟</b> بله — مشکل داده‌ای بود نه کدی، و درست‌ترین کار همگام‌سازی پسورد با مستندات بود. <b>بهبود آینده:</b> نمایش پیام واضح «نشست شما منقضی شده» در پنل ادمین به‌جای جدول خالی، تا تشخیص این نوع مشکل فوری باشد.
+</div>
+</div>
+
+<div class="card">
+<h2>🔁 سه دور کنترل کیفیت (QA)</h2>
+
+<div class="qa-row"><span class="qa-tag">دور ۱</span><div><b>رفع و راستی‌آزمایی سه مشکل اصلی</b> (اسکرین‌شات مگامنو، جریان کامل خرید، ۸۱ ردیف ادمین). ایراد یافت‌شده: دراپ‌داون فیلتر دسته در صفحهٔ محصولات با ۲۱ زیردستهٔ جدید به فهرست مسطحِ گیج‌کننده تبدیل شده بود.</div></div>
+
+<div class="qa-row"><span class="qa-tag">دور ۲</span><div><b>رفع ایراد دور ۱:</b> دراپ‌داون فیلتر سلسله‌مراتبی شد (دسته‌های اصلی + زیردسته‌ها با پیشوند «—»). تست مجدد: فیلتر دستهٔ والد ۱۰ کارت، فیلتر زیردسته ۵ کارت، ۳۰ لینک مگامنو با صفر نشتی نام محصول، چک‌اوت SPA سالم، صفر خطای جاوااسکریپت.</div></div>
+
+<div class="qa-row"><span class="qa-tag">دور ۳</span><div><b>پاس نهایی کامل:</b> صفحهٔ دسته‌بندی‌ها (۷۸ لینک)، جست‌وجوی «سوییچ» (۶ نتیجه)، صفحهٔ محصول با عنوان سئوشده، چک‌اوت با لود مستقیم URL، نمای موبایل (۱۲ کارت) — همگی <b>بدون هیچ pageerror</b> در دسکتاپ و موبایل.</div></div>
+
+<div class="score">
+<span class="n">۹/۱۰</span>
+<div style="font-size:13.5px">
+<b>چرا ۹ و نه ۱۰؟</b> دو مورد جزئی خارج از محدودهٔ این درخواست باقی است: (۱) دیسک سرور <span class="warn">~۹۵٪ پر</span> است — توصیه می‌شود لاگ‌ها و بکاپ‌های قدیمی پاک‌سازی شود؛ (۲) preload فونت‌ها گاهی پیام بی‌ضرر ERR_ABORTED در کنسول می‌دهد (بدون تأثیر بر نمایش).
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>📦 فایل‌های تغییریافته</h2>
+<table>
+<tr><th>فایل</th><th>تغییر</th></tr>
+<tr><td><code>dist/views/shared/layout.js</code></td><td>بازنویسی getNavCategories (زیردسته + شمارش)، مارک‌آپ جدید مگامنو، ASSET_V جدید</td></tr>
+<tr><td><code>dist/views/site/pages.js</code></td><td>۱۳ تبدیل const/let→var (رفع چک‌اوت)، دراپ‌داون فیلتر سلسله‌مراتبی</td></tr>
+<tr><td><code>scripts/migrate_categories_v4.mjs</code></td><td>جدید — مهاجرت دسته‌بندی دوسطحی (۲۱ زیردسته) + جابه‌جایی محصولات (تکرارپذیر و امن)</td></tr>
+<tr><td><code>public/static/css/app.css</code> و <code>nc-site.min.css</code></td><td>استایل شمارندهٔ کالا در مگامنو (.nc-megacount)</td></tr>
+<tr><td>دیتابیس (سرور + محلی)</td><td>درخت دسته‌ها، بازنشانی پسورد ادمین، غیرفعال‌سازی محصول زائد — بکاپ: <code>netcorepro.db.bak-20260803</code></td></tr>
+</table>
+</div>
+
+<div class="card linkbox">
+<h2>🔗 لینک‌ها و دسترسی‌ها</h2>
+<table>
+<tr><th>مورد</th><th>آدرس</th></tr>
+<tr><td>سایت فروشگاه</td><td><a href="http://185.250.249.187:8090/site1">http://185.250.249.187:8090/site1</a></td></tr>
+<tr><td>پنل مدیریت</td><td><a href="http://185.250.249.187:8090/admin">http://185.250.249.187:8090/admin</a> — <code>admin@netcorepro.ir</code> / <code>Admin@1404</code></td></tr>
+<tr><td>Pull Request تغییرات</td><td><a href="https://github.com/Projects2384/netcore/pull/1">github.com/Projects2384/netcore/pull/1</a></td></tr>
+<tr><td>مخزن گیت‌هاب</td><td><a href="https://github.com/Projects2384/netcore">github.com/Projects2384/netcore</a></td></tr>
+</table>
+</div>
+
+<footer>گزارش فنی رفع مشکلات NetCorePro — تهیه‌شده پس از ۳ دور کنترل کیفیت | 2026-08-04</footer>
+</div>
+</body>
+</html>

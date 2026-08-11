@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 90" width="240" height="90">
+  <rect width="240" height="90" rx="12" fill="#ffffff"/>
+  <rect x="22" y="28" width="34" height="34" rx="6" fill="#e30613"/>
+  <text x="40" y="52" text-anchor="middle" font-family="'Segoe UI','Arial',sans-serif" font-size="24" font-weight="800" fill="#ffffff">L</text>
+  <text x="136" y="54" text-anchor="middle" font-family="'Segoe UI','Arial',sans-serif" font-size="30" font-weight="700" fill="#1f2937">legrand</text>
+</svg>

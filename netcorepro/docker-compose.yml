@@ -1,0 +1,112 @@
+# =============================================================================
+#  NetCore Pro — docker-compose (production)
+#  Author: A.K
+# -----------------------------------------------------------------------------
+#  Quick start
+#    cp .env.example .env
+#    sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 64)|" .env
+#    docker compose up -d --build
+#    docker compose logs -f app
+#
+#  Optional reverse proxy (TLS / port 80 termination):
+#    docker compose --profile proxy up -d --build
+#
+#  Everyday operations
+#    docker compose ps                 # status + health
+#    docker compose restart app        # restart the app only
+#    docker compose down               # stop (data volumes are kept)
+#    docker compose down -v            # stop AND destroy all data  ⚠️
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://package-mirror.liara.ir/repository/npm/}
+    image: netcorepro:1.0.0
+    container_name: netcorepro
+    restart: unless-stopped
+
+    # Bind to loopback only when a reverse proxy fronts the app:
+    #   "127.0.0.1:${APP_PORT:-8090}:3000"
+    ports:
+      - "${APP_PORT:-8090}:3000"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_PATH: /app/data/netcorepro.db
+      TZ: ${TZ:-Asia/Tehran}
+
+    volumes:
+      # SQLite database — the single source of truth. Back this up.
+      - netcorepro_data:/app/data
+      # Product / banner images uploaded through the admin panel.
+      - netcorepro_uploads:/app/public/static/uploads
+      # Responsive WebP variants generated on demand from the uploads above.
+      - netcorepro_rimg:/app/public/static/rimg
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+    stop_grace_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPU_LIMIT:-1.5}"
+          memory: "${MEM_LIMIT:-768M}"
+
+    networks:
+      - netcorepro
+
+  # ---------------------------------------------------------------------------
+  #  Optional Nginx front door. Enable with:  docker compose --profile proxy up -d
+  #  Handles gzip, static caching, upload body size and (optionally) TLS.
+  # ---------------------------------------------------------------------------
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: netcorepro-proxy
+    restart: unless-stopped
+    profiles: ["proxy"]
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Drop fullchain.pem / privkey.pem here and uncomment the TLS block
+      # inside docker/nginx.conf to serve HTTPS.
+      - ./docker/certs:/etc/nginx/certs:ro
+    networks:
+      - netcorepro
+
+volumes:
+  netcorepro_data:
+    name: netcorepro_data
+  netcorepro_uploads:
+    name: netcorepro_uploads
+  netcorepro_rimg:
+    name: netcorepro_rimg
+
+networks:
+  netcorepro:
+    name: netcorepro
+    driver: bridge

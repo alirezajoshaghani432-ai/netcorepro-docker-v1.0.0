@@ -1,6 +1,6 @@
 /* NetCore Pro — public site client runtime
  * Provides: window.NCPCart, window.NCPAuth, window.toast, window.formatPrice, window.formatDate
- * Used by all /site1/* pages. Loaded at the end of <body>.
+ * Used by all /* pages. Loaded at the end of <body>.
  */
 (function () {
   'use strict';
@@ -134,7 +134,7 @@
       document.cookie = 'token=; path=/; max-age=0';
       renderHeaderUser();
       window.toast('با موفقیت خارج شدید', 'success');
-      setTimeout(function () { location.href = '/site1'; }, 400);
+      setTimeout(function () { location.href = '/'; }, 400);
     }
   };
 
@@ -162,12 +162,12 @@
     if (slot) {
       if (u) {
         slot.innerHTML =
-          '<a href="/site1/account" class="nc-login-btn"><i class="far fa-user"></i><span>' + window.ncpEsc(u.full_name || u.email) + '</span></a>' +
+          '<a href="/account" class="nc-login-btn"><i class="far fa-user"></i><span>' + window.ncpEsc(u.full_name || u.email) + '</span></a>' +
           '<button id="ncp-logout-btn" class="nc-icon-btn" title="خروج"><i class="fas fa-sign-out-alt"></i></button>';
         var btn = document.getElementById('ncp-logout-btn');
         if (btn) btn.addEventListener('click', function () { window.NCPAuth.logout(); });
       } else {
-        slot.innerHTML = '<a href="/site1/login" class="nc-login-btn"><i class="far fa-user"></i><span>ورود | ثبت‌نام</span></a>';
+        slot.innerHTML = '<a href="/login" class="nc-login-btn"><i class="far fa-user"></i><span>ورود | ثبت‌نام</span></a>';
       }
     }
     // drawer user area (mobile)
@@ -175,13 +175,13 @@
     if (dslot) {
       if (u) {
         dslot.innerHTML =
-          '<a href="/site1/account" class="flex items-center gap-3"><span class="nc-icon-btn"><i class="far fa-user"></i></span>' +
+          '<a href="/account" class="flex items-center gap-3"><span class="nc-icon-btn"><i class="far fa-user"></i></span>' +
           '<span><b class="block text-sm">' + window.ncpEsc(u.full_name || u.email) + '</b><span class="text-xs" style="color:var(--nc-muted)">مشاهده حساب</span></span></a>' +
           '<button id="ncp-logout-btn-m" class="nc-login-btn w-full mt-3" style="justify-content:center"><i class="fas fa-sign-out-alt"></i>خروج از حساب</button>';
         var btn2 = document.getElementById('ncp-logout-btn-m');
         if (btn2) btn2.addEventListener('click', function () { window.NCPAuth.logout(); });
       } else {
-        dslot.innerHTML = '<a href="/site1/login" class="nc-login-btn w-full" style="justify-content:center"><i class="far fa-user"></i>ورود | ثبت‌نام</a>';
+        dslot.innerHTML = '<a href="/login" class="nc-login-btn w-full" style="justify-content:center"><i class="far fa-user"></i>ورود | ثبت‌نام</a>';
       }
     }
   }
@@ -414,7 +414,8 @@
       if (a.origin !== SAME_ORIGIN) return false;
       if (a.hasAttribute('data-no-pjax')) return false;
       // storefront only — /admin is a different asset bundle & auth flow
-      return /^\/site1(\/|$|\?)/.test(a.pathname + (a.search || '')) || a.pathname === '/site1';
+      if (/^\/(admin|api|static|uploads)(\/|$)/.test(a.pathname)) return false;
+      return true;
     }
 
     function put(url, payload) {
@@ -465,7 +466,7 @@
     function syncActive(path) {
       document.querySelectorAll('.nc-topnav-link, .nc-bottomnav-item, .nc-drawer-link').forEach(function (a) {
         var p = a.pathname || '';
-        var on = p === path || (p !== '/' && p !== '/site1' && path.indexOf(p) === 0);
+        var on = p === path || (p !== '/' && path.indexOf(p) === 0);
         a.classList.toggle('is-active', !!on);
       });
     }
@@ -475,13 +476,11 @@
       if (d) d.classList.remove('open');
       if (o) o.classList.remove('open');
       document.body.style.overflow = '';
-      // V4 D2 (owner voice note 2026-08-05): "when you click a category it
-      // doesn't go in — the same panel is still open; you have to move the
-      // mouse aside and click again". Removing .open was not enough: the
-      // panel is ALSO shown by `.nc-cats:hover`, and after a pjax swap the
-      // pointer is still physically over the menu, so CSS kept it visible and
-      // it covered the freshly loaded listing. We force it shut and only
-      // release the lock once the pointer actually leaves the menu.
+      // Clicking a category must close the mega-menu. Removing .open is not
+      // enough: the panel is ALSO shown by `.nc-cats:hover`, and after a pjax
+      // swap the pointer is still physically over the menu, so CSS would keep
+      // it visible on top of the freshly loaded listing. It is forced shut and
+      // the lock is released only once the pointer actually leaves the menu.
       if (window.NCPCloseCats) window.NCPCloseCats();
     }
 

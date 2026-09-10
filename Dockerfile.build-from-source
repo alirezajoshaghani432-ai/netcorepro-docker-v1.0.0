@@ -1,0 +1,76 @@
+# ===================================================================
+#  NetCore Pro — Dockerfile.build-from-source (نسخه آفلاین جایگزین)
+# -------------------------------------------------------------------
+#  این فایل مشابه Dockerfile اصلی است با این تفاوت که better-sqlite3
+#  را از سورس داخل image با node-gyp + g++ + python3 می‌سازد.
+#
+#  چه زمانی این را به‌جای Dockerfile اصلی استفاده کنیم؟
+#    - سرور Production معماری متفاوت (مثلاً arm64) دارد
+#    - نسخه Node متفاوت با Node 20 است
+#    - باینری prebuilt در local_packages/prebuilt/ سازگار نیست
+#
+#  نکته مهم: این روش به ابزارهای build از Liara mirror نیاز دارد که
+#  package-mirror.liara.ir دارای آن‌ها است.
+#
+#  ساخت:
+#    docker build -f Dockerfile.build-from-source -t netcorepro:latest .
+# ===================================================================
+
+FROM node:20-slim AS builder
+
+# تنظیم آینه npm ایرانی
+RUN npm config set registry https://package-mirror.liara.ir/repository/npm/ && \
+    npm config set fetch-retries 5
+
+# ابزارهای build برای کامپایل native modules
+# (نسخه‌های موجود در apt repos پیش‌فرض debian که داخل image cache شده‌اند)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 make g++ libsqlite3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# better-sqlite3 از tarball محلی، با اجازه‌ی build (بدون --ignore-scripts)
+COPY local_packages/better-sqlite3.tgz /tmp/better-sqlite3.tgz
+RUN npm install --no-audit --no-fund \
+        --build-from-source \
+        /tmp/better-sqlite3.tgz
+
+# سایر وابستگی‌ها
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund
+
+# کپی source
+COPY dist            ./dist
+COPY public          ./public
+COPY scripts         ./scripts
+
+RUN mkdir -p /app/data /app/uploads
+
+# تست سلامت native module
+RUN node -e "import('better-sqlite3').then(m => { new m.default(':memory:').prepare('SELECT 1').get(); console.log('✅ better-sqlite3 OK'); })"
+
+# ===== Stage 2: Runtime =====
+FROM node:20-slim AS runtime
+
+RUN groupadd --system app && useradd --system --gid app --home /app app
+WORKDIR /app
+
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist         ./dist
+COPY --from=builder --chown=app:app /app/public       ./public
+COPY --from=builder --chown=app:app /app/scripts      ./scripts
+COPY --from=builder --chown=app:app /app/package.json ./
+
+RUN mkdir -p /app/data /app/uploads && chown -R app:app /app/data /app/uploads
+USER app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+EXPOSE 3000
+CMD ["sh", "-c", "node dist/db/seed.js || true; node dist/server.js"]

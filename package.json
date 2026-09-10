@@ -15,9 +15,10 @@
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.5.0",
+    "better-sqlite3": "file:local_packages/better-sqlite3.tgz",
     "hono": "^4.6.10",
     "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.23.3",
     "zod": "^3.23.8"
   },
   "engines": {

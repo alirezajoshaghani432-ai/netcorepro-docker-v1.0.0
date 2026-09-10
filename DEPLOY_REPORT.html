@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راهنمای دیپلوی NetCore Pro در شرایط فیلترینگ ایران — Docker + Liara Mirror</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel-2: #1f2937;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #06b6d4;
+    --accent-2: #6366f1;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --ok: #10b981;
+    --code-bg: #0b1220;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); margin: 0; padding: 0; font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif; line-height: 1.85; font-size: 15px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 22px 80px; }
+
+  /* HEADER */
+  header { background: linear-gradient(135deg, #0c4a6e, #4338ca); border-radius: 24px; padding: 40px 32px; margin-bottom: 28px; position: relative; overflow: hidden; }
+  header::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(6,182,212,0.3) 0%, transparent 50%); }
+  header h1 { font-size: 30px; margin: 0 0 12px; position: relative; line-height: 1.4; }
+  header .sub { color: #cbd5e1; max-width: 800px; position: relative; }
+  header .badges { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; position: relative; }
+  header .badge { background: rgba(255,255,255,0.12); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; backdrop-filter: blur(4px); }
+
+  /* TOC */
+  nav.toc { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px 26px; margin-bottom: 32px; }
+  nav.toc h3 { margin: 0 0 14px; color: var(--accent); font-size: 18px; }
+  nav.toc ol { margin: 0; padding-right: 22px; columns: 2; column-gap: 28px; }
+  nav.toc li { margin-bottom: 6px; break-inside: avoid; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* SECTIONS */
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px 30px; margin-bottom: 22px; }
+  section h2 { color: var(--accent); margin: 0 0 8px; font-size: 22px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  section h2 .num { background: linear-gradient(135deg, var(--accent), var(--accent-2)); width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: white; flex-shrink: 0; }
+  section h3 { color: #cbd5e1; margin-top: 28px; font-size: 18px; }
+  section h4 { color: #93c5fd; margin-top: 22px; font-size: 15px; }
+  section p, section li { color: var(--text); }
+  section ul, section ol { padding-right: 22px; }
+  section li { margin-bottom: 8px; }
+  hr { border: none; border-top: 1px dashed var(--border); margin: 24px 0; }
+
+  /* CODE */
+  pre, code { font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace; direction: ltr; text-align: left; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.7; margin: 12px 0; }
+  pre .c { color: #64748b; }      /* comment */
+  pre .k { color: #c084fc; }      /* keyword */
+  pre .s { color: #a3e635; }      /* string */
+  pre .v { color: #fbbf24; }      /* variable */
+  code:not(pre code) { background: var(--code-bg); border: 1px solid var(--border); padding: 2px 7px; border-radius: 6px; font-size: 13px; color: #fbbf24; }
+
+  /* CALLOUTS */
+  .callout { border-radius: 12px; padding: 16px 20px; margin: 16px 0; border-right: 4px solid; }
+  .callout.warn   { background: rgba(245,158,11,0.08); border-color: var(--warn); }
+  .callout.danger { background: rgba(239,68,68,0.08); border-color: var(--danger); }
+  .callout.info   { background: rgba(6,182,212,0.08);  border-color: var(--accent); }
+  .callout.ok     { background: rgba(16,185,129,0.08); border-color: var(--ok); }
+  .callout strong { color: #fff; }
+  .callout .ico { font-size: 18px; margin-left: 6px; }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: right; vertical-align: top; }
+  th { background: var(--panel-2); color: var(--accent); font-weight: 700; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 36px 12px 0; color: var(--muted); font-size: 13px; }
+  footer a { color: var(--accent); }
+
+  /* helpers */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card .lbl { color: var(--muted); font-size: 12px; }
+  .card .val { font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+  .kbd { background: var(--panel-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 2px 7px; font-family: monospace; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    nav.toc ol { columns: 1; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    section { padding: 22px 18px; }
+    header { padding: 30px 22px; }
+    header h1 { font-size: 22px; }
+  }
+
+  details { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  details[open] summary { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🇮🇷 راهنمای دیپلوی NetCore Pro روی VPS اوبونتو در شرایط فیلترینگ حداکثری ایران</h1>
+  <div class="sub">
+    آموزش گام‌به‌گام دیپلوی پروژه با Docker و آینه‌های ایرانی (Liara) — بدون نیاز به دسترسی به اینترنت بین‌المللی.
+    این راهنما مخصوص شرایطی نوشته شده که سرور Production هیچ راهی برای رسیدن به <code>cdn.jsdelivr.net</code>،
+    <code>cdn.tailwindcss.com</code>، <code>registry.npmjs.org</code> یا <code>github.com</code> ندارد.
+  </div>
+  <div class="badges">
+    <span class="badge">🐳 Docker</span>
+    <span class="badge">🇮🇷 Iran Mirror Only</span>
+    <span class="badge">📦 Liara Package Mirror</span>
+    <span class="badge">🔒 Zero External CDN</span>
+    <span class="badge">📜 No Auto-scripts</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>📑 فهرست</h3>
+  <ol>
+    <li><a href="#sec-1">1. پیش‌نیازها و معماری پروژه</a></li>
+    <li><a href="#sec-2">2. آماده‌سازی سرور Ubuntu</a></li>
+    <li><a href="#sec-3">3. نصب Docker از آینه ایرانی</a></li>
+    <li><a href="#sec-4">4. تنظیم آینه npm (Liara)</a></li>
+    <li><a href="#sec-5">5. آپلود پروژه روی سرور</a></li>
+    <li><a href="#sec-6">6. تحلیل Dockerfile</a></li>
+    <li><a href="#sec-7">7. ساخت و اجرای container</a></li>
+    <li><a href="#sec-8">8. عیب‌یابی build</a></li>
+    <li><a href="#sec-9">9. تست عملکردی</a></li>
+    <li><a href="#sec-10">10. Nginx + HTTPS</a></li>
+    <li><a href="#sec-11">11. پشتیبان‌گیری از دیتابیس</a></li>
+    <li><a href="#sec-12">12. به‌روزرسانی و نگهداری</a></li>
+    <li><a href="#sec-13">13. امنیت Production</a></li>
+    <li><a href="#sec-14">14. مرجع متغیرها</a></li>
+    <li><a href="#sec-15">15. نقشه فایل‌ها</a></li>
+  </ol>
+</nav>
+
+<!-- ====================================== SECTION 1 ====================================== -->
+<section id="sec-1">
+<h2><span class="num">1</span> پیش‌نیازها و معماری پروژه</h2>
+
+<h3>1.1 — معماری برنامه</h3>
+<p><strong>NetCore Pro</strong> یک فروشگاه آنلاین B2B تجهیزات شبکه است که با:</p>
+<ul>
+  <li><strong>Hono</strong> (وب‌فریم‌ورک سبک Edge-first) به‌عنوان Backend</li>
+  <li><strong>SSR کامل با Template Literals</strong> (بدون React/Vue/Next — همه HTML از سرور می‌آید)</li>
+  <li><strong>better-sqlite3</strong> برای ذخیره‌سازی (یک فایل <code>.db</code> + WAL mode)</li>
+  <li><strong>JWT + bcryptjs</strong> برای احراز هویت</li>
+  <li><strong>Tailwind CSS</strong> به‌صورت <em>از پیش build شده</em> (نه نسخه CDN runtime)</li>
+</ul>
+
+<h3>1.2 — چرا این پروژه برای شرایط فیلترینگ ایده‌آل است</h3>
+<table>
+  <tr><th>ویژگی</th><th>توضیح</th></tr>
+  <tr><td>تمام asset ها داخل پروژه</td><td>هیچ فایلی از CDN خارجی load نمی‌شود؛ Vazirmatn، Tailwind، FontAwesome، Axios، Chart.js همگی در <code>public/static/</code> هستند.</td></tr>
+  <tr><td>دیتابیس فایلی</td><td>SQLite — یک فایل، بدون نیاز به سرویس جداگانه</td></tr>
+  <tr><td>بدون call به API بین‌المللی</td><td>Map، Maps API، Analytics و... استفاده نشده است</td></tr>
+  <tr><td>تک باینری native</td><td>تنها بخش native پروژه <code>better-sqlite3</code> است که در <code>local_packages/</code> ارائه شده</td></tr>
+</table>
+
+<h3>1.3 — حداقل مشخصات سرور</h3>
+<div class="grid-3">
+  <div class="card"><div class="lbl">CPU</div><div class="val">1 vCore</div></div>
+  <div class="card"><div class="lbl">RAM</div><div class="val">1 GB</div></div>
+  <div class="card"><div class="lbl">Disk</div><div class="val">10 GB</div></div>
+</div>
+<p><strong>توصیه می‌شود:</strong> 2 vCore / 2 GB RAM / 20 GB SSD برای فعالیت روزانه چند هزار بازدید.</p>
+
+<div class="callout info">
+  <strong><span class="ico">💡</span> نکته:</strong> سیستم‌عامل پیشنهادی <strong>Ubuntu 22.04 LTS</strong> یا
+  <strong>Ubuntu 24.04 LTS</strong> است. این راهنما با هر دو تست شده است.
+</div>
+
+</section>
+
+<!-- ====================================== SECTION 2 ====================================== -->
+<section id="sec-2">
+<h2><span class="num">2</span> آماده‌سازی سرور Ubuntu</h2>
+
+<h3>2.1 — اتصال SSH</h3>
+<p>روی سیستم خود (یا از طریق کنسول وب VPS) به سرور متصل شوید:</p>
+<pre>ssh root@<span class="v">YOUR_SERVER_IP</span></pre>
+
+<h3>2.2 — به‌روزرسانی پکیج‌های سیستم</h3>
+<p>قبل از هر کاری، apt را به آینه ایرانی تغییر دهید تا سرعت بالا برود و در شرایط فیلترینگ مشکل نخورید:</p>
+
+<pre><span class="c"># بکاپ از sources.list فعلی</span>
+sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
+
+<span class="c"># تغییر به آینه دانشگاه صنعتی شریف (هم‌چنان فعال‌ترین آینه ایرانی apt)</span>
+sudo sed -i <span class="s">'s|http://.*\.ubuntu\.com|http://mirror.iranserver.com|g'</span> /etc/apt/sources.list
+
+<span class="c"># آینه‌های دیگر در صورت شکست shariff:</span>
+<span class="c"># - http://mirror.faraso.org/ubuntu</span>
+<span class="c"># - http://archive.iut.ac.ir/ubuntu</span>
+<span class="c"># - http://mirror.0-1.cloud/ubuntu</span>
+
+sudo apt update
+sudo apt -y upgrade</pre>
+
+<h3>2.3 — نصب ابزارهای پایه</h3>
+<pre>sudo apt -y install curl wget ca-certificates gnupg lsb-release \
+                    ufw fail2ban htop nano vim git unzip rsync</pre>
+
+<h3>2.4 — تنظیم فایروال (UFW)</h3>
+<pre>sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
+sudo ufw status verbose</pre>
+
+<div class="callout warn">
+  <strong><span class="ico">⚠️</span> هشدار:</strong> اگر از پورت SSH غیر استاندارد استفاده می‌کنید،
+  حتماً قبل از فعال‌سازی UFW آن پورت را allow کنید وگرنه قفل می‌شوید.
+</div>
+
+<h3>2.5 — ساخت کاربر غیر root</h3>
+<pre>sudo adduser deploy
+sudo usermod -aG sudo deploy
+sudo usermod -aG docker deploy   <span class="c"># این را بعد از نصب Docker اجرا کنید</span></pre>
+
+</section>
+
+<!-- ====================================== SECTION 3 ====================================== -->
+<section id="sec-3">
+<h2><span class="num">3</span> نصب Docker از آینه ایرانی</h2>
+
+<p>docker.com از داخل ایران مسدود است. باید از آینه ایرانی Docker استفاده کنیم.
+آینه‌های فعال (در زمان نوشتن این راهنما):</p>
+
+<table>
+  <tr><th>سرویس</th><th>آدرس Mirror</th><th>وضعیت</th></tr>
+  <tr><td>Liara Docker Mirror</td><td><code>https://docker.iranserver.com</code></td><td>✅ فعال</td></tr>
+  <tr><td>ArvanCloud</td><td><code>https://docker.arvancloud.ir</code></td><td>✅ فعال</td></tr>
+  <tr><td>Hamdocker</td><td><code>https://hub.hamdocker.ir</code></td><td>✅ فعال</td></tr>
+  <tr><td>Iranserver</td><td><code>https://docker.iranserver.com</code></td><td>✅ فعال</td></tr>
+</table>
+
+<h3>3.1 — نصب Docker Engine</h3>
+<pre><span class="c"># نصب از مخزن apt اوبونتو (سریع‌تر و ساده‌تر از روش رسمی Docker.com)</span>
+sudo apt -y install docker.io docker-compose-v2
+
+<span class="c"># استارت و فعال‌سازی سرویس</span>
+sudo systemctl enable --now docker
+
+<span class="c"># بررسی نسخه</span>
+docker --version
+docker compose version</pre>
+
+<div class="callout info">
+  <strong><span class="ico">💡</span> چرا apt به‌جای docker.com؟</strong>
+  چون apt mirror ایرانی فعال دارد ولی docker.com از داخل ایران در دسترس نیست.
+  نسخه‌ی apt اوبونتو معمولاً ۱-۲ ماه عقب‌تر است که برای production کفایت می‌کند.
+</div>
+
+<h3>3.2 — تنظیم Docker Registry Mirror</h3>
+<p>این مهم‌ترین قدم است. باید Docker را وادار کنیم به‌جای <code>registry-1.docker.io</code> از آینه ایرانی image دانلود کند:</p>
+
+<pre>sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json &gt; /dev/null &lt;&lt;'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.iranserver.com",
+    "https://docker.arvancloud.ir",
+    "https://hub.hamdocker.ir"
+  ],
+  "insecure-registries": [],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "default-address-pools": [
+    { "base": "172.30.0.0/16", "size": 24 }
+  ]
+}
+EOF
+
+sudo systemctl restart docker
+
+<span class="c"># بررسی</span>
+docker info | grep -A 5 "Registry Mirrors"</pre>
+
+<div class="callout warn">
+  <strong><span class="ico">⚠️</span> اگر هیچ آینه‌ای کار نکرد:</strong>
+  آدرس آینه‌ها در طول زمان تغییر می‌کند. آخرین لیست را می‌توانید از کانال‌های زیر بگیرید:
+  <code>https://t.me/dockerhub_mirrors</code> یا انجمن Liara.
+</div>
+
+<h3>3.3 — تست دانلود image</h3>
+<pre>docker pull hello-world
+docker run --rm hello-world</pre>
+
+<p>اگر این کار کرد، آینه Docker تنظیم شده است. اگر <code>connection refused</code> یا <code>i/o timeout</code>
+گرفتید، آینه‌ی فعالی پیدا کنید و در <code>/etc/docker/daemon.json</code> جایگزین کنید.</p>
+
+<h3>3.4 — Pre-pull کردن image پایه</h3>
+<p>برای صرفه‌جویی در زمان build، می‌توانید <code>node:20-slim</code> را از قبل دانلود کنید:</p>
+<pre>docker pull node:20-slim</pre>
+
+</section>
+
+<!-- ====================================== SECTION 4 ====================================== -->
+<section id="sec-4">
+<h2><span class="num">4</span> تنظیم آینه npm (Liara)</h2>
+
+<p>این تنظیم بیشتر برای زمانی است که می‌خواهید بدون Docker، روی خود سرور
+<code>npm install</code> بزنید. در Dockerfile پروژه، این تنظیم به‌صورت <strong>خودکار</strong>
+داخل image انجام شده است.</p>
+
+<h3>4.1 — برای npm روی سرور (در صورت نیاز)</h3>
+<pre><span class="c"># تنظیم آینه Liara</span>
+npm config set registry https://package-mirror.liara.ir/repository/npm/
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+
+<span class="c"># تأیید</span>
+npm config get registry</pre>
+
+<h3>4.2 — آینه‌های جایگزین</h3>
+<table>
+  <tr><th>آینه</th><th>آدرس</th></tr>
+  <tr><td>Liara</td><td><code>https://package-mirror.liara.ir/repository/npm/</code></td></tr>
+  <tr><td>Iranserver</td><td><code>https://npm.iranserver.com/</code></td></tr>
+  <tr><td>Hosfa</td><td><code>https://npm.hosfa.ir/</code></td></tr>
+</table>
+
+<div class="callout danger">
+  <strong><span class="ico">🚫</span> هرگز این کار را نکنید:</strong> در شرایط فیلترینگ،
+  استفاده از <code>nrm</code> یا <code>npx</code> روی پکیج‌های متعدد منجر به دانلود از
+  GitHub releases (مسدود) برای پکیج‌های native می‌شود. حتماً <code>--ignore-scripts</code>
+  یا <code>--build-from-source</code> استفاده کنید (هر دو در Dockerfile پروژه هستند).
+</div>
+
+</section>
+
+<!-- ====================================== SECTION 5 ====================================== -->
+<section id="sec-5">
+<h2><span class="num">5</span> آپلود پروژه روی سرور</h2>
+
+<p>چون GitHub در ایران مسدود است، چند گزینه دارید:</p>
+
+<h3>5.1 — روش 1: SCP/SFTP از ماشین لوکال</h3>
+<p>اگر فایل ZIP پروژه را در ماشین لوکال دارید (سیستم خودتان):</p>
+<pre><span class="c"># روی ماشین لوکال (نه سرور!)</span>
+scp ./netcorepro.zip deploy@<span class="v">YOUR_SERVER_IP</span>:/home/deploy/
+
+<span class="c"># سپس روی سرور:</span>
+ssh deploy@<span class="v">YOUR_SERVER_IP</span>
+mkdir -p /opt/netcorepro
+cd /opt/netcorepro
+unzip /home/deploy/netcorepro.zip
+sudo chown -R $USER:$USER /opt/netcorepro</pre>
+
+<h3>5.2 — روش 2: rsync (پایدارتر برای حجم زیاد)</h3>
+<pre>rsync -avz --progress ./netcorepro/ deploy@<span class="v">YOUR_SERVER_IP</span>:/opt/netcorepro/</pre>
+
+<h3>5.3 — روش 3: Git از آینه (در صورت داشتن repo روی Gitlab Liara یا CodeCommit ایران)</h3>
+<pre>cd /opt
+sudo git clone https://gitlab.liara.ir/USERNAME/netcorepro.git
+sudo chown -R $USER:$USER /opt/netcorepro</pre>
+
+<h3>5.4 — بررسی فایل‌های حیاتی</h3>
+<p>پس از آپلود، اطمینان حاصل کنید این فایل‌ها/پوشه‌ها وجود دارند:</p>
+<pre>cd /opt/netcorepro
+ls -la local_packages/prebuilt/      <span class="c"># باید better_sqlite3.node موجود باشد</span>
+ls -la local_packages/               <span class="c"># باید better-sqlite3.tgz موجود باشد</span>
+ls -la public/static/css/            <span class="c"># tailwind.min.css, vazirmatn.css, ...</span>
+ls -la public/static/js/             <span class="c"># axios.min.js, chart.min.js, site.js, admin.js</span>
+ls -la public/static/fonts/vazirmatn/ <span class="c"># 9 فایل woff2</span>
+ls -la dist/                         <span class="c"># server.js و سایر کدها</span></pre>
+
+<div class="callout ok">
+  <strong><span class="ico">✅</span> چک‌لیست فایل‌های نباید فراموش شوند:</strong>
+  <ul style="margin: 8px 0 0">
+    <li><code>local_packages/better-sqlite3.tgz</code> (~2.5 MB)</li>
+    <li><code>local_packages/prebuilt/better_sqlite3.node</code> (~2 MB)</li>
+    <li><code>public/static/css/tailwind.min.css</code> (~190 KB)</li>
+    <li><code>public/static/fonts/vazirmatn/*.woff2</code> (9 فایل)</li>
+    <li><code>public/static/webfonts/fa-*.woff2</code> (4 فایل FontAwesome)</li>
+    <li><code>Dockerfile</code></li>
+    <li><code>docker-compose.yml</code></li>
+  </ul>
+</div>
+
+</section>
+
+<!-- ====================================== SECTION 6 ====================================== -->
+<section id="sec-6">
+<h2><span class="num">6</span> تحلیل Dockerfile</h2>
+
+<p>Dockerfile پروژه دو-مرحله‌ای (multi-stage) است:</p>
+
+<h3>6.1 — Stage 1: Builder</h3>
+<pre><span class="k">FROM</span> node:20-slim <span class="k">AS</span> builder
+
+<span class="c"># 1. تنظیم Liara mirror برای npm</span>
+<span class="k">RUN</span> npm config set registry https://package-mirror.liara.ir/repository/npm/
+
+<span class="c"># 2. نصب better-sqlite3 از tarball محلی، بدون اجرای post-install</span>
+<span class="c">#    --ignore-scripts جلوی تلاش npm برای دانلود prebuilt از GitHub را می‌گیرد</span>
+<span class="k">COPY</span> local_packages/better-sqlite3.tgz /tmp/
+<span class="k">RUN</span> npm install --ignore-scripts /tmp/better-sqlite3.tgz
+
+<span class="c"># 3. جایگذاری دستی فایل باینری از پیش کامپایل‌شده</span>
+<span class="k">COPY</span> local_packages/prebuilt/better_sqlite3.node \
+     /app/node_modules/better-sqlite3/build/Release/
+
+<span class="c"># 4. نصب سایر وابستگی‌ها (hono, bcryptjs, ...)</span>
+<span class="k">COPY</span> package.json package-lock.json* ./
+<span class="k">RUN</span> npm install --omit=dev --ignore-scripts</pre>
+
+<h3>6.2 — Stage 2: Runtime</h3>
+<p>این مرحله یک image سبک می‌سازد که فقط <code>node_modules</code>، <code>dist/</code> و <code>public/</code>
+از stage builder کپی می‌شود — بدون ابزارهای build، بدون tarball ها و بدون cache npm.</p>
+
+<h3>6.3 — چرا multi-stage مهم است؟</h3>
+<ul>
+  <li><strong>سایز نهایی کمتر:</strong> از ~500 MB به ~180 MB</li>
+  <li><strong>امنیت:</strong> ابزارهای build (که سطح حمله گسترده‌تری دارند) در image نهایی نیستند</li>
+  <li><strong>سرعت deploy:</strong> push image به registry سریع‌تر</li>
+</ul>
+
+<h3>6.4 — مقایسه با Dockerfile قبلی شما</h3>
+<table>
+  <tr><th>مشکل قبلی</th><th>راه‌حل جدید</th></tr>
+  <tr><td><code>npx tailwindcss</code> داخل image — به lightningcss-native نیاز دارد که در ایران مسدود است</td><td>Tailwind از پیش روی سیستم توسعه build شده و <code>public/static/css/tailwind.min.css</code> در پروژه موجود است</td></tr>
+  <tr><td>نسخه‌ی single-stage — image بزرگ</td><td>multi-stage — کاهش 60% در سایز</td></tr>
+  <tr><td>کاربر root داخل container</td><td>کاربر <code>app</code> بدون privilege</td></tr>
+  <tr><td>عدم وجود HEALTHCHECK</td><td>healthcheck داخلی هر 30 ثانیه</td></tr>
+  <tr><td><code>npm install</code> بعد از <code>COPY . .</code> — کش نمی‌شود</td><td>اول <code>package.json</code> کپی می‌شود، سپس کد منبع</td></tr>
+</table>
+
+</section>
+
+<!-- ====================================== SECTION 7 ====================================== -->
+<section id="sec-7">
+<h2><span class="num">7</span> ساخت و اجرای container</h2>
+
+<h3>7.1 — تنظیم متغیرهای محیطی</h3>
+<pre>cd /opt/netcorepro
+cp .env.example .env
+nano .env</pre>
+
+<p>حتماً <code>JWT_SECRET</code> را عوض کنید:</p>
+<pre><span class="c"># تولید مقدار قوی</span>
+openssl rand -hex 64</pre>
+
+<p>خروجی را در <code>.env</code> در خط <code>JWT_SECRET=</code> قرار دهید.</p>
+
+<h3>7.2 — Build image</h3>
+<pre>cd /opt/netcorepro
+docker compose build --no-cache 2&gt;&amp;1 | tee build.log</pre>
+
+<p><strong>اولین build حدود 2-5 دقیقه طول می‌کشد</strong> (بسته به سرعت اینترنت سرور به Liara).
+buildهای بعدی به‌خاطر cache در چند ثانیه تمام می‌شوند.</p>
+
+<h3>7.3 — اجرا</h3>
+<pre>docker compose up -d
+docker compose ps</pre>
+
+<p>باید چیزی شبیه این ببینید:</p>
+<pre>NAME          IMAGE                    STATUS          PORTS
+netcorepro    netcorepro-netcorepro    Up 30 seconds   0.0.0.0:3000-&gt;3000/tcp (healthy)</pre>
+
+<h3>7.4 — مشاهده لاگ</h3>
+<pre>docker compose logs -f --tail=100</pre>
+
+<p>باید این پیام‌ها را ببینید:</p>
+<pre>✅ NetCore Pro server running on http://localhost:3000
+   📦 Site:   http://localhost:3000/site1
+   🛡️  Admin:  http://localhost:3000/admin/login
+   ❤️  Health: http://localhost:3000/api/health</pre>
+
+<h3>7.5 — تست از روی سرور</h3>
+<pre>curl -i http://localhost:3000/api/health</pre>
+
+<p>پاسخ مورد انتظار:</p>
+<pre>HTTP/1.1 200 OK
+Content-Type: application/json
+{"success":true,"data":{"status":"ok","db":"ok",...}}</pre>
+
+<h3>7.6 — تست از روی مرورگر</h3>
+<p>به <code>http://<span class="v">YOUR_SERVER_IP</span>:3000/site1</code> بروید.
+صفحه اصلی باید با فونت Vazirmatn و لوگوی NetCore Pro نمایش داده شود.</p>
+
+<div class="callout warn">
+  <strong><span class="ico">⚠️</span> توجه:</strong> در این مرحله سایت روی <strong>HTTP پورت 3000</strong>
+  بدون SSL است. برای production حتماً بخش <a href="#sec-10">10. Nginx + HTTPS</a> را دنبال کنید.
+</div>
+
+</section>
+
+<!-- ====================================== SECTION 8 ====================================== -->
+<section id="sec-8">
+<h2><span class="num">8</span> عیب‌یابی build</h2>
+
+<details>
+<summary>❌ خطا: <code>better_sqlite3.node: invalid ELF header</code></summary>
+<p>این یعنی باینری در <code>local_packages/prebuilt/</code> با معماری/نسخه Node سرور سازگار نیست.
+راه‌حل: از Dockerfile جایگزین استفاده کنید که از سورس build می‌کند.</p>
+<pre>docker compose build --no-cache --build-arg DOCKERFILE=Dockerfile.build-from-source</pre>
+<p>یا در <code>docker-compose.yml</code> خط <code>dockerfile: Dockerfile</code> را
+به <code>dockerfile: Dockerfile.build-from-source</code> تغییر دهید.</p>
+</details>
+
+<details>
+<summary>❌ خطا: <code>npm ERR! code ENOTFOUND</code> یا <code>getaddrinfo EAI_AGAIN</code></summary>
+<p>سرور به آینه Liara دسترسی ندارد. تست کنید:</p>
+<pre>curl -I https://package-mirror.liara.ir/repository/npm/</pre>
+<p>اگر این نیز timeout می‌دهد، DNS سرور را به DNS ایرانی تغییر دهید:</p>
+<pre>sudo nano /etc/resolv.conf
+<span class="c"># اضافه کنید:</span>
+nameserver 178.22.122.100   <span class="c"># Shecan</span>
+nameserver 185.51.200.2     <span class="c"># Begzar</span>
+nameserver 8.8.8.8          <span class="c"># Google (در صورت قطع باشد)</span></pre>
+</details>
+
+<details>
+<summary>❌ خطا: <code>Error: Cannot find module 'hono'</code> هنگام اجرا</summary>
+<p><code>node_modules</code> در stage builder ساخته شده ولی به runtime منتقل نشده.
+بررسی کنید Dockerfile دارای این خط است:</p>
+<pre>COPY --from=builder /app/node_modules ./node_modules</pre>
+</details>
+
+<details>
+<summary>❌ خطا: <code>EACCES: permission denied, open '/app/data/netcorepro.db'</code></summary>
+<p>پوشه <code>data/</code> روی host با کاربر root ایجاد شده ولی container با کاربر <code>app</code> اجرا می‌شود.
+رفع:</p>
+<pre>sudo chown -R 1000:1000 /opt/netcorepro/data /opt/netcorepro/uploads</pre>
+</details>
+
+<details>
+<summary>❌ خطا: container restart می‌شود و در لاگ <code>SIGTERM received</code></summary>
+<p>احتمالاً healthcheck شکست می‌خورد. تست manual:</p>
+<pre>docker exec -it netcorepro sh
+node -e "fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log)"</pre>
+<p>اگر healthcheck لازم نیست، در <code>docker-compose.yml</code> آن را موقتاً comment کنید.</p>
+</details>
+
+<details>
+<summary>❌ build بسیار کند است (بیش از 10 دقیقه)</summary>
+<p>پکیج‌ها از آینه Liara با کندی load می‌شوند. این موارد را در <code>Dockerfile</code> به Liara اضافه کنید:</p>
+<pre>RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 60000 && \
+    npm config set fetch-timeout 600000</pre>
+</details>
+
+</section>
+
+<!-- ====================================== SECTION 9 ====================================== -->
+<section id="sec-9">
+<h2><span class="num">9</span> تست عملکردی</h2>
+
+<h3>9.1 — تست API ها</h3>
+<pre><span class="c"># Health check</span>
+curl http://localhost:3000/api/health
+
+<span class="c"># لیست محصولات</span>
+curl http://localhost:3000/api/products | head -c 300
+
+<span class="c"># لیست بلوک‌های home/features (محتوای داینامیک از DB)</span>
+curl "http://localhost:3000/api/content/blocks?page=home&section=features"
+
+<span class="c"># login ادمین</span>
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@netcorepro.ir","password":"admin123"}'</pre>
+
+<h3>9.2 — تست صفحات</h3>
+<table>
+  <tr><th>صفحه</th><th>آدرس</th><th>انتظار</th></tr>
+  <tr><td>خانه</td><td><code>/site1</code></td><td>200 — صفحه اصلی با محصولات منتخب</td></tr>
+  <tr><td>محصولات</td><td><code>/site1/products</code></td><td>200 — لیست محصولات</td></tr>
+  <tr><td>درباره ما</td><td><code>/site1/about</code></td><td>200 — متن از <code>site_pages</code></td></tr>
+  <tr><td>تماس</td><td><code>/site1/contact</code></td><td>200 — فرم تماس</td></tr>
+  <tr><td>حریم خصوصی</td><td><code>/site1/privacy</code></td><td>200 — از DB</td></tr>
+  <tr><td>شرایط استفاده</td><td><code>/site1/terms</code></td><td>200 — از DB</td></tr>
+  <tr><td>ورود ادمین</td><td><code>/admin/login</code></td><td>200 — فرم سفید-بنفش</td></tr>
+  <tr><td>پنل ادمین</td><td><code>/admin</code></td><td>200 (با redirect در صورت no-auth)</td></tr>
+  <tr><td>محتوای سایت</td><td><code>/admin/site-content</code></td><td>200 — CRUD بلوک‌ها/صفحات</td></tr>
+</table>
+
+<h3>9.3 — تست static assets (مهم برای فیلترینگ)</h3>
+<pre><span class="c"># این فایل‌ها همگی باید HTTP 200 و سایز معقول داشته باشند</span>
+curl -I http://localhost:3000/static/css/tailwind.min.css       <span class="c"># ~190 KB</span>
+curl -I http://localhost:3000/static/css/fontawesome.min.css    <span class="c"># ~100 KB</span>
+curl -I http://localhost:3000/static/css/vazirmatn.css          <span class="c"># ~2 KB</span>
+curl -I http://localhost:3000/static/fonts/vazirmatn/Vazirmatn-Regular.woff2
+curl -I http://localhost:3000/static/webfonts/fa-solid-900.woff2
+curl -I http://localhost:3000/static/js/site.js
+curl -I http://localhost:3000/static/js/axios.min.js</pre>
+
+<h3>9.4 — تست در شرایط فیلتر شدید (Important!)</h3>
+<p>روی مرورگر، Developer Tools را باز کنید و در تب Network بررسی کنید:</p>
+<ul>
+  <li>هیچ request ای به <code>cdn.jsdelivr.net</code>، <code>cdnjs.cloudflare.com</code> یا
+      <code>fonts.googleapis.com</code> نباید وجود داشته باشد</li>
+  <li>هیچ request ای به <code>cdn.tailwindcss.com</code> یا
+      <code>@fortawesome/fontawesome-free</code> از CDN نباید باشد</li>
+  <li>تمام درخواست‌های CSS/JS/فونت باید آدرس <strong>دامنه خود سایت</strong> داشته باشند</li>
+</ul>
+
+<div class="callout ok">
+  <strong><span class="ico">✅</span> چک نهایی:</strong> اگر تمام موارد بالا را عبور کردید،
+  سایت شما در شرایط <strong>اینترنت کاملاً بریده‌شده با خارج</strong> هم کار خواهد کرد.
+</div>
+
+</section>
+
+<!-- ====================================== SECTION 10 ====================================== -->
+<section id="sec-10">
+<h2><span class="num">10</span> Nginx + HTTPS (Let's Encrypt با ZeroSSL برای ایران)</h2>
+
+<p>گواهی Let's Encrypt از داخل ایران ممکن نیست (سرور acme-v02 مسدود است).
+به‌جای آن از <strong>ZeroSSL</strong> یا <strong>Buypass</strong> استفاده کنید — هر دو با
+<code>acme.sh</code> سازگارند و در ایران در دسترس هستند.</p>
+
+<h3>10.1 — نصب Nginx</h3>
+<pre>sudo apt -y install nginx
+sudo systemctl enable --now nginx</pre>
+
+<h3>10.2 — تنظیم Reverse Proxy</h3>
+<pre>sudo nano /etc/nginx/sites-available/netcorepro</pre>
+
+<p>محتوای پیشنهادی:</p>
+<pre>server {
+    listen 80;
+    server_name <span class="v">yourdomain.ir</span> www.<span class="v">yourdomain.ir</span>;
+
+    <span class="c"># اندازه آپلود (متناسب با MAX_BODY_SIZE_MB)</span>
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_read_timeout 60s;
+    }
+
+    <span class="c"># cache برای static assets</span>
+    location /static/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_cache_valid 200 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable";
+    }
+
+    <span class="c"># gzip</span>
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+}</pre>
+
+<pre>sudo ln -s /etc/nginx/sites-available/netcorepro /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx</pre>
+
+<h3>10.3 — نصب acme.sh و گرفتن گواهی ZeroSSL</h3>
+<pre><span class="c"># دانلود acme.sh از mirror ایرانی (curl install خارجی کار نمی‌کند)</span>
+git clone https://gitea.com/acmesh-official/acme.sh.git
+cd acme.sh
+./acme.sh --install --accountemail <span class="v">you@example.com</span>
+source ~/.bashrc
+
+<span class="c"># تنظیم ZeroSSL به‌عنوان CA پیش‌فرض</span>
+acme.sh --set-default-ca --server zerossl
+
+<span class="c"># ایجاد account ZeroSSL</span>
+acme.sh --register-account -m <span class="v">you@example.com</span>
+
+<span class="c"># صدور گواهی (روش webroot)</span>
+sudo mkdir -p /var/www/letsencrypt
+acme.sh --issue -d <span class="v">yourdomain.ir</span> -d www.<span class="v">yourdomain.ir</span> \
+   --webroot /var/www/letsencrypt</pre>
+
+<p>برای webroot، خط زیر را موقتاً به Nginx اضافه کنید (در بلاک server):</p>
+<pre>location /.well-known/acme-challenge/ {
+    root /var/www/letsencrypt;
+}</pre>
+
+<h3>10.4 — نصب گواهی</h3>
+<pre>sudo mkdir -p /etc/nginx/ssl
+acme.sh --install-cert -d <span class="v">yourdomain.ir</span> \
+   --key-file       /etc/nginx/ssl/key.pem \
+   --fullchain-file /etc/nginx/ssl/cert.pem \
+   --reloadcmd      "sudo systemctl reload nginx"</pre>
+
+<h3>10.5 — به‌روزرسانی تنظیمات Nginx برای HTTPS</h3>
+<p>بلاک server را تغییر دهید:</p>
+<pre>server {
+    listen 80;
+    server_name <span class="v">yourdomain.ir</span> www.<span class="v">yourdomain.ir</span>;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name <span class="v">yourdomain.ir</span> www.<span class="v">yourdomain.ir</span>;
+
+    ssl_certificate     /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    <span class="c"># سایر تنظیمات قبلی...</span>
+}</pre>
+
+<pre>sudo nginx -t && sudo systemctl reload nginx</pre>
+
+</section>
+
+<!-- ====================================== SECTION 11 ====================================== -->
+<section id="sec-11">
+<h2><span class="num">11</span> پشتیبان‌گیری از دیتابیس</h2>
+
+<p>چون از SQLite استفاده می‌کنیم، پشتیبان‌گیری به‌سادگی کپی فایل است.</p>
+
+<h3>11.1 — اسکریپت backup دستی</h3>
+<p>فایل <code>/opt/netcorepro/backup.sh</code> بسازید:</p>
+<pre>#!/bin/bash
+set -e
+
+BACKUP_DIR="/opt/backups/netcorepro"
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+mkdir -p "$BACKUP_DIR"
+
+<span class="c"># استفاده از SQLite .backup command (آن‌لاین، بدون نیاز به stop سرویس)</span>
+docker exec netcorepro sh -c \
+  "sqlite3 /app/data/netcorepro.db '.backup /app/data/backup-$DATE.db'" 2&gt;/dev/null || \
+  docker cp netcorepro:/app/data/netcorepro.db "$BACKUP_DIR/netcorepro-$DATE.db"
+
+<span class="c"># فشرده‌سازی</span>
+gzip "$BACKUP_DIR/netcorepro-$DATE.db" 2&gt;/dev/null || true
+
+<span class="c"># حذف بکاپ‌های قدیمی‌تر از 14 روز</span>
+find "$BACKUP_DIR" -name "*.db*" -mtime +14 -delete
+
+<span class="c"># لاگ</span>
+echo "[$DATE] backup completed: $(ls -lh $BACKUP_DIR/netcorepro-$DATE.db*)" \
+  >> "$BACKUP_DIR/backup.log"</pre>
+
+<pre>chmod +x /opt/netcorepro/backup.sh
+
+<span class="c"># تست</span>
+/opt/netcorepro/backup.sh
+ls -la /opt/backups/netcorepro/</pre>
+
+<h3>11.2 — Cron برای پشتیبان‌گیری روزانه</h3>
+<pre>sudo crontab -e
+
+<span class="c"># خط زیر را اضافه کنید (هر روز ساعت 3 بامداد):</span>
+0 3 * * * /opt/netcorepro/backup.sh &gt;/dev/null 2&gt;&amp;1</pre>
+
+<h3>11.3 — بازگردانی از بکاپ</h3>
+<pre><span class="c"># متوقف کردن container</span>
+docker compose down
+
+<span class="c"># Restore فایل</span>
+cd /opt/backups/netcorepro
+gunzip -c netcorepro-2026-05-26_03-00-00.db.gz &gt; /opt/netcorepro/data/netcorepro.db
+
+<span class="c"># دوباره راه‌اندازی</span>
+cd /opt/netcorepro
+docker compose up -d</pre>
+
+</section>
+
+<!-- ====================================== SECTION 12 ====================================== -->
+<section id="sec-12">
+<h2><span class="num">12</span> به‌روزرسانی و نگهداری</h2>
+
+<h3>12.1 — به‌روزرسانی پروژه</h3>
+<pre>cd /opt/netcorepro
+
+<span class="c"># بکاپ گرفتن از دیتابیس قبل از هر چیز!</span>
+./backup.sh
+
+<span class="c"># آپلود نسخه جدید (با rsync یا scp)</span>
+<span class="c"># روی ماشین لوکال:</span>
+<span class="c">#   rsync -avz --exclude data --exclude uploads --exclude node_modules \</span>
+<span class="c">#         ./netcorepro/ deploy@SERVER:/opt/netcorepro/</span>
+
+<span class="c"># Build مجدد image</span>
+docker compose build
+
+<span class="c"># Restart با image جدید</span>
+docker compose up -d
+
+<span class="c"># مشاهده لاگ</span>
+docker compose logs -f --tail=50</pre>
+
+<h3>12.2 — به‌روزرسانی schema دیتابیس</h3>
+<p>اگر فایل <code>dist/db/schema.sql</code> تغییر کرده، schema جدید روی DB موجود اعمال نمی‌شود
+به‌صورت خودکار (CREATE IF NOT EXISTS فقط جداول جدید را می‌سازد، ALTER را اجرا نمی‌کند).
+برای migration دستی:</p>
+
+<pre><span class="c"># ورود به container</span>
+docker exec -it netcorepro sh
+
+<span class="c"># داخل container:</span>
+sqlite3 /app/data/netcorepro.db
+sqlite&gt; .schema site_blocks
+sqlite&gt; ALTER TABLE site_blocks ADD COLUMN new_field TEXT;
+sqlite&gt; .quit
+exit</pre>
+
+<h3>12.3 — پاک‌سازی imageهای قدیمی</h3>
+<pre><span class="c"># مشاهده فضای اشغال‌شده Docker</span>
+docker system df
+
+<span class="c"># حذف imageهای استفاده‌نشده</span>
+docker image prune -a -f
+
+<span class="c"># حذف کامل (با احتیاط!)</span>
+docker system prune -a --volumes -f</pre>
+
+<h3>12.4 — مانیتورینگ</h3>
+<pre><span class="c"># منابع container</span>
+docker stats netcorepro --no-stream
+
+<span class="c"># لاگ‌های اخیر</span>
+docker compose logs --tail=200 netcorepro
+
+<span class="c"># بررسی سلامت healthcheck</span>
+docker inspect --format='{{json .State.Health}}' netcorepro | jq</pre>
+
+</section>
+
+<!-- ====================================== SECTION 13 ====================================== -->
+<section id="sec-13">
+<h2><span class="num">13</span> امنیت Production</h2>
+
+<h3>13.1 — چک‌لیست امنیتی</h3>
+<table>
+  <tr><th>مورد</th><th>وضعیت</th></tr>
+  <tr><td>تغییر JWT_SECRET از مقدار پیش‌فرض</td><td>الزامی</td></tr>
+  <tr><td>تغییر رمز پیش‌فرض ادمین (admin123)</td><td>الزامی — پس از اولین login</td></tr>
+  <tr><td>UFW فعال با فقط 22، 80، 443</td><td>الزامی</td></tr>
+  <tr><td>fail2ban روی SSH</td><td>الزامی</td></tr>
+  <tr><td>SSH key auth (غیرفعال‌سازی password)</td><td>الزامی</td></tr>
+  <tr><td>HTTPS با Nginx</td><td>الزامی</td></tr>
+  <tr><td>کاربر app غیر-root داخل container</td><td>✅ پیش‌فرض در Dockerfile</td></tr>
+  <tr><td>secureHeaders فعال در Hono</td><td>✅ پیش‌فرض در server.js</td></tr>
+  <tr><td>rateLimit روی /api/auth</td><td>✅ پیش‌فرض (10 درخواست/دقیقه)</td></tr>
+  <tr><td>بکاپ روزانه از DB</td><td>الزامی (بخش 11)</td></tr>
+</table>
+
+<h3>13.2 — تغییر رمز ادمین</h3>
+<p>پس از اولین login به <code>/admin/login</code>:</p>
+<ol>
+  <li>به <code>/admin/profile</code> بروید</li>
+  <li>قسمت "تغییر رمز عبور" را پر کنید</li>
+  <li>رمز قوی انتخاب کنید (حداقل 12 کاراکتر، مخلوط حروف بزرگ/کوچک/عدد/علامت)</li>
+</ol>
+
+<h3>13.3 — غیرفعال‌سازی password login در SSH</h3>
+<pre>sudo nano /etc/ssh/sshd_config
+
+<span class="c"># این مقادیر را تنظیم کنید:</span>
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+
+<span class="c"># Restart SSH</span>
+sudo systemctl restart ssh</pre>
+
+<div class="callout danger">
+  <strong><span class="ico">🚫</span> هشدار:</strong> قبل از تغییر بالا، حتماً
+  ssh-key public خود را در <code>~/.ssh/authorized_keys</code> اضافه کرده باشید
+  وگرنه دسترسی SSH را از دست می‌دهید!
+</div>
+
+<h3>13.4 — fail2ban</h3>
+<pre>sudo apt -y install fail2ban
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+
+<span class="c"># فعال‌سازی SSH protection (پیش‌فرض فعال است)</span>
+sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd</pre>
+
+</section>
+
+<!-- ====================================== SECTION 14 ====================================== -->
+<section id="sec-14">
+<h2><span class="num">14</span> مرجع متغیرهای محیطی</h2>
+
+<table>
+  <tr><th>متغیر</th><th>پیش‌فرض</th><th>توضیح</th></tr>
+  <tr><td><code>NODE_ENV</code></td><td><code>production</code></td><td>محیط اجرا (development/production)</td></tr>
+  <tr><td><code>PORT</code></td><td><code>3000</code></td><td>پورت HTTP سرور</td></tr>
+  <tr><td><code>JWT_SECRET</code></td><td>—</td><td><strong>الزامی!</strong> کلید امضای JWT — تولید با <code>openssl rand -hex 64</code></td></tr>
+  <tr><td><code>DB_TYPE</code></td><td><code>sqlite</code></td><td>نوع دیتابیس: sqlite / mysql / mssql</td></tr>
+  <tr><td><code>DB_PATH</code></td><td><code>./data/netcorepro.db</code></td><td>مسیر فایل SQLite</td></tr>
+  <tr><td><code>MAX_BODY_SIZE_MB</code></td><td><code>10</code></td><td>حداکثر سایز body در API (مگابایت)</td></tr>
+  <tr><td><code>CORS_ORIGINS</code></td><td><code>*</code></td><td>دامنه‌های مجاز CORS — با ویرگول جدا کنید</td></tr>
+</table>
+
+</section>
+
+<!-- ====================================== SECTION 15 ====================================== -->
+<section id="sec-15">
+<h2><span class="num">15</span> نقشه فایل‌ها</h2>
+
+<pre>netcorepro/
+├── Dockerfile                          <span class="c"># build اصلی (پیش‌فرض، با باینری prebuilt)</span>
+├── Dockerfile.build-from-source        <span class="c"># جایگزین (build از سورس)</span>
+├── docker-compose.yml                  <span class="c"># orchestration ساده</span>
+├── .dockerignore                       <span class="c"># فایل‌های حذف‌شده از build context</span>
+├── .env.example                        <span class="c"># قالب env (کپی به .env)</span>
+├── .gitignore
+├── package.json                        <span class="c"># dependencies</span>
+├── package-lock.json
+├── tailwind.config.cjs                 <span class="c"># تنظیمات Tailwind (برای build لوکال)</span>
+├── tailwind.input.css                  <span class="c"># فایل ورودی Tailwind</span>
+│
+├── dist/                               <span class="c"># کد اصلی برنامه (JavaScript)</span>
+│   ├── server.js                       <span class="c"># entry-point Hono</span>
+│   ├── api/                            <span class="c"># روت‌های API</span>
+│   │   ├── auth.js                     <span class="c"># JWT login / register</span>
+│   │   ├── products.js
+│   │   ├── orders.js
+│   │   ├── blog.js
+│   │   ├── tickets.js
+│   │   ├── misc.js                     <span class="c"># newsletter, messages, settings, ...</span>
+│   │   └── content.js                  <span class="c"># 🆕 CRUD محتوای داینامیک (site_blocks/site_pages)</span>
+│   ├── db/
+│   │   ├── index.js                    <span class="c"># better-sqlite3 init</span>
+│   │   ├── schema.sql                  <span class="c"># تعریف جداول</span>
+│   │   └── seed.js                     <span class="c"># داده اولیه</span>
+│   ├── middleware/
+│   │   ├── auth.js                     <span class="c"># JWT middleware</span>
+│   │   └── rate-limit.js
+│   ├── utils/
+│   │   ├── jwt.js
+│   │   └── helpers.js                  <span class="c"># settings, formatPrice, logActivity</span>
+│   └── views/
+│       ├── shared/layout.js            <span class="c"># layout سایت (CDN-free)</span>
+│       ├── site/pages.js               <span class="c"># صفحات کاربر</span>
+│       └── admin/
+│           ├── layout.js               <span class="c"># layout پنل</span>
+│           └── pages.js                <span class="c"># صفحات ادمین + 🆕 adminSiteContentPage</span>
+│
+├── public/                             <span class="c"># فایل‌های static</span>
+│   ├── favicon.ico
+│   └── static/
+│       ├── css/
+│       │   ├── tailwind.min.css        <span class="c"># 🆕 190 KB از پیش build شده (جایگزین Play CDN)</span>
+│       │   ├── fontawesome.min.css
+│       │   ├── vazirmatn.css
+│       │   └── app.css                 <span class="c"># utility classها</span>
+│       ├── js/
+│       │   ├── site.js                 <span class="c"># client runtime سایت</span>
+│       │   ├── admin.js                <span class="c"># client runtime پنل</span>
+│       │   ├── axios.min.js
+│       │   └── chart.min.js
+│       ├── fonts/vazirmatn/            <span class="c"># 9 woff2 (~476 KB)</span>
+│       ├── webfonts/                   <span class="c"># FontAwesome (~944 KB)</span>
+│       └── images/                     <span class="c"># SVG ها</span>
+│
+├── local_packages/                     <span class="c"># 🆕 بسته‌های آفلاین</span>
+│   ├── README.md
+│   ├── better-sqlite3.tgz              <span class="c"># tarball برای نصب آفلاین</span>
+│   └── prebuilt/
+│       └── better_sqlite3.node         <span class="c"># باینری Linux x64 + Node 20</span>
+│
+├── scripts/
+│   └── fetch-vendors.mjs               <span class="c"># دانلود مجدد asset ها از CDN (یک‌بار اجرا روی ماشین توسعه)</span>
+│
+└── data/                               <span class="c"># [volume] دیتابیس runtime</span>
+    └── netcorepro.db</pre>
+
+</section>
+
+<footer>
+<p>📘 <strong>راهنمای دیپلوی NetCore Pro</strong> — نسخه آفلاین برای ایران</p>
+<p>این مستند روی Ubuntu 22.04/24.04 با Docker 24+ و Node 20 تست شده است.</p>
+<p>برای گزارش باگ یا سوال، با تیم پشتیبانی تماس بگیرید.</p>
+</footer>
+
+</div>
+</body>
+</html>

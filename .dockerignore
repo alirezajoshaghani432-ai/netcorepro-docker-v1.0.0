@@ -1,39 +1,37 @@
-# =============================================================================
-#  NetCore Pro — build-context exclusions
-#  Author: A.K
-#  Keeps the image small and prevents secrets from leaking into layers.
-# =============================================================================
-
-# Dependencies are installed inside the image, never copied from the host.
+# --- Node ---
 node_modules
-npm-debug.log*
+npm-debug.log
+.npm
 
-# Secrets — the runtime reads them from the compose `env_file`, not the image.
-.env
-.env.*
-!.env.example
+# --- Build artifacts ---
+.wrangler
+.cache
 
-# Version control & editor noise
-.git
-.gitignore
+# --- Local data (volume in production) ---
+data
+uploads
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Logs / PM2 ---
+logs
+*.log
+.pm2
+ecosystem.config.cjs
+
+# --- Editors / OS ---
 .vscode
 .idea
-*.swp
 .DS_Store
+Thumbs.db
 
-# Runtime state that must live in volumes, not in the image
-data/*.db-wal
-data/*.db-shm
-data/*.bak*
-*.log
-pm2-*.log
+# --- Git ---
+.git
+.gitignore
+.github
 
-# Local backups and archives
-backups/
-*.tar.gz
-*.zip
-
-# Documentation & reports (not needed at runtime)
-docs/
-*.md
-!package.json
+# --- Tailwind source (CSS از پیش build شده در public/) ---
+tailwind.input.css
+tailwind.config.cjs

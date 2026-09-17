@@ -11,7 +11,7 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20260911a';
+export const ASSET_V = '20260816a';
 /**
  * Performance: the storefront loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -116,30 +116,6 @@ export function siteLayout(opts, content) {
     // name containing "</script>") cannot break out of the JSON-LD <script> block (XSS).
     const jsonLdSafe = opts.jsonLd ? JSON.stringify(opts.jsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026') : '';
     const jsonLdTag = jsonLdSafe ? `<script type="application/ld+json">${jsonLdSafe}</script>` : '';
-    // Always emit WebSite + Organization so Google never indexes a leftover "site1" brand.
-    const websiteLd = {
-        '@context': 'https://schema.org',
-        '@graph': [
-            {
-                '@type': 'WebSite',
-                '@id': (siteUrl || 'https://netcorepro.ir') + '/#website',
-                name: siteName,
-                url: siteUrl || 'https://netcorepro.ir',
-                inLanguage: 'fa-IR',
-                description: ogDesc,
-                publisher: { '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization' },
-            },
-            {
-                '@type': 'Organization',
-                '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization',
-                name: siteName,
-                url: siteUrl || 'https://netcorepro.ir',
-                logo: ogImage,
-            },
-        ],
-    };
-    const websiteLdSafe = JSON.stringify(websiteLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
-    const websiteLdTag = `<script type="application/ld+json">${websiteLdSafe}</script>`;
 
     return `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -161,7 +137,7 @@ export function siteLayout(opts, content) {
 <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
 <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
 <meta name="twitter:image" content="${escapeAttr(ogImage)}">
-${canonicalTag}${websiteLdTag}${jsonLdTag}
+${canonicalTag}${jsonLdTag}
 <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/static/images/favicon.svg">

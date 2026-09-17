@@ -1,8 +1,8 @@
 # ===================================================================
-#  NetCore Pro — docker-compose.yml  (SQL Server edition)
+#  NetCore Pro — docker-compose.yml  (نسخه ۲ — دیتابیس MySQL/MariaDB)
 # -------------------------------------------------------------------
 #  سرویس‌ها:
-#    db   → Microsoft SQL Server 2022 (دیتابیس اصلی)
+#    db   → MariaDB 10.11 (دیتابیس اصلی، جایگزین SQLite)
 #    app  → اپلیکیشن Node.js (SSR کامل با Hono)
 #
 #  استفاده:
@@ -12,10 +12,7 @@
 #    docker compose down -v            # خاموش + حذف volumeها (داده‌ها پاک می‌شود!)
 #
 #  مهاجرت داده از SQLite قدیمی (فقط یک‌بار، اگر فایل data/netcorepro.db دارید):
-#    docker compose exec app node scripts/migrate-sqlite-to-mssql.mjs
-#
-#  مهاجرت از MySQL/MariaDB قبلی:
-#    docker compose exec app node scripts/migrate-mysql-to-mssql.mjs
+#    docker compose exec app node scripts/migrate-sqlite-to-mysql.mjs
 #
 #  نکته مهم درباره کد:
 #    پوشه dist/ کد «سورس» واقعی و قابل‌ویرایش پروژه است (جاوااسکریپت خوانا
@@ -26,24 +23,28 @@
 
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mariadb:10.11
     container_name: netcorepro-db
     restart: unless-stopped
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-NetCorePro!Strong1}"
-      MSSQL_PID: "Developer"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-change-me-root}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-netcorepro}"
+      MYSQL_USER: "${MYSQL_USER:-netcore}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-change-me-app}"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     volumes:
-      - dbdata:/var/opt/mssql
+      - dbdata:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\""]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 40s
+      retries: 10
+      start_period: 30s
     # فقط برای دسترسی از بیرون کانتینر (اختیاری):
     # ports:
-    #   - "127.0.0.1:1433:1433"
+    #   - "127.0.0.1:3306:3306"
 
   app:
     build:
@@ -60,29 +61,27 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # کلید JWT را حتماً عوض کنید:  openssl rand -hex 64
       JWT_SECRET: "${JWT_SECRET:-CHANGE_ME_TO_A_RANDOM_HEX_STRING_AT_LEAST_64_CHARS}"
       MAX_BODY_SIZE_MB: "10"
       CORS_ORIGINS: "*"
-      DB_TYPE: mssql
-      MSSQL_SERVER: db
-      MSSQL_HOST: db
-      MSSQL_PORT: "1433"
-      MSSQL_USER: sa
-      MSSQL_PASSWORD: "${MSSQL_SA_PASSWORD:-NetCorePro!Strong1}"
-      MSSQL_DATABASE: "${MSSQL_DATABASE:-netcorepro}"
-      MSSQL_ENCRYPT: "false"
-      MSSQL_TRUST_CERT: "true"
+      # ---- database (MySQL/MariaDB) ----
+      DB_TYPE: mysql
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "${MYSQL_USER:-netcore}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-change-me-app}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-netcorepro}"
     volumes:
-      # فایل SQLite/MySQL dump قدیمی برای مهاجرت یک‌باره (فقط-خواندنی) + آپلودها
+      # فایل SQLite قدیمی برای مهاجرت یک‌باره (فقط-خواندنی) + آپلودها
       - ./data:/app/data:ro
       - ./uploads:/app/uploads
-      - ./public/static/uploads:/app/public/static/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 20s
 
 volumes:
   dbdata:

@@ -20,16 +20,8 @@ misc.post('/newsletter/subscribe', async (c) => {
     const email = parsed.data.email;
     try {
         // Re-subscribe if previously unsubscribed; insert if new.
-        const type = (process.env.DB_TYPE || 'mssql').toLowerCase();
-        if (type === 'mssql') {
-            db.prepare(`MERGE newsletter_subscribers AS tgt
-                        USING (SELECT ? AS email) AS src ON tgt.email = src.email
-                        WHEN MATCHED THEN UPDATE SET status = N'active'
-                        WHEN NOT MATCHED THEN INSERT (email, status) VALUES (src.email, N'active');`).run(email);
-        } else {
-            db.prepare(`INSERT INTO newsletter_subscribers (email, status) VALUES (?, 'active')
-                        ON CONFLICT(email) DO UPDATE SET status = 'active'`).run(email);
-        }
+        db.prepare(`INSERT INTO newsletter_subscribers (email, status) VALUES (?, 'active')
+                    ON CONFLICT(email) DO UPDATE SET status = 'active'`).run(email);
         logActivity({ action: 'create', entity_type: 'newsletter', details: { email }, ip_address: c.req.header('x-forwarded-for') || 'local' });
         return c.json({ success: true, message: 'ایمیل شما در خبرنامه ثبت شد', code: 200 });
     }

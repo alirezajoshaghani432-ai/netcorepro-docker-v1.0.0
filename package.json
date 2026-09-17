@@ -1,13 +1,15 @@
 {
   "name": "netcorepro",
-  "version": "1.0.0",
-  "description": "NetCore Pro - B2B network equipment shop (Hono SSR + SQLite)",
+  "version": "1.1.0",
+  "description": "NetCore Pro - B2B network equipment shop (Hono SSR + Microsoft SQL Server)",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
     "dev": "NODE_ENV=development node dist/server.js",
     "seed": "node dist/db/seed.js",
+    "migrate:sqlite-mssql": "node scripts/migrate-sqlite-to-mssql.mjs",
+    "migrate:mysql-mssql": "node scripts/migrate-mysql-to-mssql.mjs",
     "build:assets": "node scripts/build-assets.mjs",
     "fetch:vendors": "node scripts/fetch-vendors.mjs",
     "build:tailwind": "tailwindcss -c tailwind.config.cjs -i tailwind.input.css -o public/static/css/tailwind.min.css --minify"
@@ -18,6 +20,7 @@
     "better-sqlite3": "file:local_packages/better-sqlite3.tgz",
     "hono": "^4.6.10",
     "jsonwebtoken": "^9.0.2",
+    "mssql": "^10.0.4",
     "mysql2": "^3.23.3",
     "zod": "^3.23.8"
   },

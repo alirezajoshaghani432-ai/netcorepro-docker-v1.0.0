@@ -129,7 +129,21 @@ content.post('/admin/pages', adminRequired, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
-    const r = db.prepare(`INSERT INTO site_pages (page, section, title, subtitle, body, seo_title, seo_description, seo_keywords, is_active)
+    const type = (process.env.DB_TYPE || 'mssql').toLowerCase();
+    const r = type === 'mssql'
+        ? db.prepare(`MERGE site_pages AS tgt
+                      USING (SELECT ? AS page, ? AS section, ? AS title, ? AS subtitle, ? AS body,
+                                    ? AS seo_title, ? AS seo_description, ? AS seo_keywords, ? AS is_active) AS src
+                      ON tgt.page = src.page AND tgt.section = src.section
+                      WHEN MATCHED THEN UPDATE SET
+                          title = src.title, subtitle = src.subtitle, body = src.body,
+                          seo_title = src.seo_title, seo_description = src.seo_description,
+                          seo_keywords = src.seo_keywords, is_active = src.is_active,
+                          updated_at = SYSUTCDATETIME()
+                      WHEN NOT MATCHED THEN INSERT (page, section, title, subtitle, body, seo_title, seo_description, seo_keywords, is_active)
+                          VALUES (src.page, src.section, src.title, src.subtitle, src.body, src.seo_title, src.seo_description, src.seo_keywords, src.is_active);`)
+            .run(d.page, d.section, d.title || null, d.subtitle || null, d.body || null, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, d.is_active)
+        : db.prepare(`INSERT INTO site_pages (page, section, title, subtitle, body, seo_title, seo_description, seo_keywords, is_active)
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                           ON CONFLICT(page, section) DO UPDATE SET
                               title = excluded.title,
@@ -140,7 +154,7 @@ content.post('/admin/pages', adminRequired, async (c) => {
                               seo_keywords = excluded.seo_keywords,
                               is_active = excluded.is_active,
                               updated_at = CURRENT_TIMESTAMP`)
-        .run(d.page, d.section, d.title || null, d.subtitle || null, d.body || null, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, d.is_active);
+            .run(d.page, d.section, d.title || null, d.subtitle || null, d.body || null, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, d.is_active);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'upsert', entity_type: 'site_page', entity_id: r.lastInsertRowid });
     return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'صفحه ذخیره شد', code: 200 });
 });

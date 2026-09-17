@@ -818,6 +818,9 @@ export function productPage(slug) {
     try { gallery = JSON.parse(p.gallery || '[]') || []; } catch (e) { gallery = []; }
     try { specs = JSON.parse(p.specs || '[]') || []; } catch (e) { specs = []; }
     try { keyFeatures = (JSON.parse(p.key_features || '[]') || []).filter(f => typeof f === 'string' && f.trim()); } catch (e) { keyFeatures = []; }
+    // Do not surface AI-hallucinated / debug feature lists on the storefront.
+    // Admin can still store them; they are not shown at the top of the PDP.
+    keyFeatures = [];
     // Grouped specs: preserve insertion order of groups; ungrouped rows go under ''
     const specGroups = [];
     specs.forEach(s => {
@@ -827,7 +830,10 @@ export function productPage(slug) {
         bucket.rows.push(s);
     });
     const hasGroups = specGroups.some(g => g.name);
-    const allImages = [p.image || '/static/images/p1.svg', ...gallery.filter(g => g && g !== p.image)];
+    const isModemAsset = (u) => /banner-mid-2-router/i.test(String(u || ''));
+    const allImages = [p.image, ...gallery.filter(g => g && g !== p.image)]
+        .filter(u => u && !isModemAsset(u));
+    if (!allImages.length) allImages.push('/static/images/p1.svg');
     const settings = getAllSettings();
     // F1: all contact buttons on this page come from the admin-managed
     // channel list (utils/contact.js) — labels, links and visibility included.
@@ -838,12 +844,13 @@ export function productPage(slug) {
     const expertLabel = (settings.chan_expert_label || '').trim() || 'گفتگو با کارشناسان';
     const expertNote = (settings.chan_expert_note || '').trim() || 'استعلام قیمت کالا برای همکاران و کارفرمایان';
     const ctaBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-cta-btn ${c.cls}"><i class="${c.icon}"></i> ${esc(c.display || c.label)}</a>`).join('');
-    const expertBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-expert-btn ${c.cls}"><i class="${c.icon}"></i><span>${esc(c.display || c.label)}</span></a>`).join('');
-    // V6d: small promo banner under the PDP gallery (editable from admin: site_blocks page='product' section='promo_banner')
-    const promoBlocks = getBlocks('product', 'promo_banner');
+    const isDebugText = (t) => /^\s*R\d+\s+valid\s+edit\b/i.test(String(t || '')) || /178\d{10}/.test(String(t || ''));
+    const shortText = isDebugText(p.short_description) ? '' : (p.short_description || '');
+    // V6d: promo under gallery — never fall back to the modem/router stock image
+    const promoBlocks = getBlocks('product', 'promo_banner').filter(b => b && b.image && !isModemAsset(b.image));
     const promoBanner = (promoBlocks && promoBlocks.length)
-        ? { image: promoBlocks[0].image || '/static/images/banner-mid-2-router.jpg', href: promoBlocks[0].href || '/products', title: promoBlocks[0].title || 'پیشنهاد ویژه' }
-        : { image: '/static/images/banner-mid-2-router.jpg', href: '/products?category=routers', title: 'پیشنهاد ویژه' };
+        ? { image: promoBlocks[0].image, href: promoBlocks[0].href || '/products', title: promoBlocks[0].title || 'پیشنهاد ویژه' }
+        : null;
     const faDate2 = (d) => { try { return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch (e) { return ''; } };
     const content = `
     <div class="nc-container nc-page">
@@ -864,9 +871,9 @@ export function productPage(slug) {
           <div class="nc-pdp-thumbs">
             ${allImages.map((g, i) => `<button class="nc-pdp-thumb${i === 0 ? ' active' : ''}" data-src="${esc(g)}" aria-label="تصویر ${i + 1}">${ncImg(g, { alt: '', sizes: '58px', ratio: false })}</button>`).join('')}
           </div>` : ''}
-          <a href="${esc(promoBanner.href)}" class="nc-pdp-promobanner" aria-label="${esc(promoBanner.title)}">
+          ${promoBanner ? `<a href="${esc(promoBanner.href)}" class="nc-pdp-promobanner" aria-label="${esc(promoBanner.title)}">
             ${ncImg(promoBanner.image, { alt: promoBanner.title, sizes: SZ_PDP, ratio: false })}
-          </a>
+          </a>` : ''}
         </div>
 
         <!-- info -->
@@ -884,12 +891,7 @@ export function productPage(slug) {
             <span class="nc-metaline-item views"><i class="far fa-eye"></i> ${formatPrice(p.views || 0)} بازدید</span>
           </div>
           ${p.brand_name ? `<div class="nc-pdp-inforows"><div class="nc-inforow r-brand"><span class="nc-inforow-l"><i class="fas fa-tag"></i> برند</span><a class="nc-inforow-v link" href="/products?brand=${esc(p.brand_slug || '')}">${esc(p.brand_name)}</a></div></div>` : ''}
-          ${keyFeatures.length ? `
-          <div class="nc-pdp-keyfeats">
-            <strong><i class="fas fa-star"></i> ویژگی‌های کلیدی:</strong>
-            <ul>${keyFeatures.map(f => `<li><i class="fas fa-check-circle"></i><span>${esc(f)}</span></li>`).join('')}</ul>
-          </div>` : ''}
-          <p class="nc-pdp-short">${esc(p.short_description || '')}</p>
+          ${shortText ? `<p class="nc-pdp-short">${esc(shortText)}</p>` : ''}
           ${specs.length ? `<a href="#pdp-tabs" onclick="switchTab('specs')" class="nc-pdp-morespecs standalone"><i class="fas fa-list-ul ml-1"></i>مشاهده مشخصات فنی کامل <i class="fas fa-angle-down"></i></a>` : ''}
           <div class="nc-pdp-cta">
             <div class="nc-pdp-cta-text">
@@ -924,12 +926,9 @@ export function productPage(slug) {
           <button onclick="addNow()" class="nc-btn-primary nc-buybox-add"><i class="fas fa-cart-plus ml-2"></i>افزودن به سبد خرید</button>` : '<div class="nc-pdp-unavailable">این محصول در حال حاضر موجود نیست</div>'}
           <a href="${esc(chatLink)}"${chatExternal ? ' target="_blank" rel="noopener"' : ''} class="nc-buybox-chat"><i class="fas fa-headset ml-2"></i>${esc(expertLabel)}</a>
           <a href="/cart" class="nc-buybox-invoice"><i class="fas fa-file-invoice ml-2"></i>دریافت پیش‌فاکتور</a>
-          <div class="nc-expert-block">
-            <div class="nc-expert-head">
-              <span class="nc-expert-avatar"><img src="/static/images/expert.svg" alt="کارشناس فروش"><i class="nc-expert-dot"></i></span>
-              <div><b>${esc(expertLabel)}</b><span>${esc(expertNote)}</span></div>
-            </div>
-            <div class="nc-expert-btns">${expertBtns}</div>
+          <div class="nc-buybox-help">
+            <i class="fas fa-user-tie"></i>
+            <div><b>${esc(expertLabel)}</b><span>${esc(expertNote)}</span></div>
           </div>
           <div class="nc-pdp-trust">
             <span><i class="fas fa-truck-fast"></i> ارسال سریع</span>
@@ -958,7 +957,7 @@ export function productPage(slug) {
           </table>
         </div>` : ''}
         <div class="nc-pdp-panel${specs.length ? '' : ' active'}" id="tab-review">
-          <div class="prose-rtl">${p.description ? sanitizeHtml(esc(p.description).replace(/\n/g, '<br>')) : 'توضیحات تکمیلی در دسترس نیست.'}</div>
+          <p class="nc-empty-inline">نقد و بررسی این محصول به‌زودی تکمیل می‌شود. مشخصات فنی را در تب مربوطه ببینید.</p>
         </div>
         <div class="nc-pdp-panel" id="tab-comments">
           ${comments.length ? comments.map(cm => `
@@ -980,6 +979,12 @@ export function productPage(slug) {
           <p class="nc-empty-inline">سوالی درباره این محصول دارید؟ از طریق <a href="${esc(chatLink)}" target="_blank" rel="noopener" style="color:var(--nc-primary);font-weight:700">گفتگو با کارشناس‌ها</a> یا فرم <a href="/contact" style="color:var(--nc-primary);font-weight:700">تماس با ما</a> بپرسید — در سریع‌ترین زمان پاسخ می‌دهیم.</p>
         </div>
       </div>
+
+      ${p.description ? `
+      <section class="nc-pdp-fulldesc" id="pdp-description">
+        <h2><i class="fas fa-align-right ml-2"></i>توضیحات محصول</h2>
+        <div class="prose-rtl">${sanitizeHtml(esc(p.description).replace(/\n/g, '<br>'))}</div>
+      </section>` : ''}
 
       ${related.length ? `
       <div class="nc-section-head" style="margin-top:28px">
@@ -1052,7 +1057,7 @@ export function productPage(slug) {
   `;
     return siteLayout({
         title: p.seo_title || p.name,
-        description: p.seo_description || p.short_description || '',
+        description: p.seo_description || shortText || (p.name + ' | NetCore Pro'),
         keywords: p.seo_keywords || '',
         ogImage: p.image || '',
         currentPath: '/product/' + p.slug,
@@ -1063,7 +1068,7 @@ export function productPage(slug) {
             name: p.name,
             sku: p.sku || undefined,
             image: p.image || undefined,
-            description: p.short_description || p.seo_description || undefined,
+            description: p.seo_description || shortText || p.name,
             brand: p.brand_name ? { '@type': 'Brand', name: p.brand_name } : undefined,
             offers: {
                 '@type': 'Offer',

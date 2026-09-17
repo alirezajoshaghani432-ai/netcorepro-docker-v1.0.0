@@ -13,10 +13,15 @@ try {
 }
 catch (e) { /* tables may not exist yet — proceed with seeding */ }
 console.log('🌱 Seeding NetCore Pro database...');
-const IS_MYSQL = (process.env.DB_TYPE || 'mysql').toLowerCase() === 'mysql';
+const DBT = (process.env.DB_TYPE || 'mssql').toLowerCase();
+const IS_MYSQL = DBT === 'mysql';
+const IS_MSSQL = DBT === 'mssql';
 // Reset autoincrement counters BEFORE the transaction (FKs are off only during clear)
 if (IS_MYSQL) {
     db.exec('SET FOREIGN_KEY_CHECKS = 0');
+}
+else if (IS_MSSQL) {
+    db.exec("EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL'");
 }
 else {
     db.pragma('foreign_keys = OFF');
@@ -44,6 +49,12 @@ if (IS_MYSQL) {
         try { db.exec(`ALTER TABLE ${t} AUTO_INCREMENT = 1`); } catch (e) { /* ignore */ }
     }
     db.exec('SET FOREIGN_KEY_CHECKS = 1');
+}
+else if (IS_MSSQL) {
+    for (const t of ['activity_logs', 'ticket_replies', 'tickets', 'order_items', 'orders', 'comments', 'posts', 'messages', 'newsletter_subscribers', 'products', 'brands', 'categories', 'users', 'site_blocks', 'site_pages']) {
+        try { db.exec(`DBCC CHECKIDENT ('${t}', RESEED, 0)`); } catch (e) { /* ignore */ }
+    }
+    try { db.exec("EXEC sp_msforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'"); } catch (e) { /* ignore */ }
 }
 else {
     try { db.exec('DELETE FROM sqlite_sequence'); } catch (e) { /* ignore */ }

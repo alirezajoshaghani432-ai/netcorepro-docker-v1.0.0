@@ -1313,3 +1313,15 @@ section.nc-container:first-of-type{margin-top:18px}
   outline-offset:-2px;
   border-radius:6px 6px 0 0;
 }
+
+/* Buy-box help (replacement for the colourful expert-button grid) */
+.nc-buybox-help{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#334155}
+.nc-buybox-help>i{font-size:18px;color:#4f46e5;margin-top:2px;flex-shrink:0}
+.nc-buybox-help b{display:block;font-size:13px;color:#1e293b}
+.nc-buybox-help span{display:block;font-size:11.5px;color:#64748b;margin-top:2px;line-height:1.5}
+
+/* Full product description at the bottom of the PDP (not inside tabs) */
+.nc-pdp-fulldesc{margin:28px 0 8px;padding:22px 24px;border:1px solid var(--nc-line,#e7eaf3);border-radius:16px;background:#fff}
+.nc-pdp-fulldesc h2{font-size:17px;font-weight:800;color:#0f172a;margin:0 0 14px;display:flex;align-items:center}
+.nc-pdp-fulldesc .prose-rtl{font-size:14.5px;line-height:1.9;color:#334155}
+.nc-pdp-fulldesc .prose-rtl p{margin:0 0 10px}

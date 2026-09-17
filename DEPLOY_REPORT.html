@@ -475,7 +475,7 @@ netcorepro    netcorepro-netcorepro    Up 30 seconds   0.0.0.0:3000-&gt;3000/tcp
 
 <p>باید این پیام‌ها را ببینید:</p>
 <pre>✅ NetCore Pro server running on http://localhost:3000
-   📦 Site:   http://localhost:3000/site1
+   📦 Site:   http://localhost:3000/
    🛡️  Admin:  http://localhost:3000/admin/login
    ❤️  Health: http://localhost:3000/api/health</pre>
 
@@ -488,7 +488,7 @@ Content-Type: application/json
 {"success":true,"data":{"status":"ok","db":"ok",...}}</pre>
 
 <h3>7.6 — تست از روی مرورگر</h3>
-<p>به <code>http://<span class="v">YOUR_SERVER_IP</span>:3000/site1</code> بروید.
+<p>به <code>http://<span class="v">YOUR_SERVER_IP</span>:3000/</code> بروید.
 صفحه اصلی باید با فونت Vazirmatn و لوگوی NetCore Pro نمایش داده شود.</p>
 
 <div class="callout warn">
@@ -577,12 +577,12 @@ curl -X POST http://localhost:3000/api/auth/login \
 <h3>9.2 — تست صفحات</h3>
 <table>
   <tr><th>صفحه</th><th>آدرس</th><th>انتظار</th></tr>
-  <tr><td>خانه</td><td><code>/site1</code></td><td>200 — صفحه اصلی با محصولات منتخب</td></tr>
-  <tr><td>محصولات</td><td><code>/site1/products</code></td><td>200 — لیست محصولات</td></tr>
-  <tr><td>درباره ما</td><td><code>/site1/about</code></td><td>200 — متن از <code>site_pages</code></td></tr>
-  <tr><td>تماس</td><td><code>/site1/contact</code></td><td>200 — فرم تماس</td></tr>
-  <tr><td>حریم خصوصی</td><td><code>/site1/privacy</code></td><td>200 — از DB</td></tr>
-  <tr><td>شرایط استفاده</td><td><code>/site1/terms</code></td><td>200 — از DB</td></tr>
+  <tr><td>خانه</td><td><code>/</code></td><td>200 — صفحه اصلی با محصولات منتخب</td></tr>
+  <tr><td>محصولات</td><td><code>/products</code></td><td>200 — لیست محصولات</td></tr>
+  <tr><td>درباره ما</td><td><code>/about</code></td><td>200 — متن از <code>site_pages</code></td></tr>
+  <tr><td>تماس</td><td><code>/contact</code></td><td>200 — فرم تماس</td></tr>
+  <tr><td>حریم خصوصی</td><td><code>/privacy</code></td><td>200 — از DB</td></tr>
+  <tr><td>شرایط استفاده</td><td><code>/terms</code></td><td>200 — از DB</td></tr>
   <tr><td>ورود ادمین</td><td><code>/admin/login</code></td><td>200 — فرم سفید-بنفش</td></tr>
   <tr><td>پنل ادمین</td><td><code>/admin</code></td><td>200 (با redirect در صورت no-auth)</td></tr>
   <tr><td>محتوای سایت</td><td><code>/admin/site-content</code></td><td>200 — CRUD بلوک‌ها/صفحات</td></tr>

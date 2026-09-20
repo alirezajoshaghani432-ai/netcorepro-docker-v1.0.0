@@ -125,7 +125,13 @@ const productSchema = z.object({
     description: z.string().optional(),
     short_description: z.string().optional(),
     price: z.number().int().nonnegative(),
-    discount_price: z.number().int().nonnegative().optional().nullable(),
+    discount_price: z.preprocess((v) => {
+        if (v === undefined) return undefined;
+        if (v === '' || v === null) return null;
+        const n = typeof v === 'number' ? v : parseInt(String(v), 10);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return n;
+    }, z.number().int().nonnegative().nullable().optional()),
     stock: z.number().int().nonnegative(),
     image: z.string().optional(),
     gallery: z.string().optional().nullable(), // JSON array of image URLs
@@ -197,7 +203,7 @@ products.post('/', adminRequired, async (c) => {
             return c.json({ success: false, message: `کد محصول (SKU) تکراری است — قبلاً برای «${dupSku.name}» ثبت شده`, code: 400 }, 400);
     }
     try {
-        const r = db.prepare(`INSERT INTO products (name, slug, sku, category_id, brand_id, description, short_description, price, discount_price, stock, image, gallery, specs, key_features, guarantee, seo_title, seo_description, seo_keywords, sort_order, featured, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(d.name, d.slug, d.sku || null, d.category_id, d.brand_id || null, d.description || null, d.short_description || null, d.price, d.discount_price || null, d.stock, d.image || null, validJsonOrNull(d.gallery), validJsonOrNull(d.specs), validJsonOrNull(d.key_features), d.guarantee || null, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, d.sort_order ?? 0, d.featured || 0, d.status || 'active');
+        const r = db.prepare(`INSERT INTO products (name, slug, sku, category_id, brand_id, description, short_description, price, discount_price, stock, image, gallery, specs, key_features, guarantee, seo_title, seo_description, seo_keywords, sort_order, featured, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(d.name, d.slug, d.sku || null, d.category_id, d.brand_id || null, d.description || null, d.short_description || null, d.price, (d.discount_price && d.discount_price > 0) ? d.discount_price : null, d.stock, d.image || null, validJsonOrNull(d.gallery), validJsonOrNull(d.specs), validJsonOrNull(d.key_features), d.guarantee || null, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, d.sort_order ?? 0, d.featured || 0, d.status || 'active');
         logActivity({ user_id: user.id, user_name: user.full_name, action: 'create', entity_type: 'product', entity_id: r.lastInsertRowid, details: { name: d.name } });
         return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'محصول ایجاد شد', code: 200 });
     }
@@ -210,6 +216,15 @@ products.put('/:id', adminRequired, async (c) => {
     const user = c.get('user');
     const id = parseInt(c.req.param('id') || '0');
     const body = await c.req.json();
+    // Explicit empty discount from admin must become null (not omitted).
+    if (body && Object.prototype.hasOwnProperty.call(body, 'discount_price')) {
+        const v = body.discount_price;
+        if (v === '' || v === undefined || v === null) body.discount_price = null;
+        else {
+            const n = typeof v === 'number' ? v : parseInt(String(v), 10);
+            body.discount_price = (Number.isFinite(n) && n > 0) ? n : null;
+        }
+    }
     const parsed = productSchema.partial().safeParse(body);
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);

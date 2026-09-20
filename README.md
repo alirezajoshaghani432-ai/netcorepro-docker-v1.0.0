@@ -1,9 +1,9 @@
 # NetCore Pro — فروشگاه B2B تجهیزات شبکه
 
 فروشگاه اینترنتی و پنل مدیریت تجهیزات شبکه، با رابط کاربری کامل فارسی و راست‌به‌چپ.
-سمت سرور با **Hono** و رندر سمت سرور (SSR) نوشته شده، دیتابیس **MySQL/MariaDB** است و
-تمام دارایی‌های ظاهری (فونت، آیکن، CSS و JS) به‌صورت **محلی** ارائه می‌شوند تا اپلیکیشن
-بدون هیچ وابستگی به CDN خارجی و در شبکه‌های بسته هم کار کند.
+سمت سرور با **Hono** و رندر سمت سرور (SSR) نوشته شده، دیتابیس پیش‌فرض **Microsoft SQL Server** است
+(MySQL و SQLite همچنان پشتیبانی می‌شوند) و تمام دارایی‌های ظاهری (فونت، آیکن، CSS و JS)
+به‌صورت **محلی** ارائه می‌شوند تا اپلیکیشن بدون هیچ وابستگی به CDN خارجی و در شبکه‌های بسته هم کار کند.
 
 ## مرور پروژه
 
@@ -11,7 +11,7 @@
 |---|---|
 | **نام** | NetCore Pro |
 | **نوع** | فروشگاه B2B + پنل مدیریت |
-| **استک** | Node.js 20 · Hono 4 · MySQL/MariaDB · Tailwind CSS |
+| **استک** | Node.js 20 · Hono 4 · Microsoft SQL Server · Tailwind CSS |
 | **معماری** | SSR کامل (بدون React/Next) + ناوبری pjax + API با JSON |
 | **زبان / جهت** | فارسی، RTL — فونت Vazirmatn |
 | **دارایی‌های استاتیک** | همه محلی؛ بدون CDN |
@@ -27,7 +27,7 @@
 - صفحهٔ اصلی با بلوک‌های قابل‌ویرایش از پنل (بنر اصلی، بنر کناری، بنر میانی)
 - مِگا‌منوی دسته‌بندی با شمارش محصولات فعال و ترتیب قابل تنظیم
 - فهرست محصولات با فیلتر دسته/برند، جست‌وجو، مرتب‌سازی و صفحه‌بندی
-- صفحهٔ محصول: گالری تصاویر، مشخصات، تب پرسش و پاسخ، جعبهٔ خرید
+- صفحهٔ محصول: گالری تصاویر، مشخصات فنی، توضیحات کامل در پایین صفحه، جعبهٔ خرید و بلوک مشاوره
 - سبد خرید، تسویه‌حساب و ثبت سفارش (میهمان یا کاربر عضو)
 - ارسال رسید کارت‌به‌کارت برای سفارش
 - وبلاگ با دیدگاه کاربران، صفحات ثابت (درباره ما، تماس، قوانین، حریم خصوصی)
@@ -176,11 +176,14 @@ PUT    /api/tickets/:id/status       تغییر وضعیت تیکت
 
 ## معماری داده
 
-- **دیتابیس:** MySQL / MariaDB (پیش‌فرض). برای توسعهٔ محلی یا نسخه‌های قدیمی
-  می‌توان با `DB_TYPE=sqlite` از SQLite استفاده کرد؛ لایهٔ دسترسی به داده یکسان است.
-- **اسکیما:** `dist/db/schema.sql` — با اجرای اپلیکیشن به‌صورت خودکار ساخته/به‌روزرسانی می‌شود.
-- **دادهٔ نمونه:** `npm run seed`
-- **مهاجرت از SQLite به MySQL:** `node scripts/migrate-sqlite-to-mysql.mjs`
+- **دیتابیس پیش‌فرض:** Microsoft SQL Server (`DB_TYPE=mssql`). MySQL/MariaDB (`DB_TYPE=mysql`) و SQLite (`DB_TYPE=sqlite`) همچنان پشتیبانی می‌شوند؛ لایهٔ دسترسی به داده یکسان است.
+- **اسکیما:** `dist/db/schema.mssql.sql` (و `schema.mysql.sql` / `schema.sql`) — با اجرای اپلیکیشن به‌صورت خودکار و بدون پاک کردن داده ساخته/به‌روزرسانی می‌شود.
+- **دادهٔ نمونه:** `npm run seed` — اگر جدول `users` خالی نباشد، seed اجرا نمی‌شود (دادهٔ زنده حفظ می‌شود). برای بازنشانی عمدی: `node dist/db/seed.js --force`
+- **مهاجرت بدون از دست رفتن داده (شناسه‌ها حفظ می‌شوند):**
+  - SQLite → SQL Server: `npm run migrate:sqlite-mssql`
+  - MySQL → SQL Server: `npm run migrate:mysql-mssql`
+  - SQLite → MySQL (قدیمی): `node scripts/migrate-sqlite-to-mysql.mjs`
+- **سئو / SSR:** همهٔ صفحات فروشگاه سمت سرور رندر می‌شوند. نام عمومی سایت **NetCore Pro** است. مسیر قدیمی `/site1` با ۳۰۱ به ریشه ریدایرکت می‌شود.
 - **فایل‌های بارگذاری‌شده:** `uploads/` و نسخه‌های ریسپانسیو در `public/static/rimg/`
 
 ### جداول کلیدی
@@ -222,7 +225,8 @@ npm start                     # پیش‌فرض روی PORT=3000
 
 ### Docker (توصیه‌شده)
 
-`docker-compose.yml` دو سرویس بالا می‌آورد: MariaDB 10.11 و اپلیکیشن.
+`docker-compose.yml` دو سرویس بالا می‌آورد: Microsoft SQL Server 2022 و اپلیکیشن.
+اگر فایل `data/netcorepro.db` موجود باشد و SQL Server خالی باشد، مهاجرت یک‌بارهٔ SQLite→MSSQL هنگام استارت اجرا می‌شود. دیتابیس پر هرگز پاک نمی‌شود.
 
 ```bash
 cp .env.example .env
@@ -262,8 +266,9 @@ pm2 save
 |---|---|
 | `JWT_SECRET` | کلید امضای توکن — **حتماً تغییر دهید** (`openssl rand -hex 64`) |
 | `PORT` | پورت سرور (پیش‌فرض 3000؛ در docker روی 8090 نگاشت می‌شود) |
-| `DB_TYPE` | `mysql` (پیش‌فرض) یا `sqlite` |
-| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` | اتصال دیتابیس |
+| `DB_TYPE` | `mssql` (پیش‌فرض) یا `mysql` یا `sqlite` |
+| `MSSQL_SERVER` / `MSSQL_PORT` / `MSSQL_USER` / `MSSQL_PASSWORD` / `MSSQL_DATABASE` | اتصال SQL Server |
+| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` | اتصال MySQL (وقتی `DB_TYPE=mysql`) |
 | `DB_PATH` | مسیر فایل SQLite (وقتی `DB_TYPE=sqlite`) |
 | `CORS_ORIGINS` | دامنه‌های مجاز، جدا شده با ویرگول یا `*` |
 | `MAX_BODY_SIZE_MB` | بیشینهٔ حجم بدنهٔ درخواست (پیش‌فرض 10) |
@@ -327,7 +332,7 @@ netcorepro/
 │   │   ├── shared/           چیدمان مشترک (هدر، مِگا‌منو، فوتر)
 │   │   ├── site/             صفحات فروشگاه
 │   │   └── admin/            صفحات پنل مدیریت
-│   ├── db/                   اتصال، schema.sql، seed
+│   ├── db/                   اتصال MSSQL/MySQL/SQLite، schema.*.sql، seed
 │   ├── middleware/           احراز هویت، محدودسازی نرخ، اعتبارسنجی
 │   └── utils/                escape/sanitize، کانال‌های تماس، تولید تصویر
 ├── public/static/            CSS، JS، فونت، آیکن، تصاویر (همه محلی)
@@ -341,7 +346,7 @@ netcorepro/
 ├── deploy/windows/           اسکریپت‌های نصب روی IIS
 ├── local_packages/           بستهٔ محلی better-sqlite3 (نصب آفلاین)
 ├── data/                     فایل دیتابیس SQLite (حالت اختیاری)
-├── docker-compose.yml        MariaDB + اپلیکیشن
+├── docker-compose.yml        SQL Server 2022 + اپلیکیشن
 ├── Dockerfile
 ├── ecosystem.config.cjs      تنظیمات PM2
 └── DEPLOY_REPORT.html        راهنمای دیپلوی و SSL

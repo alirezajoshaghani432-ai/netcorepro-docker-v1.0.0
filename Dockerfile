@@ -1,19 +1,20 @@
 # ===================================================================
-#  NetCore Pro — Dockerfile (نسخه آفلاین برای ایران)
+#  NetCore Pro — Dockerfile (نسخه آفلاین برای ایران + SQL Server)
 # -------------------------------------------------------------------
 #  این Dockerfile به‌صورت کامل آفلاین است:
 #    - فقط از Liara mirror برای npm استفاده می‌کند
 #    - هیچ‌گاه به cdn.jsdelivr.net، cdn.tailwindcss.com یا
 #      registry.npmjs.org درخواست نمی‌فرستد
 #    - باینری native (better-sqlite3) از local_packages/ کپی می‌شود
+#      (برای مهاجرت یک‌باره از SQLite)
 #    - تمام static asset ها (Tailwind, Vazirmatn, FontAwesome,
 #      Axios, Chart.js) از قبل در public/static/ هستند
+#    - درایور پیش‌فرض: Microsoft SQL Server (پکیج mssql)
 #
 #  ساخت:
 #    docker build -t netcorepro:latest .
 #
 #  اجرا (پیشنهادی): docker compose up -d --build
-#  (دیتابیس MySQL/MariaDB در docker-compose.yml تعریف شده است)
 #
 #  درباره «کد بیلدشده»: پوشه dist/ خروجی مینیفای/باندل نیست؛
 #  جاوااسکریپت ES Module خوانا و قابل‌ویرایش است و همین، سورس واقعی
@@ -31,7 +32,7 @@ RUN npm config set registry https://package-mirror.liara.ir/repository/npm/ && \
 WORKDIR /app
 
 # ---------------------------------------------------------------
-# 1) نصب better-sqlite3 از tarball محلی (بدون اسکریپت/دانلود)
+# 1) نصب better-sqlite3 از tarball محلی (برای مهاجرت SQLite→MSSQL)
 # ---------------------------------------------------------------
 COPY local_packages/better-sqlite3.tgz /tmp/better-sqlite3.tgz
 RUN mkdir -p node_modules && \
@@ -43,7 +44,7 @@ COPY local_packages/prebuilt/better_sqlite3.node \
      /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node
 
 # ---------------------------------------------------------------
-# 2) نصب سایر وابستگی‌ها (بدون dev deps چون assetها از قبل build شده)
+# 2) نصب سایر وابستگی‌ها (mssql, mysql2, hono, ...)
 # ---------------------------------------------------------------
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund
@@ -85,15 +86,14 @@ USER app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV DB_TYPE=mssql
 
 # Healthcheck برای orchestratorها (Docker, K8s, ...)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
 
 EXPOSE 3000
 
-# seed دیتابیس در اولین اجرا (idempotent — اگر داده وجود داشت، چیزی نمی‌نویسد)
-# و سپس سرور را اجرا می‌کنیم.
-# انتظار برای آماده‌شدن دیتابیس، سپس seed امن (فقط دیتابیس خالی) و اجرا
+# انتظار برای آماده‌شدن SQL Server، سپس مهاجرت امن (فقط دیتابیس خالی) و اجرا
 COPY --chown=app:app scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 CMD ["sh", "./scripts/docker-entrypoint.sh"]

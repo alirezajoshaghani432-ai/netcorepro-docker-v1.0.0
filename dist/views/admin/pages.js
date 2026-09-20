@@ -304,6 +304,7 @@ export function adminProductsPage() {
               </select>
               <input id="pf-disc-val" type="number" min="0" placeholder="مثلاً 5" class="border rounded-lg px-3 py-2 text-sm w-32">
               <button type="button" onclick="applyDiscountCalc()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold"><i class="fas fa-calculator ml-1"></i>اعمال</button>
+              <button type="button" onclick="clearProductDiscount()" class="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 rounded-lg text-sm font-bold"><i class="fas fa-xmark ml-1"></i>حذف تخفیف</button>
               <span id="pf-disc-hint" class="text-xs text-amber-700"></span>
             </div>
           </div>
@@ -475,33 +476,94 @@ export function adminProductsPage() {
         initProductFormExtras(p);
         bindProductForm(p.id);
       };
+      window.clearProductDiscount = function () {
+        const dEl = document.getElementById('pf-dprice');
+        const vEl = document.getElementById('pf-disc-val');
+        const hint = document.getElementById('pf-disc-hint');
+        if (dEl) dEl.value = '';
+        if (vEl) vEl.value = '';
+        if (hint) hint.textContent = 'تخفیف حذف شد — پس از ذخیره، قیمت اصلی اعمال می‌شود';
+        window.ncMarkDirty && window.ncMarkDirty();
+      };
       window.applyDiscountCalc = function () {
         const priceEl = document.getElementById('pf-price');
         const dEl = document.getElementById('pf-dprice');
-        const mode = document.getElementById('pf-disc-mode').value;
-        const val = parseFloat(document.getElementById('pf-disc-val').value);
+        const vEl = document.getElementById('pf-disc-val');
+        const modeEl = document.getElementById('pf-disc-mode');
         const hint = document.getElementById('pf-disc-hint');
+        const raw = vEl ? String(vEl.value).trim() : '';
+        const val = parseFloat(raw);
         const price = parseFloat(priceEl && priceEl.value);
-        if (!price || price <= 0) { toast('اول قیمت اصلی را وارد کنید', 'error'); return; }
-        if (!val || val <= 0) { toast('مقدار تخفیف را وارد کنید', 'error'); return; }
+        // Empty / 0 percent or amount = remove discount (must persist as NULL).
+        if (raw === '' || !Number.isFinite(val) || val <= 0) {
+          window.clearProductDiscount();
+          return true;
+        }
+        if (!price || price <= 0) { toast('اول قیمت اصلی را وارد کنید', 'error'); return false; }
+        const mode = modeEl ? modeEl.value : 'percent';
         let final;
         if (mode === 'percent') {
-          if (val >= 100) { toast('درصد باید کمتر از ۱۰۰ باشد', 'error'); return; }
+          if (val >= 100) { toast('درصد باید کمتر از ۱۰۰ باشد', 'error'); return false; }
           final = Math.round(price * (1 - val / 100) / 1000) * 1000;
         } else {
-          if (val >= price) { toast('مبلغ تخفیف باید کمتر از قیمت باشد', 'error'); return; }
+          if (val >= price) { toast('مبلغ تخفیف باید کمتر از قیمت باشد', 'error'); return false; }
           final = price - val;
+        }
+        if (!final || final <= 0 || final >= price) {
+          window.clearProductDiscount();
+          return true;
         }
         dEl.value = final;
         if (hint) hint.textContent = 'قیمت تخفیف: ' + final.toLocaleString('fa-IR') + ' تومان (' + Math.round((1 - final / price) * 100) + '٪ کمتر)';
         window.ncMarkDirty && window.ncMarkDirty();
+        return true;
       };
       function bindProductForm(id) {
-        document.getElementById('product-form').addEventListener('submit', async (e) => {
+        const form = document.getElementById('product-form');
+        const vEl = document.getElementById('pf-disc-val');
+        const dEl = document.getElementById('pf-dprice');
+        if (vEl) {
+          vEl.addEventListener('input', () => {
+            if (String(vEl.value).trim() === '') {
+              if (dEl) dEl.value = '';
+              const hint = document.getElementById('pf-disc-hint');
+              if (hint) hint.textContent = 'تخفیف حذف می‌شود';
+              window.ncMarkDirty && window.ncMarkDirty();
+            }
+          });
+          vEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              applyDiscountCalc();
+              form.requestSubmit();
+            }
+          });
+        }
+        if (dEl) {
+          dEl.addEventListener('input', () => {
+            if (String(dEl.value).trim() === '') {
+              if (vEl) vEl.value = '';
+              window.ncMarkDirty && window.ncMarkDirty();
+            }
+          });
+        }
+        form.addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(e.target);
           const data = Object.fromEntries(fd.entries());
-          ['category_id','brand_id','price','discount_price','stock','featured'].forEach(k => { if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k]); else if (data[k] === '') delete data[k]; });
+          ['category_id','brand_id','price','stock','featured'].forEach(k => {
+            if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k], 10);
+            else if (data[k] === '') delete data[k];
+          });
+          // Empty discount must be sent as null so the API writes NULL (not skipped).
+          const discRaw = String(data.discount_price ?? '').trim();
+          const discNum = parseInt(discRaw, 10);
+          const priceNum = parseInt(data.price, 10);
+          if (!discRaw || !Number.isFinite(discNum) || discNum <= 0 || (Number.isFinite(priceNum) && discNum >= priceNum)) {
+            data.discount_price = null;
+          } else {
+            data.discount_price = discNum;
+          }
           data.gallery = JSON.stringify(collectGallery());
           data.specs = JSON.stringify(collectSpecs());
           data.key_features = JSON.stringify(collectFeatures());
@@ -608,6 +670,7 @@ export function adminOrdersPage() {
                       ? '<span class="font-mono text-indigo-600" dir="ltr">' + escAdmin(o.payment_ref) + '</span>'
                       : '<span class="text-slate-400">هنوز ثبت نشده</span>'}</div>
                   \${o.payment_note ? '<div class="md:col-span-2"><b>توضیح مشتری:</b> ' + escAdmin(o.payment_note) + '</div>' : ''}
+                  \${o.receipt_image ? '<div class="md:col-span-2"><b>تصویر رسید:</b><br><a href="' + escAdmin(o.receipt_image) + '" target="_blank" rel="noopener"><img src="' + escAdmin(o.receipt_image) + '" alt="رسید واریز" class="nc-receipt-img-admin" style="max-width:280px;max-height:220px;margin-top:8px;border-radius:10px;border:1px solid #e2e8f0;object-fit:contain"></a></div>' : ''}
                   \${o.paid_at ? '<div class="md:col-span-2"><b>تاریخ تایید پرداخت:</b> ' + formatDate(o.paid_at) + '</div>' : ''}
                 </div>
                 <div class="flex gap-2">

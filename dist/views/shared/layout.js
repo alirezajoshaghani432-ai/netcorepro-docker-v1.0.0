@@ -11,7 +11,7 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20260816a';
+export const ASSET_V = '20260917b';
 /**
  * Performance: the storefront loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -116,6 +116,30 @@ export function siteLayout(opts, content) {
     // name containing "</script>") cannot break out of the JSON-LD <script> block (XSS).
     const jsonLdSafe = opts.jsonLd ? JSON.stringify(opts.jsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026') : '';
     const jsonLdTag = jsonLdSafe ? `<script type="application/ld+json">${jsonLdSafe}</script>` : '';
+    // Always emit WebSite + Organization so Google never indexes a leftover "site1" brand.
+    const websiteLd = {
+        '@context': 'https://schema.org',
+        '@graph': [
+            {
+                '@type': 'WebSite',
+                '@id': (siteUrl || 'https://netcorepro.ir') + '/#website',
+                name: siteName,
+                url: siteUrl || 'https://netcorepro.ir',
+                inLanguage: 'fa-IR',
+                description: ogDesc,
+                publisher: { '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization' },
+            },
+            {
+                '@type': 'Organization',
+                '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization',
+                name: siteName,
+                url: siteUrl || 'https://netcorepro.ir',
+                logo: ogImage,
+            },
+        ],
+    };
+    const websiteLdSafe = JSON.stringify(websiteLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+    const websiteLdTag = `<script type="application/ld+json">${websiteLdSafe}</script>`;
 
     return `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -137,7 +161,7 @@ export function siteLayout(opts, content) {
 <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
 <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
 <meta name="twitter:image" content="${escapeAttr(ogImage)}">
-${canonicalTag}${jsonLdTag}
+${canonicalTag}${websiteLdTag}${jsonLdTag}
 <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/static/images/favicon.svg">
@@ -343,6 +367,13 @@ ${content}
         <input type="email" name="email" required placeholder="ایمیل خود را برای دریافت تخفیف‌ها وارد کنید" aria-label="ایمیل">
         <button type="submit" class="nc-newsletter-btn"><i class="fas fa-paper-plane ml-2"></i>عضویت در خبرنامه</button>
       </form>
+    </div>
+  </div>
+  <div class="nc-footer-trust">
+    <div class="nc-enamad" id="enamad-seal">
+      <a referrerpolicy="origin" target="_blank" rel="noopener" href="https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J">
+        <img referrerpolicy="origin" src="https://trustseal.enamad.ir/logo.aspx?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J" alt="نماد اعتماد الکترونیکی" style="cursor:pointer" code="QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J" width="125" height="125">
+      </a>
     </div>
   </div>
   <div class="nc-footer-bottom">

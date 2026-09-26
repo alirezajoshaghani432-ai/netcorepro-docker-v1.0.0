@@ -1,10 +1,9 @@
-// Settings-injection suite: admin-controlled values inside HTML attributes.
-//  Contact settings (telegram, whatsapp, ...) are interpolated into href
-//  attributes on every storefront page, so each one must pass through
-//  escapeAttr(). A value such as "><img src=x onerror=..> must stay inert
-//  text: no attribute breakout, no live event handler anywhere in the page,
-//  while a legitimate URL is still rendered as a working link.
-//  Driven through the real settings API and the rendered topbar.
+// Round 11 regression suite:
+//  #28 the site topbar "گفتگو با کارشناسان" link injected the admin-controlled
+//      `settings.telegram` value into an href attribute WITHOUT escapeAttr (unlike the
+//      footer). A value like "><img src=x onerror=..> broke out of the attribute and
+//      injected a live event handler into EVERY /* page (stored XSS via settings).
+//      Fix: wrap with escapeAttr(). This suite drives the real settings API + rendered page.
 import db from '../dist/db/index.js';
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];

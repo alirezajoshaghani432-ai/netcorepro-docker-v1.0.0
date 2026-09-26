@@ -18,11 +18,11 @@ const registerSchema = z.object({
     company: z.string().optional()
 });
 // ===== Phone OTP login (demo/test mode) =====
-// No SMS gateway is configured, so a fixed demo code is issued and also
-// returned in the API response, which lets staff and testers log in without
-// a real SMS provider. Once a gateway (Kavenegar/IPPanel/...) is available,
-// replace sendSms() below with a real API call and stop returning
-// `debug_code` in production.
+// No SMS gateway is configured yet (to be purchased later), so a fixed
+// demo code is issued and also returned in the API response so the shop
+// owner/testers can log in without a real SMS provider. Once a gateway
+// (Kavenegar/IPPanel/...) is purchased, replace sendSms() below with a
+// real API call and stop returning `debug_code` in production.
 const DEMO_OTP_CODE = '12345';
 const OTP_TTL_MINUTES = 5;
 /**

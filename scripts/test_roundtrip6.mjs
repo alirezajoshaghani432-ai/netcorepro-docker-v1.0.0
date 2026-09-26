@@ -1,11 +1,5 @@
-// Settings round-trip, stock accounting and referential-integrity deletes.
-//   * a settings PUT is persisted AND reflected in the rendered storefront;
-//   * cancelling an order restores stock exactly once (idempotent) and
-//     reactivating it deducts again;
-//   * deleting a product that is referenced by an order is archived rather
-//     than removed, while an unreferenced one is deleted outright;
-//   * deleting a category/brand that still owns products, or a user that
-//     still owns orders, answers 400 — never a 500.
+// Round 6 regression suite: settings round-trip (#15), stock restore on cancel/delete (#16),
+// FK-safe deletes for product/category/brand/user (#17,#18,#19,#20).
 import db from '../dist/db/index.js';
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];
@@ -18,7 +12,7 @@ async function main(){
   const admin = await login('admin@netcorepro.ir',(process.env.ADMIN_PASSWORD || 'admin123'));
   ok('admin login', !!admin);
 
-  // ===== settings round-trip (tagline / footer_about / og_image) =====
+  // ===== #15 SETTINGS ROUND-TRIP (tagline / footer_about / og_image) =====
   const before = (await jx('GET','/api/admin/settings',null,admin)).j?.data || {};
   const mk = 'R6_'+Date.now();
   const put = await jx('PUT','/api/admin/settings',{ site_tagline:mk+'_tag', footer_about:mk+'_foot', og_image:'/static/images/'+mk+'.png' },admin);
@@ -38,7 +32,7 @@ async function main(){
     og_image: before.og_image||'/static/images/og-default.svg'
   },admin);
 
-  // ===== stock restore on cancel / delete + idempotency =====
+  // ===== #16 STOCK RESTORE ON CANCEL / DELETE + IDEMPOTENCY =====
   const fx = db.prepare("SELECT id, slug FROM products WHERE status='active' AND stock >= 5 "
                        + "AND slug IS NOT NULL AND slug != '' ORDER BY id LIMIT 1").get();
   if (!fx) { console.log('  ! skipped stock suite: no active product with stock >= 5'); }
@@ -58,7 +52,7 @@ async function main(){
   await jx('DELETE',`/api/orders/${oid}`,null,admin);
   ok('stock restored on delete of active order', (await stockOf(slug))===s0);
 
-  // ===== product delete: referenced -> soft archive, unreferenced -> hard delete =====
+  // ===== #17 PRODUCT DELETE: referenced -> soft archive, unreferenced -> hard delete =====
   const np = await jx('POST','/api/products',{ name:'R6 del prod', slug:'r6-del-'+Date.now(), category_id:1, price:1000, stock:10 },admin);
   const npid = np.j?.data?.id; ok('temp product created', !!npid);
   const o2 = await jx('POST','/api/orders',{ customer_name:'R6', customer_phone:'09120000000', shipping_address:'آدرس تست کامل برای سفارش', items:[{product_id:npid,quantity:1}] });
@@ -71,7 +65,7 @@ async function main(){
   const delHard = await jx('DELETE',`/api/products/${npid}`,null,admin);
   ok('unreferenced product hard-deleted 200', delHard.status===200, 'status='+delHard.status);
 
-  // ===== category & brand delete while products attached -> 400 not 500 =====
+  // ===== #18 / #19 CATEGORY & BRAND DELETE WITH PRODUCTS -> 400 not 500 =====
   const delCat = await jx('DELETE','/api/admin/categories/1',null,admin);
   ok('delete category-with-products -> 400 (not 500)', delCat.status===400, 'status='+delCat.status);
   const delBrand = await jx('DELETE','/api/admin/brands/1',null,admin);
@@ -82,7 +76,7 @@ async function main(){
   const delEmpty = await jx('DELETE',`/api/admin/categories/${ecid}`,null,admin);
   ok('empty category deletable 200', delEmpty.status===200, 'status='+delEmpty.status);
 
-  // ===== user delete: with orders -> block, fresh -> hard delete =====
+  // ===== #20 USER DELETE: with orders -> block, fresh -> hard delete =====
   const email='r6-del-'+Date.now()+'@example.com';
   const reg = await jx('POST','/api/auth/register',{ email, password:'123456', full_name:'R6 حذف' });
   const uid = reg.j?.data?.user?.id;
@@ -94,8 +88,8 @@ async function main(){
   const delSelf = await jx('DELETE',`/api/admin/users/${me.id}`,null,admin);
   ok('cannot delete self 400', delSelf.status===400, 'status='+delSelf.status);
 
-  console.log(`\n${fail?'\x1b[31m':'\x1b[32m'}test_settings_and_deletes: ${pass} passed, ${fail} failed\x1b[0m`);
+  console.log(`\n${fail?'\x1b[31m':'\x1b[32m'}test_roundtrip6: ${pass} passed, ${fail} failed\x1b[0m`);
   if(fails.length) console.log('  '+fails.join('\n  '));
   process.exit(fail?1:0);
 }
-main().catch(e=>{ console.error(e); console.log(`test_settings_and_deletes: ${pass} passed, ${fail+1} failed`); process.exit(1); });
+main().catch(e=>{ console.error(e); console.log(`test_roundtrip6: ${pass} passed, ${fail+1} failed`); process.exit(1); });

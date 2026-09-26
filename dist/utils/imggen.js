@@ -1,11 +1,11 @@
 /**
- * On-upload responsive variant generation.
+ * F2f — on-upload responsive variant generation.
  * ------------------------------------------------------------------
  * The build-time pipeline (scripts/perf/build_images.py) only knows about
- * images that existed when it ran. Product photos are added from the admin
- * panel continuously, and without this module those new photos would be
- * served at full size forever, so the responsive-image win would silently
- * decay away again.
+ * images that existed when it ran. The shop owner adds product photos from
+ * the admin panel every day, and without this module those new photos would
+ * be served at full size forever — the performance win would silently decay
+ * back to the original 6.2 s LCP.
  *
  * So: whenever an image is uploaded we generate the same WebP ladder and
  * append it to the manifest, in the background, never blocking the response.

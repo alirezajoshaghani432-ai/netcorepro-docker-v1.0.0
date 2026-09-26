@@ -1,9 +1,9 @@
 /**
- * NetCore Pro — contact / chat channels
+ * NetCore Pro — contact / chat channels (F1)
  * ------------------------------------------------------------------
  * Every "گفتگو با کارشناسان / گفتگوی سریع / ارسال لیست / تلگرام /
  * واتساپ / ایتا / تماس تلفنی" button in the storefront is rendered from
- * THIS list, so an administrator can change every label, link and
+ * THIS list, so the shop owner can change every label, link and
  * visibility from  /admin/settings  without touching code.
  *
  * A channel is rendered only when its setting holds a value AND it is not

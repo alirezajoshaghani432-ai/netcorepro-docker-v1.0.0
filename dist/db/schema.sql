@@ -245,7 +245,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
 CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_logs(created_at);
 
 -- =========================================================
--- Site Content — admin-editable page blocks and static pages
+-- Site Content Wiring (PROMPT #2) — admin-editable hardcoded content
 -- =========================================================
 
 -- Generic "blocks" table: page + section + ordered items.

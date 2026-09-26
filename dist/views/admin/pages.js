@@ -304,12 +304,12 @@ export function adminProductsPage() {
               </select>
               <input id="pf-disc-val" type="number" min="0" placeholder="مثلاً 5" class="border rounded-lg px-3 py-2 text-sm w-32">
               <button type="button" onclick="applyDiscountCalc()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold"><i class="fas fa-calculator ml-1"></i>اعمال</button>
-              <button type="button" onclick="clearProductDiscount()" class="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 rounded-lg text-sm font-bold"><i class="fas fa-xmark ml-1"></i>حذف تخفیف</button>
               <span id="pf-disc-hint" class="text-xs text-amber-700"></span>
             </div>
           </div>
           <div class="grid md:grid-cols-2 gap-3">
             <div><label class="block text-sm mb-1"><i class="fas fa-shield-halved ml-1 text-emerald-600"></i>نوع گارانتی <span class="text-[11px] text-slate-400">— در صفحه محصول نمایش داده می‌شود</span></label><input name="guarantee" value="\${escAdmin(p.guarantee || '')}" placeholder="مثال: گارانتی ۱۸ ماهه آماد سیستم" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-sm mb-1"><i class="fas fa-percent ml-1 text-amber-600"></i>درصد مالیات این محصول <span class="text-[11px] text-slate-400">— خالی بگذارید تا درصد سراسری تنظیمات اعمال شود</span></label><input name="tax_percent" type="number" step="0.1" min="0" max="25" value="\${p.tax_percent ?? ''}" placeholder="مثلاً 9 — خالی = درصد سراسری" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
           </div>
           \${window.ncpImageField('image', p.image || '', 'تصویر اصلی محصول')}
           <div class="border border-sky-200 rounded-xl p-3 bg-sky-50/70 text-[12px] leading-6 text-sky-900">
@@ -476,94 +476,33 @@ export function adminProductsPage() {
         initProductFormExtras(p);
         bindProductForm(p.id);
       };
-      window.clearProductDiscount = function () {
-        const dEl = document.getElementById('pf-dprice');
-        const vEl = document.getElementById('pf-disc-val');
-        const hint = document.getElementById('pf-disc-hint');
-        if (dEl) dEl.value = '';
-        if (vEl) vEl.value = '';
-        if (hint) hint.textContent = 'تخفیف حذف شد — پس از ذخیره، قیمت اصلی اعمال می‌شود';
-        window.ncMarkDirty && window.ncMarkDirty();
-      };
       window.applyDiscountCalc = function () {
         const priceEl = document.getElementById('pf-price');
         const dEl = document.getElementById('pf-dprice');
-        const vEl = document.getElementById('pf-disc-val');
-        const modeEl = document.getElementById('pf-disc-mode');
+        const mode = document.getElementById('pf-disc-mode').value;
+        const val = parseFloat(document.getElementById('pf-disc-val').value);
         const hint = document.getElementById('pf-disc-hint');
-        const raw = vEl ? String(vEl.value).trim() : '';
-        const val = parseFloat(raw);
         const price = parseFloat(priceEl && priceEl.value);
-        // Empty / 0 percent or amount = remove discount (must persist as NULL).
-        if (raw === '' || !Number.isFinite(val) || val <= 0) {
-          window.clearProductDiscount();
-          return true;
-        }
-        if (!price || price <= 0) { toast('اول قیمت اصلی را وارد کنید', 'error'); return false; }
-        const mode = modeEl ? modeEl.value : 'percent';
+        if (!price || price <= 0) { toast('اول قیمت اصلی را وارد کنید', 'error'); return; }
+        if (!val || val <= 0) { toast('مقدار تخفیف را وارد کنید', 'error'); return; }
         let final;
         if (mode === 'percent') {
-          if (val >= 100) { toast('درصد باید کمتر از ۱۰۰ باشد', 'error'); return false; }
+          if (val >= 100) { toast('درصد باید کمتر از ۱۰۰ باشد', 'error'); return; }
           final = Math.round(price * (1 - val / 100) / 1000) * 1000;
         } else {
-          if (val >= price) { toast('مبلغ تخفیف باید کمتر از قیمت باشد', 'error'); return false; }
+          if (val >= price) { toast('مبلغ تخفیف باید کمتر از قیمت باشد', 'error'); return; }
           final = price - val;
-        }
-        if (!final || final <= 0 || final >= price) {
-          window.clearProductDiscount();
-          return true;
         }
         dEl.value = final;
         if (hint) hint.textContent = 'قیمت تخفیف: ' + final.toLocaleString('fa-IR') + ' تومان (' + Math.round((1 - final / price) * 100) + '٪ کمتر)';
         window.ncMarkDirty && window.ncMarkDirty();
-        return true;
       };
       function bindProductForm(id) {
-        const form = document.getElementById('product-form');
-        const vEl = document.getElementById('pf-disc-val');
-        const dEl = document.getElementById('pf-dprice');
-        if (vEl) {
-          vEl.addEventListener('input', () => {
-            if (String(vEl.value).trim() === '') {
-              if (dEl) dEl.value = '';
-              const hint = document.getElementById('pf-disc-hint');
-              if (hint) hint.textContent = 'تخفیف حذف می‌شود';
-              window.ncMarkDirty && window.ncMarkDirty();
-            }
-          });
-          vEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              applyDiscountCalc();
-              form.requestSubmit();
-            }
-          });
-        }
-        if (dEl) {
-          dEl.addEventListener('input', () => {
-            if (String(dEl.value).trim() === '') {
-              if (vEl) vEl.value = '';
-              window.ncMarkDirty && window.ncMarkDirty();
-            }
-          });
-        }
-        form.addEventListener('submit', async (e) => {
+        document.getElementById('product-form').addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(e.target);
           const data = Object.fromEntries(fd.entries());
-          ['category_id','brand_id','price','stock','featured'].forEach(k => {
-            if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k], 10);
-            else if (data[k] === '') delete data[k];
-          });
-          // Empty discount must be sent as null so the API writes NULL (not skipped).
-          const discRaw = String(data.discount_price ?? '').trim();
-          const discNum = parseInt(discRaw, 10);
-          const priceNum = parseInt(data.price, 10);
-          if (!discRaw || !Number.isFinite(discNum) || discNum <= 0 || (Number.isFinite(priceNum) && discNum >= priceNum)) {
-            data.discount_price = null;
-          } else {
-            data.discount_price = discNum;
-          }
+          ['category_id','brand_id','price','discount_price','stock','featured'].forEach(k => { if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k]); else if (data[k] === '') delete data[k]; });
           data.gallery = JSON.stringify(collectGallery());
           data.specs = JSON.stringify(collectSpecs());
           data.key_features = JSON.stringify(collectFeatures());
@@ -670,7 +609,6 @@ export function adminOrdersPage() {
                       ? '<span class="font-mono text-indigo-600" dir="ltr">' + escAdmin(o.payment_ref) + '</span>'
                       : '<span class="text-slate-400">هنوز ثبت نشده</span>'}</div>
                   \${o.payment_note ? '<div class="md:col-span-2"><b>توضیح مشتری:</b> ' + escAdmin(o.payment_note) + '</div>' : ''}
-                  \${o.receipt_image ? '<div class="md:col-span-2"><b>تصویر رسید:</b><br><a href="' + escAdmin(o.receipt_image) + '" target="_blank" rel="noopener"><img src="' + escAdmin(o.receipt_image) + '" alt="رسید واریز" class="nc-receipt-img-admin" style="max-width:280px;max-height:220px;margin-top:8px;border-radius:10px;border:1px solid #e2e8f0;object-fit:contain"></a></div>' : ''}
                   \${o.paid_at ? '<div class="md:col-span-2"><b>تاریخ تایید پرداخت:</b> ' + formatDate(o.paid_at) + '</div>' : ''}
                 </div>
                 <div class="flex gap-2">
@@ -1279,6 +1217,9 @@ export function adminSettingsPage() {
         { k:'chan_primary', l:'دکمه اصلی «گفتگو با کارشناسان» از کدام راه باشد؟', select: CHANNELS.map(c => c.key), selectLabels: CHANNELS.map(c => c.label) },
         { k:'chan_expert_label', l:'عنوان دکمه اصلی', ph:'گفتگو با کارشناسان' },
         { k:'chan_expert_note', l:'یادداشت زیر دکمه‌های تماس (اختیاری)', textarea:true, ph:'مثلاً: پاسخگویی شنبه تا چهارشنبه ۹ تا ۱۷' },
+        { sec:'مالیات بر ارزش افزوده', icon:'fa-percent', help:'مالیات فقط در مرحله پرداخت (پیش‌فاکتور نهایی و درگاه) به مبلغ سفارش اضافه می‌شود و در حین خرید نمایش داده نمی‌شود. زیر توضیحات هر محصول هم یک جمله کوچک درباره مالیات درج می‌شود. اگر برای محصولی «درصد مالیات» جداگانه ثبت کنید، همان جایگزین درصد سراسری می‌شود.' },
+        { k:'tax_enabled', l:'مالیات فعال باشد؟', select:['فعال','غیرفعال'] },
+        { k:'tax_percent', l:'درصد مالیات سراسری (مثلاً 9)', ph:'9' },
         { sec:'تنظیمات پرداخت — کارت به کارت', icon:'fa-credit-card' },
         { k:'pay_card_enabled', l:'کارت به کارت فعال باشد؟', select:['فعال','غیرفعال'] },
         { k:'pay_card_number', l:'شماره کارت (۱۶ رقمی)' },
@@ -2139,4 +2080,95 @@ export function adminProductOrderPage() {
     </script>
   `;
     return adminLayout({ title: 'چیدمان محصولات', currentPath: '/admin/product-order' }, content);
+}
+
+// ===== Multiple home pages management (voice n9) =====
+export function adminHomePagesPage() {
+    const content = `
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold"><i class="fas fa-layer-group ml-1 text-indigo-600"></i>صفحات هوم چندگانه</h2>
+        <button onclick="newHP()" class="btn-indigo text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-plus ml-1"></i>صفحه هوم جدید</button>
+      </div>
+      <div class="bg-sky-50 border border-sky-200 rounded-lg p-3 text-xs text-sky-800 mb-4 leading-6">
+        <i class="fas fa-circle-info ml-1"></i>
+        برای هر خانواده محصول (مثلاً «محصولات دیجیتال») یک صفحه هوم مستقل بسازید. هر صفحه هیرو، دسته‌بندی‌ها و ریل‌های محصول مخصوص خودش را دارد و در آدرس <b dir="ltr">/h/اسلاگ</b> نمایش داده می‌شود. اگر «نمایش در منو» فعال باشد، لینک آن به نوار بالای سایت اضافه می‌شود.
+      </div>
+      <div id="hp-list"><div class="text-center py-10"><span class="spinner"></span></div></div>
+    </div>
+    <script>
+      let HP_CATS = [], HP_BRANDS = [];
+      async function loadHP() {
+        const [r, rc, rb] = await Promise.all([
+          axios.get('/api/content/admin/home-pages'),
+          axios.get('/api/admin/categories'),
+          axios.get('/api/admin/brands'),
+        ]);
+        HP_CATS = rc.data.data || []; HP_BRANDS = rb.data.data || [];
+        const items = r.data.data || [];
+        document.getElementById('hp-list').innerHTML = items.length ? \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">عنوان</th><th class="px-3 py-3 text-right">آدرس</th><th class="px-3 py-3 text-right">دسته‌ها</th><th class="px-3 py-3 text-right">در منو</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${items.map(h => \`<tr class="border-t"><td class="px-3 py-2 font-bold">\${escAdmin(h.title)}</td><td class="px-3 py-2"><a href="/h/\${escAdmin(h.slug)}" target="_blank" class="text-indigo-600 text-xs" dir="ltr">/h/\${escAdmin(h.slug)} <i class="fas fa-up-right-from-square text-[10px]"></i></a></td><td class="px-3 py-2 text-xs text-slate-500">\${hpCatNames(h.category_ids)}</td><td class="px-3 py-2">\${h.show_in_nav ? '<span class="text-emerald-600"><i class="fas fa-check"></i></span>' : '<span class="text-slate-300"><i class="fas fa-minus"></i></span>'}</td><td class="px-3 py-2">\${h.is_active ? '<span class="badge badge-active">فعال</span>' : '<span class="badge badge-inactive">غیرفعال</span>'}</td><td class="px-3 py-2"><button onclick='editHP(\${attrJson(h)})' class="text-indigo-600 ml-2"><i class="fas fa-pen"></i></button><button onclick="delHP(\${h.id})" class="text-red-600"><i class="fas fa-trash"></i></button></td></tr>\`).join('')}</tbody></table>\` : '<p class="text-center text-slate-400 py-10">هنوز صفحه هومی ساخته نشده است. اولین صفحه را بسازید!</p>';
+      }
+      function hpCatNames(csv) {
+        const ids = String(csv || '').split(',').map(x => parseInt(x)).filter(Boolean);
+        return ids.map(id => (HP_CATS.find(c => c.id === id) || {}).name).filter(Boolean).join('، ') || '—';
+      }
+      function hpChecks(name, csv, list) {
+        const sel = String(csv || '').split(',').map(x => parseInt(x)).filter(Boolean);
+        return '<div class="flex flex-wrap gap-2 border rounded-lg p-2 max-h-36 overflow-y-auto">' + list.map(it =>
+          '<label class="flex items-center gap-1 text-xs bg-slate-50 rounded px-2 py-1 cursor-pointer"><input type="checkbox" name="' + name + '" value="' + it.id + '"' + (sel.includes(it.id) ? ' checked' : '') + '> ' + escAdmin(it.name) + '</label>'
+        ).join('') + '</div>';
+      }
+      function hpForm(h = {}) {
+        return \`<form id="hp-form" class="space-y-3">
+          <div class="grid md:grid-cols-2 gap-3">
+            <div><label class="block text-sm mb-1">عنوان صفحه *</label><input name="title" required value="\${escAdmin(h.title || '')}" placeholder="مثلاً: محصولات دیجیتال" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-sm mb-1">اسلاگ (انگلیسی) *</label><input name="slug" required pattern="[a-z0-9\\\\-]+" value="\${escAdmin(h.slug || '')}" placeholder="digital" dir="ltr" class="w-full border rounded-lg px-3 py-2 text-sm"><small class="text-[11px] text-slate-400">آدرس صفحه: /h/اسلاگ</small></div>
+          </div>
+          <div><label class="block text-sm mb-1">شعار کوتاه</label><input name="tagline" value="\${escAdmin(h.tagline || '')}" placeholder="بهترین تجهیزات دیجیتال با گارانتی معتبر" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+          <div class="border rounded-lg p-3 bg-slate-50 space-y-3">
+            <div class="text-xs font-bold text-slate-600"><i class="fas fa-image ml-1"></i>هیرو (بنر بالای صفحه)</div>
+            \${window.ncpImageField('hero_image', h.hero_image || '', 'تصویر هیرو')}
+            <div class="grid md:grid-cols-2 gap-3">
+              <div><label class="block text-sm mb-1">عنوان هیرو</label><input name="hero_title" value="\${escAdmin(h.hero_title || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+              <div><label class="block text-sm mb-1">زیرعنوان هیرو</label><input name="hero_sub" value="\${escAdmin(h.hero_sub || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            </div>
+            <div><label class="block text-sm mb-1">لینک دکمه هیرو</label><input name="hero_link" value="\${escAdmin(h.hero_link || '')}" placeholder="/products?category=..." dir="ltr" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+          <div><label class="block text-sm mb-1"><i class="fas fa-folder-tree ml-1 text-indigo-500"></i>دسته‌بندی‌های این صفحه</label>\${hpChecks('cat_ids', h.category_ids, HP_CATS)}</div>
+          <div><label class="block text-sm mb-1"><i class="fas fa-tag ml-1 text-indigo-500"></i>برندهای این صفحه (اختیاری)</label>\${hpChecks('brand_ids', h.brand_ids, HP_BRANDS)}</div>
+          <div class="grid md:grid-cols-3 gap-3">
+            <div><label class="block text-sm mb-1">نمایش در منوی سایت</label><select name="show_in_nav" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="1"\${h.show_in_nav !== 0 ? ' selected' : ''}>بله</option><option value="0"\${h.show_in_nav === 0 ? ' selected' : ''}>خیر</option></select></div>
+            <div><label class="block text-sm mb-1">ترتیب</label><input name="sort_order" type="number" value="\${h.sort_order ?? 0}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-sm mb-1">وضعیت</label><select name="is_active" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="1"\${h.is_active !== 0 ? ' selected' : ''}>فعال</option><option value="0"\${h.is_active === 0 ? ' selected' : ''}>غیرفعال</option></select></div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div><label class="block text-sm mb-1">عنوان سئو</label><input name="seo_title" value="\${escAdmin(h.seo_title || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+            <div><label class="block text-sm mb-1">توضیح سئو</label><input name="seo_description" value="\${escAdmin(h.seo_description || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+          </div>
+          <div class="flex gap-2 pt-3 border-t"><button type="submit" class="btn-indigo text-white px-5 py-2 rounded-lg text-sm">ذخیره</button><button type="button" onclick="closeModal(true)" class="px-5 py-2 bg-slate-200 rounded-lg text-sm">انصراف</button></div>
+        </form>\`;
+      }
+      function bindHPForm(id) {
+        if (window.bindImageFields) window.bindImageFields(document.getElementById('hp-form'));
+        document.getElementById('hp-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const f = e.target;
+          const data = Object.fromEntries(new FormData(f).entries());
+          data.category_ids = Array.from(f.querySelectorAll('input[name=cat_ids]:checked')).map(i => i.value).join(',');
+          data.brand_ids = Array.from(f.querySelectorAll('input[name=brand_ids]:checked')).map(i => i.value).join(',');
+          delete data.cat_ids; delete data.brand_ids2;
+          try {
+            if (id) await axios.put('/api/content/admin/home-pages/' + id, data);
+            else await axios.post('/api/content/admin/home-pages', data);
+            toast('ذخیره شد', 'success'); closeModal(); loadHP();
+          } catch (err) { toast(err.response?.data?.message || 'خطا', 'error'); }
+        });
+      }
+      window.newHP = () => { showModal('صفحه هوم جدید', hpForm({})); bindHPForm(); };
+      window.editHP = (h) => { showModal('ویرایش صفحه هوم', hpForm(h)); bindHPForm(h.id); };
+      window.delHP = (id) => confirmDialog('این صفحه هوم حذف شود؟', async () => { await axios.delete('/api/content/admin/home-pages/' + id); toast('حذف شد', 'success'); loadHP(); });
+      loadHP();
+    </script>
+  `;
+    return adminLayout({ title: 'صفحات هوم چندگانه', currentPath: '/admin/home-pages' }, content);
 }

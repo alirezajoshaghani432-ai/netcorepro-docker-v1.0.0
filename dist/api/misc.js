@@ -20,16 +20,8 @@ misc.post('/newsletter/subscribe', async (c) => {
     const email = parsed.data.email;
     try {
         // Re-subscribe if previously unsubscribed; insert if new.
-        const type = (process.env.DB_TYPE || 'mssql').toLowerCase();
-        if (type === 'mssql') {
-            db.prepare(`MERGE newsletter_subscribers AS tgt
-                        USING (SELECT ? AS email) AS src ON tgt.email = src.email
-                        WHEN MATCHED THEN UPDATE SET status = N'active'
-                        WHEN NOT MATCHED THEN INSERT (email, status) VALUES (src.email, N'active');`).run(email);
-        } else {
-            db.prepare(`INSERT INTO newsletter_subscribers (email, status) VALUES (?, 'active')
-                        ON CONFLICT(email) DO UPDATE SET status = 'active'`).run(email);
-        }
+        db.prepare(`INSERT INTO newsletter_subscribers (email, status) VALUES (?, 'active')
+                    ON CONFLICT(email) DO UPDATE SET status = 'active'`).run(email);
         logActivity({ action: 'create', entity_type: 'newsletter', details: { email }, ip_address: c.req.header('x-forwarded-for') || 'local' });
         return c.json({ success: true, message: 'ایمیل شما در خبرنامه ثبت شد', code: 200 });
     }
@@ -173,7 +165,7 @@ const categorySchema = z.object({
     image: z.string().optional().nullable(),
     parent_id: z.number().int().positive().optional().nullable(),
     sort_order: z.number().int().optional().nullable(),
-    // Admin-controlled visibility in the header mega-menu.
+    // V4: owner-controlled visibility in the header mega-menu.
     // Accepts boolean or 0/1 so the checkbox and the API both work.
     show_in_menu: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional().nullable(),
     seo_title: z.string().optional().nullable(),
@@ -301,11 +293,12 @@ misc.delete('/admin/categories/:id', adminRequired, (c) => {
     return c.json({ success: true, message: 'حذف شد', code: 200 });
 });
 /* =====================================================================
-   Menu Builder endpoints — simplified navigation editor
+   V4 (2026-08-05) — Menu Builder endpoints
    ---------------------------------------------------------------------
-   These three lightweight endpoints power /admin/menu-builder. Each one is
-   deliberately narrow (a single concern) so an accidental action can never
-   damage unrelated fields of a category.
+   Owner voice note: "make me a panel where I can change these names myself,
+   add or remove a category, so I don't have to keep calling you."
+   These three light endpoints power /admin/menu-builder and are deliberately
+   narrow (one concern each) so a mis-click can never damage other fields.
    ===================================================================== */
 
 /** Inline rename — only the display name changes; slug/SEO/links stay intact

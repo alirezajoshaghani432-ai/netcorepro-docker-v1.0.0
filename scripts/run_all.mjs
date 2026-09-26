@@ -4,9 +4,7 @@ import { execSync } from 'node:child_process';
 const SUITES = [
   'test_admin_api', 'test_dashboard_to_site', 'test_pages', 'test_images',
   'test_ui_health', 'test_links', 'test_forms', 'test_order_flow', 'test_security', 'test_access_control',
-  'test_dashboard_sync', 'test_edge_cases', 'test_xss', 'test_media_and_reports', 'test_special_flows',
-  'test_settings_and_deletes', 'test_referential_integrity', 'test_newsletter_and_search',
-  'test_html_sanitizer', 'test_settings_injection',
+  'test_dashboard_roundtrip', 'test_edge_cases', 'test_xss', 'test_roundtrip5', 'test_special_flows', 'test_roundtrip6', 'test_roundtrip7', 'test_roundtrip8', 'test_roundtrip9', 'test_roundtrip10',
   // نگهبان کیفیت داده: عکس دسته‌ها (تکراری بودن را هشدار می‌دهد، رد نمی‌کند)
   'test_category_images'
 ];

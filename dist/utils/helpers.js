@@ -20,15 +20,6 @@ export function getAllSettings() {
     return obj;
 }
 export function setSetting(key, value) {
-    const type = (process.env.DB_TYPE || 'mssql').toLowerCase();
-    if (type === 'mssql') {
-        db.prepare(`MERGE settings AS tgt
-                    USING (SELECT ? AS [key], ? AS value) AS src
-                    ON tgt.[key] = src.[key]
-                    WHEN MATCHED THEN UPDATE SET value = src.value, updated_at = SYSUTCDATETIME()
-                    WHEN NOT MATCHED THEN INSERT ([key], value, updated_at) VALUES (src.[key], src.value, SYSUTCDATETIME());`).run(key, value);
-        return;
-    }
     db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`).run(key, value);
 }

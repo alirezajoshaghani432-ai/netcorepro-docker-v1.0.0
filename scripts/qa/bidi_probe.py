@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Character-level bidi probe.
-
-Measures the on-screen x position of every glyph in the mega-menu labels to
-show where the Unicode Bidi Algorithm actually places a trailing "(count)"
-inside a mixed Persian+Latin string. Diagnostic helper, not a test.
-"""
+"""Character-level bidi probe: prove WHERE the (count) lands visually."""
 import asyncio
 from playwright.async_api import async_playwright
 BASE = "http://127.0.0.1:8090"

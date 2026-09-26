@@ -1,4 +1,4 @@
-// Edge-case audit: malformed/hostile inputs must never produce a 500.
+// Round-2 edge-case audit: malformed/hostile inputs must never produce a 500.
 // Also checks validation returns proper 4xx and stable response shape.
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass = 0, fail = 0; const fails = [];

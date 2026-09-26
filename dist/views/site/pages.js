@@ -1,7 +1,7 @@
 import db from '../../db/index.js';
 import { siteLayout } from '../shared/layout.js';
 import { getAllSettings, formatPrice } from '../../utils/helpers.js';
-import { getBlocks, getPage } from '../../api/content.js';
+import { getBlocks, getPage, getHomePageBySlug, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
 import { ncImg, imgPreload, bestUrl } from '../../utils/img.js';
 // F2f — `sizes` presets: tell the browser the real rendered width so it
@@ -600,7 +600,7 @@ export function productsPage(query) {
             const br = db.prepare(`SELECT id FROM brands WHERE slug = ?`).get(query.brand);
             if (br) { conds.push(`p.brand_id = ?`); params.push(br.id); }
         }
-        // Default order: inside a category the manual drag & drop
+        // Default order: inside a category the shop owner's manual drag&drop
         // ordering (sort_order) wins; global list stays newest-first.
         // Mirrors /api/products behavior.
         let order = query.category
@@ -818,9 +818,6 @@ export function productPage(slug) {
     try { gallery = JSON.parse(p.gallery || '[]') || []; } catch (e) { gallery = []; }
     try { specs = JSON.parse(p.specs || '[]') || []; } catch (e) { specs = []; }
     try { keyFeatures = (JSON.parse(p.key_features || '[]') || []).filter(f => typeof f === 'string' && f.trim()); } catch (e) { keyFeatures = []; }
-    // Do not surface AI-hallucinated / debug feature lists on the storefront.
-    // Admin can still store them; they are not shown at the top of the PDP.
-    keyFeatures = [];
     // Grouped specs: preserve insertion order of groups; ungrouped rows go under ''
     const specGroups = [];
     specs.forEach(s => {
@@ -830,10 +827,7 @@ export function productPage(slug) {
         bucket.rows.push(s);
     });
     const hasGroups = specGroups.some(g => g.name);
-    const isModemAsset = (u) => /banner-mid-2-router/i.test(String(u || ''));
-    const allImages = [p.image, ...gallery.filter(g => g && g !== p.image)]
-        .filter(u => u && !isModemAsset(u));
-    if (!allImages.length) allImages.push('/static/images/p1.svg');
+    const allImages = [p.image || '/static/images/p1.svg', ...gallery.filter(g => g && g !== p.image)];
     const settings = getAllSettings();
     // F1: all contact buttons on this page come from the admin-managed
     // channel list (utils/contact.js) — labels, links and visibility included.
@@ -844,13 +838,22 @@ export function productPage(slug) {
     const expertLabel = (settings.chan_expert_label || '').trim() || 'گفتگو با کارشناسان';
     const expertNote = (settings.chan_expert_note || '').trim() || 'استعلام قیمت کالا برای همکاران و کارفرمایان';
     const ctaBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-cta-btn ${c.cls}"><i class="${c.icon}"></i> ${esc(c.display || c.label)}</a>`).join('');
-    const isDebugText = (t) => /^\s*R\d+\s+valid\s+edit\b/i.test(String(t || '')) || /178\d{10}/.test(String(t || ''));
-    const shortText = isDebugText(p.short_description) ? '' : (p.short_description || '');
-    // V6d: promo under gallery — never fall back to the modem/router stock image
-    const promoBlocks = getBlocks('product', 'promo_banner').filter(b => b && b.image && !isModemAsset(b.image));
+    const expertBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-expert-btn ${c.cls}"><i class="${c.icon}"></i><span>${esc(c.display || c.label)}</span></a>`).join('');
+    // V6d: small promo banner under the PDP gallery (editable from admin: site_blocks page='product' section='promo_banner')
+    const promoBlocks = getBlocks('product', 'promo_banner');
     const promoBanner = (promoBlocks && promoBlocks.length)
-        ? { image: promoBlocks[0].image, href: promoBlocks[0].href || '/products', title: promoBlocks[0].title || 'پیشنهاد ویژه' }
-        : null;
+        ? { image: promoBlocks[0].image || '/static/images/banner-mid-2-router.jpg', href: promoBlocks[0].href || '/products', title: promoBlocks[0].title || 'پیشنهاد ویژه' }
+        : { image: '/static/images/banner-mid-2-router.jpg', href: '/products?category=routers', title: 'پیشنهاد ویژه' };
+    // VAT note (voice n9): one small sentence under every product description.
+    // The percent is per-product (products.tax_percent) falling back to the
+    // global setting; hidden entirely when tax is disabled.
+    const taxEnabledPdp = (settings.tax_enabled || 'فعال') !== 'غیرفعال';
+    const taxPctPdp = (p.tax_percent !== null && p.tax_percent !== undefined && p.tax_percent !== '')
+        ? (parseFloat(p.tax_percent) || 0)
+        : (parseFloat(settings.tax_percent || '9') || 0);
+    const taxNote = (taxEnabledPdp && taxPctPdp > 0)
+        ? `<p class="nc-tax-note"><i class="fas fa-circle-info"></i> به قیمت این محصول ${formatPrice(taxPctPdp)}٪ مالیات بر ارزش افزوده تعلق می‌گیرد که در مرحله پرداخت به مبلغ نهایی اضافه می‌شود.</p>`
+        : '';
     const faDate2 = (d) => { try { return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch (e) { return ''; } };
     const content = `
     <div class="nc-container nc-page">
@@ -871,9 +874,9 @@ export function productPage(slug) {
           <div class="nc-pdp-thumbs">
             ${allImages.map((g, i) => `<button class="nc-pdp-thumb${i === 0 ? ' active' : ''}" data-src="${esc(g)}" aria-label="تصویر ${i + 1}">${ncImg(g, { alt: '', sizes: '58px', ratio: false })}</button>`).join('')}
           </div>` : ''}
-          ${promoBanner ? `<a href="${esc(promoBanner.href)}" class="nc-pdp-promobanner" aria-label="${esc(promoBanner.title)}">
+          <a href="${esc(promoBanner.href)}" class="nc-pdp-promobanner" aria-label="${esc(promoBanner.title)}">
             ${ncImg(promoBanner.image, { alt: promoBanner.title, sizes: SZ_PDP, ratio: false })}
-          </a>` : ''}
+          </a>
         </div>
 
         <!-- info -->
@@ -891,7 +894,12 @@ export function productPage(slug) {
             <span class="nc-metaline-item views"><i class="far fa-eye"></i> ${formatPrice(p.views || 0)} بازدید</span>
           </div>
           ${p.brand_name ? `<div class="nc-pdp-inforows"><div class="nc-inforow r-brand"><span class="nc-inforow-l"><i class="fas fa-tag"></i> برند</span><a class="nc-inforow-v link" href="/products?brand=${esc(p.brand_slug || '')}">${esc(p.brand_name)}</a></div></div>` : ''}
-          ${shortText ? `<p class="nc-pdp-short">${esc(shortText)}</p>` : ''}
+          ${keyFeatures.length ? `
+          <div class="nc-pdp-keyfeats">
+            <strong><i class="fas fa-star"></i> ویژگی‌های کلیدی:</strong>
+            <ul>${keyFeatures.map(f => `<li><i class="fas fa-check-circle"></i><span>${esc(f)}</span></li>`).join('')}</ul>
+          </div>` : ''}
+          <p class="nc-pdp-short">${esc(p.short_description || '')}</p>
           ${specs.length ? `<a href="#pdp-tabs" onclick="switchTab('specs')" class="nc-pdp-morespecs standalone"><i class="fas fa-list-ul ml-1"></i>مشاهده مشخصات فنی کامل <i class="fas fa-angle-down"></i></a>` : ''}
           <div class="nc-pdp-cta">
             <div class="nc-pdp-cta-text">
@@ -926,9 +934,12 @@ export function productPage(slug) {
           <button onclick="addNow()" class="nc-btn-primary nc-buybox-add"><i class="fas fa-cart-plus ml-2"></i>افزودن به سبد خرید</button>` : '<div class="nc-pdp-unavailable">این محصول در حال حاضر موجود نیست</div>'}
           <a href="${esc(chatLink)}"${chatExternal ? ' target="_blank" rel="noopener"' : ''} class="nc-buybox-chat"><i class="fas fa-headset ml-2"></i>${esc(expertLabel)}</a>
           <a href="/cart" class="nc-buybox-invoice"><i class="fas fa-file-invoice ml-2"></i>دریافت پیش‌فاکتور</a>
-          <div class="nc-buybox-help">
-            <i class="fas fa-user-tie"></i>
-            <div><b>${esc(expertLabel)}</b><span>${esc(expertNote)}</span></div>
+          <div class="nc-expert-block">
+            <div class="nc-expert-head">
+              <span class="nc-expert-avatar"><img src="/static/images/expert.svg" alt="کارشناس فروش"><i class="nc-expert-dot"></i></span>
+              <div><b>${esc(expertLabel)}</b><span>${esc(expertNote)}</span></div>
+            </div>
+            <div class="nc-expert-btns">${expertBtns}</div>
           </div>
           <div class="nc-pdp-trust">
             <span><i class="fas fa-truck-fast"></i> ارسال سریع</span>
@@ -957,7 +968,8 @@ export function productPage(slug) {
           </table>
         </div>` : ''}
         <div class="nc-pdp-panel${specs.length ? '' : ' active'}" id="tab-review">
-          <p class="nc-empty-inline">نقد و بررسی این محصول به‌زودی تکمیل می‌شود. مشخصات فنی را در تب مربوطه ببینید.</p>
+          <div class="prose-rtl">${p.description ? sanitizeHtml(esc(p.description).replace(/\n/g, '<br>')) : 'توضیحات تکمیلی در دسترس نیست.'}</div>
+          ${taxNote}
         </div>
         <div class="nc-pdp-panel" id="tab-comments">
           ${comments.length ? comments.map(cm => `
@@ -979,12 +991,6 @@ export function productPage(slug) {
           <p class="nc-empty-inline">سوالی درباره این محصول دارید؟ از طریق <a href="${esc(chatLink)}" target="_blank" rel="noopener" style="color:var(--nc-primary);font-weight:700">گفتگو با کارشناس‌ها</a> یا فرم <a href="/contact" style="color:var(--nc-primary);font-weight:700">تماس با ما</a> بپرسید — در سریع‌ترین زمان پاسخ می‌دهیم.</p>
         </div>
       </div>
-
-      ${p.description ? `
-      <section class="nc-pdp-fulldesc" id="pdp-description">
-        <h2><i class="fas fa-align-right ml-2"></i>توضیحات محصول</h2>
-        <div class="prose-rtl">${sanitizeHtml(esc(p.description).replace(/\n/g, '<br>'))}</div>
-      </section>` : ''}
 
       ${related.length ? `
       <div class="nc-section-head" style="margin-top:28px">
@@ -1057,7 +1063,7 @@ export function productPage(slug) {
   `;
     return siteLayout({
         title: p.seo_title || p.name,
-        description: p.seo_description || shortText || (p.name + ' | NetCore Pro'),
+        description: p.seo_description || p.short_description || '',
         keywords: p.seo_keywords || '',
         ogImage: p.image || '',
         currentPath: '/product/' + p.slug,
@@ -1068,7 +1074,7 @@ export function productPage(slug) {
             name: p.name,
             sku: p.sku || undefined,
             image: p.image || undefined,
-            description: p.seo_description || shortText || p.name,
+            description: p.short_description || p.seo_description || undefined,
             brand: p.brand_name ? { '@type': 'Brand', name: p.brand_name } : undefined,
             offers: {
                 '@type': 'Offer',
@@ -1426,62 +1432,6 @@ export function orderSuccessPage(orderNumber) {
       var PAY_LABEL = { card: 'کارت به کارت', gateway: 'پرداخت آنلاین', cod: 'هماهنگی با کارشناس فروش' };
       var PAYST_LABEL = { pending: ['در انتظار پرداخت', 'nc-pending'], awaiting_review: ['رسید ثبت شد — در انتظار بررسی', 'nc-review'], paid: ['پرداخت شده', 'nc-paid'], failed: ['ناموفق', 'nc-failed'], refunded: ['بازگشت وجه', 'nc-refunded'] };
 
-      function receiptFormHtml() {
-        return \`<form id="receipt-form" class="nc-form nc-receipt-form">
-                  <h3><i class="fas fa-receipt"></i>ارسال رسید واریز</h3>
-                  <p class="nc-pay-lead">پس از کارت به کارت، شماره پیگیری را وارد کنید و در صورت تمایل تصویر رسید را هم ضمیمه کنید.</p>
-                  <div><label class="nc-form-label">شماره پیگیری واریز *</label>
-                    <input name="payment_ref" required minlength="4" maxlength="40" inputmode="numeric" dir="ltr" class="nc-input" placeholder="مثال: 123456789"
-                      data-error-required="شماره پیگیری واریز را وارد کنید" data-error-minlength="شماره پیگیری حداقل ۴ رقم است">
-                    <small class="nc-field-hint">شماره پیگیری/رهگیری تراکنش که در پیامک یا رسید بانک درج شده است.</small></div>
-                  <div class="nc-receipt-file">
-                    <label class="nc-form-label">تصویر رسید (اختیاری)</label>
-                    <input type="file" id="receipt-image" accept="image/jpeg,image/png,image/webp,image/gif" class="nc-input">
-                    <img id="receipt-preview" class="nc-receipt-preview" alt="پیش‌نمایش رسید">
-                    <small class="nc-field-hint">jpg / png / webp — حداکثر ۵ مگابایت</small>
-                  </div>
-                  <div><label class="nc-form-label">توضیحات (اختیاری)</label>
-                    <textarea name="payment_note" rows="2" maxlength="500" class="nc-input" placeholder="مثلاً: از کارت به نام ... واریز شد"></textarea></div>
-                  <button type="submit" class="nc-btn-primary w-full nc-send-receipt-btn"><i class="fas fa-paper-plane ml-2"></i>ارسال رسید و تکمیل پرداخت</button>
-                </form>\`;
-      }
-      function bindReceiptForm() {
-        const rf = document.getElementById('receipt-form');
-        if (!rf) return;
-        const fileInp = document.getElementById('receipt-image');
-        const prev = document.getElementById('receipt-preview');
-        if (fileInp && prev) fileInp.addEventListener('change', () => {
-          const f = fileInp.files && fileInp.files[0];
-          if (!f) { prev.classList.remove('is-on'); prev.removeAttribute('src'); return; }
-          prev.src = URL.createObjectURL(f);
-          prev.classList.add('is-on');
-        });
-        rf.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const data = Object.fromEntries(new FormData(e.target).entries());
-          if (window.ncpToEnDigits) data.payment_ref = window.ncpToEnDigits(data.payment_ref).replace(/[^0-9]/g, '');
-          const f = fileInp && fileInp.files && fileInp.files[0];
-          if (f) {
-            if (f.size > 5 * 1024 * 1024) { toast('حجم تصویر بیش از ۵ مگابایت است', 'error'); return; }
-            data.receipt_image = await new Promise((resolve, reject) => {
-              const r = new FileReader();
-              r.onload = () => resolve(r.result);
-              r.onerror = () => reject(new Error('خواندن تصویر ناموفق بود'));
-              r.readAsDataURL(f);
-            });
-          }
-          const btn = e.target.querySelector('button[type=submit]');
-          btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> در حال ثبت...';
-          try {
-            const rr = await axios.post('/api/orders/by-number/' + encodeURIComponent(ORDER_NO) + '/receipt', data);
-            toast(rr.data.message || 'رسید پرداخت ثبت شد', 'success');
-            loadOrder();
-          } catch (err) {
-            toast(err.response?.data?.message || 'خطا در ثبت رسید', 'error');
-            btn.disabled = false; btn.innerHTML = orig;
-          }
-        });
-      }
       function renderPayStep(o) {
         const host = document.getElementById('pay-step');
         const method = o.payment_method || (PAYCFG.cardEnabled ? 'card' : 'cod');
@@ -1495,15 +1445,17 @@ export function orderSuccessPage(orderNumber) {
             + '<p class="nc-pay-lead">' + ncpEsc(PAYCFG.gatewayDesc || 'لینک پرداخت امن پس از بررسی سفارش، از طریق پیامک برای شما ارسال می‌شود.') + '</p></div>';
           return;
         }
-        const isCard = method === 'card' || (PAYCFG.cardEnabled && method !== 'cod' && method !== 'gateway');
-        if (method === 'cod' && !isCard) {
+        if (method === 'cod' || !PAYCFG.cardEnabled) {
           host.innerHTML = '<div class="nc-pay-panel"><h2><i class="fas fa-handshake"></i>مرحله بعد — تماس کارشناس</h2>'
             + '<p class="nc-pay-lead">کارشناسان ما در اولین فرصت کاری برای هماهنگی پرداخت و ارسال با شما تماس می‌گیرند.</p></div>';
           return;
         }
         const submitted = pst === 'awaiting_review';
-        const cardBlock = PAYCFG.cardNumber
-          ? \`<div class="nc-paycard lg">
+        host.innerHTML = \`
+          <div class="nc-pay-panel">
+            <h2><i class="fas fa-money-check-dollar"></i>مرحله پرداخت — کارت به کارت</h2>
+            <p class="nc-pay-lead">مبلغ زیر را به شماره کارت زیر واریز کنید، سپس شماره پیگیری واریز را در فرم پایین ثبت کنید تا سفارش شما تایید شود.</p>
+            <div class="nc-paycard lg">
               <div class="nc-paycard-top">
                 <span class="nc-paycard-label">شماره کارت</span>
                 \${PAYCFG.cardBank ? '<span class="nc-paycard-bank">بانک ' + ncpEsc(PAYCFG.cardBank) + '</span>' : ''}
@@ -1513,27 +1465,43 @@ export function orderSuccessPage(orderNumber) {
                 <button type="button" class="nc-copy-btn" data-copy="\${ncpEsc(PAYCFG.cardNumber)}" aria-label="کپی شماره کارت"><i class="fas fa-copy"></i><span>کپی</span></button>
               </div>
               \${PAYCFG.cardHolder ? '<div class="nc-paycard-holder"><i class="fas fa-user"></i>به نام: <b>' + ncpEsc(PAYCFG.cardHolder) + '</b></div>' : ''}
-            </div>\`
-          : '<div class="nc-notice"><i class="fas fa-circle-info"></i>شماره کارت فروشگاه هنوز در تنظیمات تکمیل نشده؛ رسید را ثبت کنید تا پشتیبانی بررسی کند.</div>';
-        host.innerHTML = \`
-          <div class="nc-pay-panel">
-            <h2><i class="fas fa-money-check-dollar"></i>مرحله پرداخت — کارت به کارت</h2>
-            <p class="nc-pay-lead">مبلغ را کارت به کارت واریز کنید، سپس با دکمه «ارسال رسید» شماره پیگیری و تصویر رسید را ثبت کنید.</p>
-            \${cardBlock}
+            </div>
             <div class="nc-payamount">
               <span>مبلغ قابل پرداخت</span>
               <b>\${formatPrice(o.total)} تومان</b>
               <button type="button" class="nc-copy-btn sm" data-copy="\${o.total}" aria-label="کپی مبلغ"><i class="fas fa-copy"></i></button>
             </div>
             \${submitted
-              ? '<div class="nc-pay-submitted"><i class="fas fa-hourglass-half"></i><div><b>رسید شما ثبت شد.</b><span>شماره پیگیری: <span class="nc-mono" dir="ltr">' + ncpEsc(o.payment_ref || '') + '</span>' + (o.receipt_image ? ' — تصویر رسید هم دریافت شد.' : '') + ' پس از بررسی، وضعیت سفارش به «پرداخت شده» تغییر می‌کند.</span></div></div>'
-                + (o.receipt_image ? '<p class="nc-field-hint" style="margin-top:8px"><a href="' + ncpEsc(o.receipt_image) + '" target="_blank" rel="noopener">مشاهده تصویر رسید ارسالی</a></p>' : '')
-              : receiptFormHtml()}
+              ? '<div class="nc-pay-submitted"><i class="fas fa-hourglass-half"></i><div><b>رسید شما ثبت شد.</b><span>شماره پیگیری: <span class="nc-mono" dir="ltr">' + ncpEsc(o.payment_ref || '') + '</span> — پس از بررسی، وضعیت سفارش به «پرداخت شده» تغییر می‌کند.</span></div></div>'
+              : \`<form id="receipt-form" class="nc-form nc-receipt-form">
+                  <h3><i class="fas fa-receipt"></i>ثبت رسید واریز</h3>
+                  <div><label class="nc-form-label">شماره پیگیری واریز *</label>
+                    <input name="payment_ref" required minlength="4" maxlength="40" inputmode="numeric" dir="ltr" class="nc-input" placeholder="مثال: 123456789"
+                      data-error-required="شماره پیگیری واریز را وارد کنید" data-error-minlength="شماره پیگیری حداقل ۴ رقم است">
+                    <small class="nc-field-hint">شماره پیگیری/رهگیری تراکنش که در پیامک یا رسید بانک درج شده است.</small></div>
+                  <div><label class="nc-form-label">توضیحات (اختیاری)</label>
+                    <textarea name="payment_note" rows="2" maxlength="500" class="nc-input" placeholder="مثلاً: از کارت به نام ... واریز شد"></textarea></div>
+                  <button type="submit" class="nc-btn-primary w-full"><i class="fas fa-paper-plane ml-2"></i>ثبت رسید و تکمیل پرداخت</button>
+                </form>\`}
           </div>\`;
         if (window.ncpBindCopy) window.ncpBindCopy(host);
-        if (!submitted) bindReceiptForm();
+        const rf = document.getElementById('receipt-form');
+        if (rf) rf.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const data = Object.fromEntries(new FormData(e.target).entries());
+          if (window.ncpToEnDigits) data.payment_ref = window.ncpToEnDigits(data.payment_ref).replace(/[^0-9]/g, '');
+          const btn = e.target.querySelector('button[type=submit]');
+          btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> در حال ثبت...';
+          try {
+            const rr = await axios.post('/api/orders/by-number/' + encodeURIComponent(ORDER_NO) + '/receipt', data);
+            toast(rr.data.message || 'رسید پرداخت ثبت شد', 'success');
+            loadOrder();
+          } catch (err) {
+            toast(err.response?.data?.message || 'خطا در ثبت رسید', 'error');
+            btn.disabled = false; btn.innerHTML = orig;
+          }
+        });
       }
-
 
       async function loadOrder() {
         try {
@@ -1547,7 +1515,8 @@ export function orderSuccessPage(orderNumber) {
               <div class="nc-sum-row"><span>تماس</span><span class="nc-mono" dir="ltr">\${ncpEsc(o.customer_phone)}</span></div>
               <div class="nc-sum-row"><span>آدرس</span><span>\${ncpEsc(o.shipping_city || '')} - \${ncpEsc(o.shipping_address)}</span></div>
               <div class="nc-sum-row"><span>روش پرداخت</span><span>\${ncpEsc(PAY_LABEL[o.payment_method] || 'هماهنگی با کارشناس فروش')}</span></div>
-              <div class="nc-sum-row total"><span>مبلغ کل</span><span>\${formatPrice(o.total)} تومان</span></div>
+              \${(o.tax && o.tax > 0) ? '<div class="nc-sum-row"><span>مالیات بر ارزش افزوده</span><span>' + formatPrice(o.tax) + ' تومان</span></div>' : ''}
+              <div class="nc-sum-row total"><span>مبلغ قابل پرداخت</span><span>\${formatPrice(o.total)} تومان</span></div>
               <div class="nc-sum-row"><span>وضعیت پرداخت</span><span class="\${ps[1]}">\${ps[0]}</span></div>
             </div>\`;
           renderPayStep(o);
@@ -1869,14 +1838,8 @@ export function accountPage() {
           const items = r.data.data.items;
           if (!items.length) { c.innerHTML = '<div class="nc-empty-box"><i class="fas fa-cart-shopping"></i>هنوز سفارشی ثبت نکرده‌اید.</div>'; return; }
           const map = { pending: ['در انتظار', 'badge-pending'], confirmed: ['تایید شده', 'badge-confirmed'], shipping: ['در حال ارسال', 'badge-shipping'], delivered: ['تحویل شده', 'badge-delivered'], cancelled: ['لغو شده', 'badge-cancelled'] };
-          c.innerHTML = '<div class="nc-static-card nc-table-wrap"><table class="nc-table"><thead><tr><th>شماره سفارش</th><th>تاریخ</th><th>مبلغ</th><th>وضعیت</th><th>پرداخت</th></tr></thead><tbody>' +
-            items.map(o => {
-              const canReceipt = o.payment_status !== 'paid' && o.status !== 'cancelled' && (o.payment_method === 'card' || !o.payment_method);
-              const payCell = canReceipt
-                ? '<a class="nc-send-receipt-btn" href="/order-success/' + encodeURIComponent(o.order_number) + '">ارسال رسید</a>'
-                : (o.payment_status === 'awaiting_review' ? 'در انتظار بررسی رسید' : (o.payment_status === 'paid' ? 'پرداخت شده' : '—'));
-              return \`<tr><td class="nc-mono">\${ncpEsc(o.order_number)}</td><td>\${formatDate(o.created_at)}</td><td>\${formatPrice(o.total)} تومان</td><td><span class="badge \${(map[o.status]||['','badge-closed'])[1]}">\${(map[o.status]||[o.status])[0]}</span></td><td>\${payCell}</td></tr>\`;
-            }).join('') +
+          c.innerHTML = '<div class="nc-static-card nc-table-wrap"><table class="nc-table"><thead><tr><th>شماره سفارش</th><th>تاریخ</th><th>مبلغ</th><th>وضعیت</th></tr></thead><tbody>' +
+            items.map(o => \`<tr><td class="nc-mono">\${ncpEsc(o.order_number)}</td><td>\${formatDate(o.created_at)}</td><td>\${formatPrice(o.total)} تومان</td><td><span class="badge \${(map[o.status]||['','badge-closed'])[1]}">\${(map[o.status]||[o.status])[0]}</span></td></tr>\`).join('') +
             '</tbody></table></div>';
         } catch (e) { c.innerHTML = '<div class="nc-notice">خطا</div>'; }
       }
@@ -2225,4 +2188,122 @@ export function notFoundPage(label = 'صفحه', code = 404) {
     </section>
   `;
     return siteLayout({ title: title, currentPath: '/' }, content);
+}
+
+// ===== Multiple home/landing pages (voice n9) — /h/:slug =====
+// Each page is a mini-home for one product family: its own hero, the
+// categories/brands the admin picked, and auto-sliding product rails.
+export function homeLandingPage(slug) {
+    const hp = getHomePageBySlug(slug);
+    if (!hp)
+        return null;
+    const parseIds = (csv) => String(csv || '').split(',').map(x => parseInt(x.trim())).filter(n => Number.isFinite(n) && n > 0);
+    const rootCatIds = parseIds(hp.category_ids);
+    // include child categories so selecting a parent category (e.g. "روتر و مودم")
+    // also pulls products stored under its sub-categories
+    let catIds = rootCatIds.slice();
+    if (rootCatIds.length) {
+        const kids = db.prepare(`SELECT id FROM categories WHERE parent_id IN (${rootCatIds.map(() => '?').join(',')})`).all(...rootCatIds);
+        for (const k of kids) if (!catIds.includes(k.id)) catIds.push(k.id);
+    }
+    const brandIds = parseIds(hp.brand_ids);
+    const sel = `SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN brands b ON p.brand_id = b.id
+    WHERE p.status = 'active'`;
+    const conds = [];
+    const args = [];
+    if (catIds.length) { conds.push(`p.category_id IN (${catIds.map(() => '?').join(',')})`); args.push(...catIds); }
+    if (brandIds.length) { conds.push(`p.brand_id IN (${brandIds.map(() => '?').join(',')})`); args.push(...brandIds); }
+    const scope = conds.length ? ` AND (${conds.join(' OR ')})` : '';
+    const featured = db.prepare(`${sel}${scope} AND p.featured = 1 ORDER BY p.sort_order ASC, p.id DESC LIMIT 10`).all(...args);
+    const latest = db.prepare(`${sel}${scope} ORDER BY p.id DESC LIMIT 10`).all(...args);
+    const popular = db.prepare(`${sel}${scope} ORDER BY p.views DESC LIMIT 10`).all(...args);
+    const cats = rootCatIds.length
+        ? db.prepare(`SELECT * FROM categories WHERE id IN (${rootCatIds.map(() => '?').join(',')}) ORDER BY sort_order ASC`).all(...rootCatIds)
+        : [];
+    const brands = brandIds.length
+        ? db.prepare(`SELECT * FROM brands WHERE id IN (${brandIds.map(() => '?').join(',')}) ORDER BY id ASC`).all(...brandIds)
+        : [];
+    const shopHref = catIds.length === 1 && cats.length === 1 ? `/products?category=${esc(cats[0].slug)}` : '/products';
+    const rail = (id, icon, title, items) => items.length ? `
+    <section class="nc-container">
+      <div class="nc-section-head">
+        <h2><i class="fas ${icon} ml-2"></i>${esc(title)}</h2>
+        <div class="nc-carousel-nav">
+          <button class="nc-car-btn" data-target="${id}" data-dir="1" aria-label="قبلی"><i class="fas fa-chevron-right"></i></button>
+          <button class="nc-car-btn" data-target="${id}" data-dir="-1" aria-label="بعدی"><i class="fas fa-chevron-left"></i></button>
+          <a href="${shopHref}" class="nc-more">مشاهده همه <i class="fas fa-arrow-left"></i></a>
+        </div>
+      </div>
+      <div class="nc-prod-scroller nc-carousel" id="${id}" data-auto="1">
+        ${items.map(p => productCard(p)).join('')}
+      </div>
+    </section>` : '';
+    const content = `
+    <!-- landing hero -->
+    <section class="nc-container">
+      <div class="nc-landing-hero${hp.hero_image ? ' has-img' : ''}"${hp.hero_image ? ` style="background-image:linear-gradient(120deg,rgba(29,110,245,.82),rgba(44,26,138,.86)),url('${esc(bestUrl(hp.hero_image, 1200))}')"` : ''}>
+        <div class="nc-landing-hero-text">
+          <h1>${esc(hp.hero_title || hp.title)}</h1>
+          ${hp.hero_sub || hp.tagline ? `<p>${esc(hp.hero_sub || hp.tagline)}</p>` : ''}
+          <a href="${esc(hp.hero_link || shopHref)}" class="nc-slide-btn">مشاهده محصولات <i class="fas fa-arrow-left"></i></a>
+        </div>
+      </div>
+    </section>
+    ${cats.length ? `
+    <section class="nc-container">
+      <div class="nc-section-head"><h2><i class="fas fa-grip ml-2"></i>دسته‌بندی‌های ${esc(hp.title)}</h2></div>
+      <div class="nc-cat-grid">
+        ${cats.map(c => `
+          <a href="/products?category=${esc(c.slug)}" class="nc-cat-card">
+            <span class="nc-cat-ico">${c.image
+        ? ncImg(c.image, { alt: c.name, cls: 'nc-cat-img', sizes: '86px', ratio: false })
+        : `<i class="fas ${esc(c.icon || 'fa-network-wired')}"></i>`}</span>
+            <span class="nc-cat-name">${esc(c.name)}</span>
+          </a>`).join('')}
+      </div>
+    </section>` : ''}
+    ${rail('hl-featured', 'fa-bolt', 'پیشنهاد ویژه ' + hp.title, featured)}
+    ${rail('hl-latest', 'fa-sparkles', 'جدیدترین‌ها', latest)}
+    ${rail('hl-popular', 'fa-star', 'پربازدیدترین‌ها', popular)}
+    ${brands.length ? `
+    <section class="nc-container">
+      <div class="nc-section-head"><h2><i class="fas fa-tags ml-2"></i>برندهای این بخش</h2></div>
+      <div class="nc-brand-row">
+        ${brands.map(b => `<a href="/products?brand=${esc(b.slug)}" class="nc-brand-card" title="${esc(b.name)}">${b.logo ? `<img loading="lazy" src="${esc(b.logo)}" alt="${esc(b.name)}">` : `<span>${esc(b.name)}</span>`}</a>`).join('')}
+      </div>
+    </section>` : ''}
+    <script>
+      ncpReady(function(){
+        document.querySelectorAll('.nc-carousel[data-auto]').forEach(function(el){
+          var iv = setInterval(function(){
+            var card = el.querySelector('.nc-prod-card');
+            if (!card) return;
+            var step = card.offsetWidth + 14;
+            var maxScroll = el.scrollWidth - el.clientWidth;
+            var cur = Math.abs(el.scrollLeft);
+            if (cur >= maxScroll - 4) { el.scrollTo({ left: 0, behavior: 'smooth' }); }
+            else { el.scrollBy({ left: -step, behavior: 'smooth' }); }
+          }, 7500);
+          el.addEventListener('pointerdown', function(){ clearInterval(iv); }, { once: true });
+        });
+        document.querySelectorAll('.nc-car-btn').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var el = document.getElementById(btn.dataset.target);
+            if (!el) return;
+            var card = el.querySelector('.nc-prod-card');
+            var step = card ? card.offsetWidth + 14 : 260;
+            el.scrollBy({ left: step * parseInt(btn.dataset.dir || '1'), behavior: 'smooth' });
+          });
+        });
+      });
+    </script>
+  `;
+    return siteLayout({
+        title: hp.seo_title || hp.title,
+        description: hp.seo_description || hp.tagline || '',
+        currentPath: '/h/' + hp.slug,
+    }, content);
 }

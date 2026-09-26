@@ -1,11 +1,6 @@
-// Referential integrity and stock-safety suite.
-//  * deleting a user who authored a blog post or a ticket reply must succeed:
-//    posts.author_id / ticket_replies.user_id are nulled, the content is kept
-//    and no foreign-key error reaches the client;
-//  * a user who still owns orders is blocked instead of deleted;
-//  * a cart containing the same product twice must not oversell — the lines
-//    are merged and stock can never go negative;
-//  * an update that would duplicate a UNIQUE slug/sku answers 400.
+// Round 7 regression suite:
+//  #22 delete user who authored a blog post / posted a ticket_reply must NOT 500
+//      (FK to posts.author_id and ticket_replies.user_id must be nulled, not orphaned).
 import db from '../dist/db/index.js';
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];
@@ -17,7 +12,7 @@ async function main(){
   const admin = await login('admin@netcorepro.ir',(process.env.ADMIN_PASSWORD || 'admin123'));
   ok('admin login', !!admin);
 
-  // ===== delete user with authored post + ticket reply (FK guard) =====
+  // ===== #22 DELETE USER WITH AUTHORED POST + TICKET_REPLY (FK 500 guard) =====
   const email = `r7_${Date.now()}@test.ir`;
   const uid = db.prepare(`INSERT INTO users (email, password, full_name, role, status) VALUES (?, 'x', 'R7 User', 'customer', 'active')`).run(email).lastInsertRowid;
   const pslug = 'r7-'+Date.now();
@@ -43,7 +38,7 @@ async function main(){
   db.prepare(`DELETE FROM tickets WHERE id=?`).run(tid);
   db.prepare(`DELETE FROM posts WHERE slug=?`).run(pslug);
 
-  // ===== user with orders is still soft-blocked (not hard-deleted) =====
+  // ===== #22b user with orders is still soft-blocked (not hard-deleted) =====
   const email2 = `r7b_${Date.now()}@test.ir`;
   const uid2 = db.prepare(`INSERT INTO users (email, password, full_name, role, status) VALUES (?, 'x', 'R7b', 'customer', 'active')`).run(email2).lastInsertRowid;
   const onum = 'ORD-R7-'+Date.now();
@@ -55,7 +50,7 @@ async function main(){
   db.prepare(`DELETE FROM orders WHERE id=?`).run(oid);
   db.prepare(`DELETE FROM users WHERE id=?`).run(uid2);
 
-  // ===== duplicate product line in cart must not oversell (stock never negative) =====
+  // ===== #23 DUPLICATE product line in cart must NOT oversell (stock never negative) =====
   const p = db.prepare(`SELECT id, stock FROM products WHERE status='active' AND stock BETWEEN 2 AND 100 LIMIT 1`).get();
   ok('found a product with limited stock', !!p, 'p='+JSON.stringify(p));
   if (p) {
@@ -80,7 +75,7 @@ async function main(){
     db.prepare(`UPDATE products SET stock=? WHERE id=?`).run(p.stock, p.id);
   }
 
-  // ===== update with duplicate UNIQUE slug/sku must answer 400, not crash =====
+  // ===== #24 PUT with duplicate UNIQUE slug/sku must be 400, not a 500 crash =====
   const posts = db.prepare(`SELECT id, slug FROM posts LIMIT 2`).all();
   if (posts.length >= 2) {
     const r = await jx('PUT', `/api/blog/admin/posts/${posts[0].id}`, { slug: posts[1].slug }, admin);

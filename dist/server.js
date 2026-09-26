@@ -19,8 +19,8 @@ import ticketsApi from './api/tickets.js';
 import blogApi from './api/blog.js';
 import miscApi from './api/misc.js';
 import contentApi from './api/content.js';
-import { homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
-import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
+import { homeLandingPage, homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
+import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
 import { adminMenuBuilderPage } from './views/admin/menu-builder.js';
 const app = new Hono();
 // ===== Global middleware =====
@@ -180,6 +180,20 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 // Favicon: serve the real .ico from public/, fall back to 204 if missing
 app.use('/favicon.ico', serveStatic({ path: './public/favicon.ico' }));
 app.get('/favicon.ico', (c) => c.body(null, 204));
+// ===== Change report (v3) =====
+// A permanent, always-reachable link to the Persian change report so the owner
+// never has to hunt for a download. Served from disk on every request so an
+// updated report file goes live without a restart.
+app.get('/report', async (c) => {
+    try {
+        const html = await nodeFs.promises.readFile(nodePath.join(process.cwd(), 'REPORT_V3.html'), 'utf8');
+        c.header('Cache-Control', 'no-cache');
+        return c.html(html);
+    }
+    catch (e) {
+        return c.text('گزارش در دسترس نیست.', 404);
+    }
+});
 // ===== Health =====
 app.get('/api/health', (c) => {
     let dbOk = false;
@@ -253,6 +267,14 @@ app.get('/site1/*', (c) => {
     return c.redirect(p + q, 301);
 });
 app.get('/', (c) => c.html(cachedHtml('home', 30_000, () => homePage())));
+// Multiple home/landing pages (voice n9): admin-defined mini-homes per product family
+app.get('/h/:slug', (c) => {
+    const slug = c.req.param('slug') || '';
+    const html = cachedHtml('hl:' + slug, 30_000, () => homeLandingPage(slug));
+    if (!html)
+        return c.html(notFoundPage('صفحه'), 404);
+    return c.html(html);
+});
 app.get('/products', (c) => {
     const q = c.req.query();
     // Only cache the parameterized listing briefly (filters vary a lot)
@@ -297,6 +319,7 @@ app.get('/admin/settings', (c) => c.html(adminSettingsPage()));
 app.get('/admin/profile', (c) => c.html(adminProfilePage()));
 app.get('/admin/site-content', (c) => c.html(adminSiteContentPage()));
 app.get('/admin/banners', (c) => c.html(adminBannersPage()));
+app.get('/admin/home-pages', (c) => c.html(adminHomePagesPage()));
 app.get('/admin/product-order', (c) => c.html(adminProductOrderPage()));
 app.get('/admin/pricing', (c) => c.html(adminPricingPage()));
 // ===== sitemap.xml =====

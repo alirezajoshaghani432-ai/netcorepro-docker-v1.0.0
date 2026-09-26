@@ -476,11 +476,13 @@
       if (d) d.classList.remove('open');
       if (o) o.classList.remove('open');
       document.body.style.overflow = '';
-      // Clicking a category must close the mega-menu. Removing .open is not
-      // enough: the panel is ALSO shown by `.nc-cats:hover`, and after a pjax
-      // swap the pointer is still physically over the menu, so CSS would keep
-      // it visible on top of the freshly loaded listing. It is forced shut and
-      // the lock is released only once the pointer actually leaves the menu.
+      // V4 D2 (owner voice note 2026-08-05): "when you click a category it
+      // doesn't go in — the same panel is still open; you have to move the
+      // mouse aside and click again". Removing .open was not enough: the
+      // panel is ALSO shown by `.nc-cats:hover`, and after a pjax swap the
+      // pointer is still physically over the menu, so CSS kept it visible and
+      // it covered the freshly loaded listing. We force it shut and only
+      // release the lock once the pointer actually leaves the menu.
       if (window.NCPCloseCats) window.NCPCloseCats();
     }
 

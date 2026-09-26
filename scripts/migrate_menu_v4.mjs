@@ -1,10 +1,12 @@
 /**
- * NetCore Pro — categories: menu visibility migration.
+ * NetCore Pro — migration V4 (2026-08-05)
  *
- * Adds `show_in_menu` to `categories` so a category can be hidden from the
- * header mega-menu without being deleted. Deletion is intentionally blocked
- * while products are still attached (referential integrity), so visibility is
- * the correct switch for temporarily retiring a category.
+ * Owner request (voice note): "give me a panel where I can change these names
+ * myself, add or remove a category, so I don't have to call you every time."
+ *
+ * Adds `show_in_menu` to categories so the owner can hide a category from the
+ * header mega-menu WITHOUT deleting it (deleting is blocked when products are
+ * attached, which used to be a dead end for him).
  *
  * Idempotent: safe to run repeatedly.
  */

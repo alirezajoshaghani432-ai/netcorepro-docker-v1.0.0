@@ -1,14 +1,12 @@
-"""End-to-end UI test for /admin/menu-builder.
+"""D5 — end-to-end UI test for /admin/menu-builder.
 
-Drives the panel through a real browser session:
-  1. log in through the admin form
+Drives the panel exactly the way the (non-technical) owner would:
+  1. log in through the real admin form
   2. click a category name, type a new one, press Enter
-  3. reload and confirm the rename persisted
-  4. click the eye icon and confirm the storefront menu drops the category
+  3. reload and confirm it stuck
+  4. click the eye icon and confirm the storefront menu drops it
   5. click it again and confirm the storefront menu shows it
   6. restore the original name
-
-Set SCREENSHOT_PATH to also save a full-page screenshot of the panel.
 """
 import os
 import re
@@ -97,9 +95,7 @@ def main():
         print("name restored:", restored)
         ok &= restored
 
-        shot = os.environ.get("SCREENSHOT_PATH")
-        if shot:
-            pg.screenshot(path=shot, full_page=True)
+        pg.screenshot(path="/home/root/webapp/ncp_v2/menu_builder.png", full_page=True)
         b.close()
 
     print("\nRESULT:", "PASS" if ok else "FAIL")

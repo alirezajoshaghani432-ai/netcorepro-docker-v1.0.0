@@ -93,7 +93,6 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method VARCHAR(20) DEFAULT 'cod',
   payment_ref VARCHAR(190),
   payment_note TEXT,
-  receipt_image VARCHAR(500),
   paid_at DATETIME NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

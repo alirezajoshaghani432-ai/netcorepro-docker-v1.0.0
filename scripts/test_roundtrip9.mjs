@@ -1,10 +1,9 @@
-// HTML sanitiser suite (stored-XSS defence in depth).
-//  sanitizeHtml() guards admin-authored blog content and product descriptions.
-//  It must strip inline event handlers even when the attribute separator is a
-//  slash (browsers parse <img/src=x/onerror=..> as separate attributes), and
-//  must never let script/svg/iframe elements or javascript: URLs through,
-//  while legitimate markup (bold, links, lists) survives untouched.
-//  Asserted end-to-end against the rendered blog page.
+// Round 10 regression suite:
+//  #27 sanitizeHtml (used for admin-authored blog post content + product descriptions)
+//      must strip inline event handlers even when the attribute separator is a slash
+//      (browsers parse <img/src=x/onerror=..> as whitespace-separated attributes),
+//      and must not let script/svg/iframe or javascript: URLs through. Defense-in-depth
+//      against stored XSS. Verified end-to-end via the rendered blog page.
 import db from '../dist/db/index.js';
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];

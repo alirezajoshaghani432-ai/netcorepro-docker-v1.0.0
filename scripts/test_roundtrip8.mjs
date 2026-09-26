@@ -1,9 +1,9 @@
-// Newsletter normalisation and search-escaping suite.
-//  * newsletter addresses are trimmed and lower-cased before storage, so
-//    case/whitespace variants of one address collapse to a single row and an
-//    unsubscribe with different casing still matches the subscription;
-//  * product and blog search escape the SQL LIKE metacharacters % _ \ so a
-//    literal wildcard is matched as text instead of matching every row.
+// Round 9 regression suite:
+//  #25 newsletter subscribe/unsubscribe must normalize email (trim + lowercase) so that
+//      case/whitespace variants of the same address do NOT create duplicate subscriber rows,
+//      and an unsubscribe with different casing still matches the stored subscription.
+//  #26 product/blog search LIKE clauses must escape user-supplied % _ \ so a literal
+//      wildcard character is matched as text and does not match every row.
 import db from '../dist/db/index.js';
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];
@@ -11,7 +11,7 @@ function ok(n,c,e){ if(c)pass++; else {fail++; fails.push(n+(e?' :: '+e:'')); co
 async function jx(m,p,b,t){ const h={'Content-Type':'application/json'}; if(t)h.Authorization='Bearer '+t; const r=await fetch(BASE+p,{method:m,headers:h,body:b?JSON.stringify(b):undefined}); let j=null;try{j=await r.json();}catch{} return {status:r.status,j}; }
 
 async function main(){
-  // ===== newsletter case / whitespace de-duplication =====
+  // ===== #25 NEWSLETTER CASE / WHITESPACE DEDUP =====
   const uniq = Date.now();
   const upper = `Newsletter_R9_${uniq}@Example.COM`;
   const lower = `newsletter_r9_${uniq}@example.com`;
@@ -43,7 +43,7 @@ async function main(){
   // cleanup
   db.prepare(`DELETE FROM newsletter_subscribers WHERE email LIKE ? ESCAPE '\\'`).run(`%newsletter\\_r9\\_${uniq}%`);
 
-  // ===== search LIKE wildcard escaping (products) =====
+  // ===== #26 SEARCH LIKE WILDCARD ESCAPING (products) =====
   const totalProducts = (await jx('GET', '/api/products?limit=100')).j?.data?.total ?? 0;
   ok('baseline product count > 0', totalProducts > 0, 'total='+totalProducts);
 
@@ -74,7 +74,7 @@ async function main(){
     ok('product search "'+q+'" no 500', r.status===200, 'status='+r.status);
   }
 
-  // ===== search LIKE wildcard escaping (blog) =====
+  // ===== #26 SEARCH LIKE WILDCARD ESCAPING (blog) =====
   const totalPosts = (await jx('GET', '/api/blog/posts?limit=100')).j?.data?.total ?? 0;
   const pctB = await jx('GET', '/api/blog/posts?q=%25');
   ok('blog search literal "%" does NOT return all rows',

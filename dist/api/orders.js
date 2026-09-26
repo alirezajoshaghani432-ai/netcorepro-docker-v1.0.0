@@ -1,7 +1,5 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import fs from 'node:fs';
-import path from 'node:path';
 import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
 import { generateOrderNumber, getSetting, logActivity } from '../utils/helpers.js';
@@ -54,7 +52,22 @@ orders.post('/', authOptional, async (c) => {
         validatedItems.push({ product: p, quantity, unit_price: unitPrice, total: itemTotal });
     }
     const shippingCost = parseInt(getSetting('shipping_cost', '500000'));
-    const total = subtotal + shippingCost;
+    // VAT (voice n9): computed ONLY here, at order submission — the storefront
+    // does not show it while browsing; the final payable amount (incl. tax)
+    // appears on the payment step / gateway. Per-product tax_percent overrides
+    // the global setting; tax_enabled=غیرفعال disables it entirely.
+    const taxEnabled = getSetting('tax_enabled', 'فعال') !== 'غیرفعال';
+    const globalTaxPct = Math.max(0, Math.min(25, parseFloat(getSetting('tax_percent', '9')) || 0));
+    let taxTotal = 0;
+    if (taxEnabled && globalTaxPct >= 0) {
+        for (const v of validatedItems) {
+            const pct = (v.product.tax_percent !== null && v.product.tax_percent !== undefined && v.product.tax_percent !== '')
+                ? Math.max(0, Math.min(25, parseFloat(v.product.tax_percent) || 0))
+                : globalTaxPct;
+            taxTotal += Math.round(v.total * pct / 100);
+        }
+    }
+    const total = subtotal + shippingCost + taxTotal;
     const orderNumber = generateOrderNumber();
     // Resolve the payment method against what the shop actually has enabled, so a
     // client cannot pick a channel the admin turned off.
@@ -66,7 +79,7 @@ orders.post('/', authOptional, async (c) => {
     allowed.push('cod');
     const payMethod = allowed.includes(d.payment_method) ? d.payment_method : allowed[0];
     const tx = db.transaction(() => {
-        const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, total, status, payment_method, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending')`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, total, payMethod);
+        const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, tax, total, status, payment_method, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending')`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, taxTotal, total, payMethod);
         const orderId = result.lastInsertRowid;
         const itemStmt = db.prepare(`INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)`);
         const stockStmt = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?`);
@@ -136,27 +149,9 @@ orders.get('/by-number/:orderNumber', authOptional, (c) => {
     return c.json({ success: true, data: { ...order, items }, code: 200 });
 });
 // Submit a card-to-card transfer receipt (guest or owner) — the actual "payment step"
-const RECEIPT_UPLOAD_DIR = path.resolve(process.cwd(), 'public/static/uploads');
-const RECEIPT_ALLOWED = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
-const RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
-function saveReceiptImage(dataUrl) {
-    if (!dataUrl || typeof dataUrl !== 'string') return null;
-    const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl.trim());
-    if (!m) throw new Error('تصویر رسید معتبر نیست');
-    const ext = RECEIPT_ALLOWED[m[1]];
-    if (!ext) throw new Error('فرمت تصویر مجاز نیست (jpg, png, webp, gif)');
-    const buffer = Buffer.from(m[2], 'base64');
-    if (!buffer.length) throw new Error('فایل خالی است');
-    if (buffer.length > RECEIPT_MAX_BYTES) throw new Error('حجم تصویر بیش از ۵ مگابایت است');
-    try { fs.mkdirSync(RECEIPT_UPLOAD_DIR, { recursive: true }); } catch { /* ignore */ }
-    const fname = `rcpt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    fs.writeFileSync(path.join(RECEIPT_UPLOAD_DIR, fname), buffer);
-    return `/static/uploads/${fname}`;
-}
 const receiptSchema = z.object({
     payment_ref: z.preprocess((v) => (typeof v === 'string' ? toEnDigits(v).replace(/[^0-9]/g, '') : v), z.string().min(4, 'شماره پیگیری/۴ رقم آخر کارت را وارد کنید').max(40, 'شماره پیگیری بیش از حد طولانی است')),
-    payment_note: z.string().max(500, 'توضیحات بیش از حد طولانی است').optional().or(z.literal('')),
-    receipt_image: z.string().max(8_000_000).optional().or(z.literal(''))
+    payment_note: z.string().max(500, 'توضیحات بیش از حد طولانی است').optional().or(z.literal(''))
 });
 orders.post('/by-number/:orderNumber/receipt', authOptional, async (c) => {
     const user = c.get('user');
@@ -173,20 +168,12 @@ orders.post('/by-number/:orderNumber/receipt', authOptional, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
-    let receiptUrl = order.receipt_image || null;
-    if (d.receipt_image && String(d.receipt_image).startsWith('data:')) {
-        try {
-            receiptUrl = saveReceiptImage(d.receipt_image);
-        } catch (e) {
-            return c.json({ success: false, message: e.message || 'خطا در ذخیره تصویر رسید', code: 400 }, 400);
-        }
-    }
-    db.prepare(`UPDATE orders SET payment_ref = ?, payment_note = ?, receipt_image = ?, payment_status = 'awaiting_review', payment_method = 'card', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-        .run(d.payment_ref, (d.payment_note || '').trim() || null, receiptUrl, order.id);
+    db.prepare(`UPDATE orders SET payment_ref = ?, payment_note = ?, payment_status = 'awaiting_review', payment_method = COALESCE(payment_method, 'card'), updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+        .run(d.payment_ref, (d.payment_note || '').trim() || null, order.id);
     logActivity({
         user_id: user?.id || null, user_name: user?.full_name || order.customer_name,
         action: 'payment_receipt', entity_type: 'order', entity_id: order.id,
-        details: { order_number: orderNumber, payment_ref: d.payment_ref, has_image: !!receiptUrl },
+        details: { order_number: orderNumber, payment_ref: d.payment_ref },
         ip_address: c.req.header('x-forwarded-for') || 'local'
     });
     return c.json({ success: true, message: 'رسید پرداخت شما ثبت شد و پس از بررسی تایید می‌شود', code: 200 });

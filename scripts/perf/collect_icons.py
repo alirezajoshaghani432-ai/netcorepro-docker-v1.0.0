@@ -1,6 +1,5 @@
-import os
 import re, os, json, glob
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT='/home/root/webapp/netcorepro'
 srcs=[]
 for pat in ['dist/views/**/*.js','dist/utils/*.js','public/static/js/*.js','dist/api/*.js','dist/server.js','public/static/css/app.css']:
     srcs += glob.glob(os.path.join(ROOT,pat), recursive=True)

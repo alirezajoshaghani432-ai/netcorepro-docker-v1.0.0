@@ -74,7 +74,7 @@ async function main() {
   // visible span must be HTML-escaped
   ok('order-success visible orderNumber HTML-escaped', reflHtml.includes('&lt;/script&gt;&lt;img'));
 
-  // ================= Admin-panel stored DOM-XSS regression =================
+  // ================= Admin-panel stored DOM-XSS regression (Bug #11 / #12) =================
   // The admin panel renders DB data via client-side innerHTML template literals.
   // Verify the runtime helpers exist and that admin pages route DB fields through them.
   const adminJs = await (await fetch(BASE + '/static/js/admin.js')).text();
@@ -82,7 +82,7 @@ async function main() {
   ok('admin.js defines window.attrJson', adminJs.includes('window.attrJson'));
   ok('admin.js defines window.statusLabel', adminJs.includes('window.statusLabel'));
 
-  // statusLabel must cover every entity type the panel renders
+  // statusLabel must cover all types used by the panel (Bug #12: was undefined -> ReferenceError)
   ok('statusLabel covers order+ticket+comment+post+user+message',
      ['order:', 'ticket:', 'comment:', 'post:', 'user:', 'message:'].every(k => adminJs.includes(k)));
 

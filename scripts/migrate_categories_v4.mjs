@@ -1,8 +1,8 @@
-// Category restructure migration.
+// Migration v4: restructure categories per owner's voice note (2026-08-03)
 // - Mega menu must show CATEGORY names, not product names
 // - Create logical subcategories and assign products by name patterns
 // - Group rack categories under "رک های آماد سیستم"
-// - Fix miscategorized products (42U rack in Passive) and deactivate duplicates
+// - Fix miscategorized products (42U rack in Passive), deactivate junk dup #106
 import Database from 'better-sqlite3';
 const db = new Database(process.env.DB_PATH || 'data/netcorepro.db');
 db.pragma('journal_mode = WAL');
@@ -81,7 +81,7 @@ const tx = db.transaction(() => {
   const eb35 = ensureCat('ای باکس 35×25', 'ebox-35x25', ebox, 1);
   log.push(`ebox: 25x20=${moveByPattern(ebox, eb20, [/25\s*[×x*]\s*20/, /20\s*[×x*]\s*25/])}, 35x25=${moveByPattern(ebox, eb35, [/35\s*[×x*]\s*25/, /25\s*[×x*]\s*35/])}`);
 
-  // --- 3) duplicate placeholder product (price=5, no sku, wrong category) -> inactive ---
+  // --- 3) junk duplicate product #106 (price=5, no sku, wrong category) → inactive ---
   const dup = db.prepare("SELECT id FROM products WHERE slug='فلکسی-سفید-سایز-21-2' AND (sku IS NULL OR sku='') AND price <= 10").get();
   if (dup) { db.prepare("UPDATE products SET status='inactive', featured=0, updated_at=? WHERE id=?").run(now(), dup.id); log.push(`deactivated junk dup product #${dup.id}`); }
 });

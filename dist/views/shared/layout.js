@@ -1,6 +1,6 @@
 import { getAllSettings } from '../../utils/helpers.js';
 import { ncImg } from '../../utils/img.js';
-import { getBlocks } from '../../api/content.js';
+import { getBlocks, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
 import db from '../../db/index.js';
 
@@ -11,9 +11,9 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20260917b';
+export const ASSET_V = '20260910a';
 /**
- * Performance: the storefront loads ONE render-blocking stylesheet
+ * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
  *   vazirmatn.css + fontawesome.min.css + tailwind.min.css + app.css
  *   = 345 KB over 4 requests  ->  ~102 KB over 1 request (~18 KB gzipped).
@@ -31,18 +31,22 @@ const LOCAL_HEAD = `
 `;
 
 /**
- * Bidi-safe product counts for the mega-menu.
+ * V4 fix D3 (owner voice note 2026-08-05) — bidi-safe product counts.
  *
- * In an RTL paragraph the Unicode Bidi Algorithm reorders a trailing "(5)"
- * that follows a LATIN run to the LEFT of that run, so a reader scanning
- * right-to-left meets the count in the MIDDLE of a mixed Persian+Latin label:
- *     source 'کابل Cat6 UTP (5)'  ->  visual order 'کابل)5(PTU6taC'
- * Pure-Persian labels are unaffected, which is why only mixed labels break.
- * A per-character probe is available in scripts/qa/bidi_probe.py.
+ * The owner read the mega-menu as «کابل ۵ Cat6 UTP» / «مودم روتر ۳ 4G LTE»
+ * and reported the numbers as wrong. Nothing was wrong in the DATA: the label
+ * is "کابل Cat6 UTP" and the count is "(5)". The bug is the Unicode Bidi
+ * Algorithm — in an RTL paragraph a trailing "(5)" after a LATIN run gets
+ * reordered to the LEFT of that run, so a Persian reader scanning right→left
+ * meets the count in the MIDDLE of the name. Proven with a per-character
+ * probe (scripts/qa/bidi_probe.py):
+ *     source 'کابل Cat6 UTP (5)'  ->  reader scan 'کابل)5(PTU6taC'
+ * Pure-Persian labels ("سوییچ 5 پورت (7)") were never affected, which is
+ * exactly why only the mixed Persian+Latin rows were reported.
  *
- * The label and the count are therefore rendered as two separate flex cells
- * (see .nc-megacol-links li a in app.css) so the count can never be pulled
- * into the name. Counts use Persian digits for a native look.
+ * Fix: the label and the count become two separate flex boxes (see
+ * .nc-megacol-links li a in app.css), so the count can never be pulled into
+ * the name, plus Persian digits for a native look.
  */
 function faDigits(n) {
     return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
@@ -50,10 +54,10 @@ function faDigits(n) {
 
 function getNavCategories() {
     try {
-        // `show_in_menu` hides a category from the header menu (managed in
-        // /admin/menu-builder) without deleting it, since deletion is blocked
-        // while products are still attached. Older databases lack the column,
-        // so COALESCE keeps this backward-compatible.
+        // V4: `show_in_menu` lets the owner hide a category from the header
+        // menu from /admin/menu-builder without deleting it (deletion is
+        // blocked while products are attached). Older DBs lack the column, so
+        // COALESCE keeps this backward-compatible.
         const all = db.prepare(`SELECT id, parent_id, name, slug, icon FROM categories
                                 WHERE COALESCE(show_in_menu, 1) = 1
                                 ORDER BY sort_order, name`).all();
@@ -64,9 +68,9 @@ function getNavCategories() {
                 (byParent[c.parent_id] = byParent[c.parent_id] || []).push(c);
             }
         }
-        // The mega menu lists CATEGORY names only, never individual products.
-        // Each root column shows its sub-categories with active-product counts;
-        // products appear on the listing pages.
+        // V4 (owner voice note 2026-08-03): the mega menu must list CATEGORY names,
+        // never individual product names. Each root column shows its sub-categories
+        // (with active-product counts); products only appear on the listing pages.
         const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM products WHERE status = 'active' AND category_id IN (SELECT id FROM categories WHERE id = ? OR parent_id = ?)`);
         return roots.map(r => ({
             ...r,
@@ -116,30 +120,6 @@ export function siteLayout(opts, content) {
     // name containing "</script>") cannot break out of the JSON-LD <script> block (XSS).
     const jsonLdSafe = opts.jsonLd ? JSON.stringify(opts.jsonLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026') : '';
     const jsonLdTag = jsonLdSafe ? `<script type="application/ld+json">${jsonLdSafe}</script>` : '';
-    // Always emit WebSite + Organization so Google never indexes a leftover "site1" brand.
-    const websiteLd = {
-        '@context': 'https://schema.org',
-        '@graph': [
-            {
-                '@type': 'WebSite',
-                '@id': (siteUrl || 'https://netcorepro.ir') + '/#website',
-                name: siteName,
-                url: siteUrl || 'https://netcorepro.ir',
-                inLanguage: 'fa-IR',
-                description: ogDesc,
-                publisher: { '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization' },
-            },
-            {
-                '@type': 'Organization',
-                '@id': (siteUrl || 'https://netcorepro.ir') + '/#organization',
-                name: siteName,
-                url: siteUrl || 'https://netcorepro.ir',
-                logo: ogImage,
-            },
-        ],
-    };
-    const websiteLdSafe = JSON.stringify(websiteLd).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
-    const websiteLdTag = `<script type="application/ld+json">${websiteLdSafe}</script>`;
 
     return `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -161,7 +141,7 @@ export function siteLayout(opts, content) {
 <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
 <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
 <meta name="twitter:image" content="${escapeAttr(ogImage)}">
-${canonicalTag}${websiteLdTag}${jsonLdTag}
+${canonicalTag}${jsonLdTag}
 <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/static/images/favicon.svg">
@@ -267,6 +247,7 @@ ${opts.extraHead || ''}
       </div>
       <div class="nc-topnav">
         ${topNav('/products', 'محصولات', 'fa-box')}
+        ${getHomePages(true).map(h => topNav('/h/' + h.slug, h.title, 'fa-layer-group')).join('')}
         ${topNav('/blog', 'مجله', 'fa-newspaper')}
         ${topNav('/about', 'درباره ما', 'fa-circle-info')}
         ${topNav('/terms', 'شرایط گارانتی', 'fa-shield-halved')}
@@ -369,13 +350,6 @@ ${content}
       </form>
     </div>
   </div>
-  <div class="nc-footer-trust">
-    <div class="nc-enamad" id="enamad-seal">
-      <a referrerpolicy="origin" target="_blank" rel="noopener" href="https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J">
-        <img referrerpolicy="origin" src="https://trustseal.enamad.ir/logo.aspx?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J" alt="نماد اعتماد الکترونیکی" style="cursor:pointer" code="QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J" width="125" height="125">
-      </a>
-    </div>
-  </div>
   <div class="nc-footer-bottom">
     <span>© ${new Date().getFullYear()} ${escapeHtml(siteName)} — تمام حقوق محفوظ است.</span>
     <span>طراحی و توسعه: تیم فنی ${escapeHtml(siteName)}</span>
@@ -407,15 +381,16 @@ ${content}
     if (overlay) overlay.addEventListener('click', closeDrawer);
 
     // ================================================================
-    // Categories mega-menu (desktop).
-    // Two pointer-behaviour details are handled here:
-    //  * there is a 10px gap between the button and the panel; a CSS
-    //    hover-bridge covers it, and an intent delay below keeps the panel
-    //    open during a fast diagonal sweep instead of snapping it shut;
-    //  * after clicking a category, pjax swaps the page while the pointer is
-    //    still over the menu, so the .nc-cats:hover rule would re-show the
-    //    panel on top of the new content. It is hard-closed and stays shut
-    //    until the pointer genuinely leaves.
+    // Categories mega-menu (desktop) — V4 rebuild, 2026-08-05
+    // Fixes two owner-reported defects:
+    //  D1 (screen recording): moving the mouse from the button down into the
+    //     panel closed the menu, so a sub-category could never be clicked.
+    //     A CSS hover-bridge covers the 10px gap; here we add an intent
+    //     delay so a fast diagonal sweep off the panel does not kill it.
+    //  D2 (voice note): after clicking a category the panel stayed open on
+    //     top of the loaded page (pjax keeps the pointer over the menu, and
+    //     the .nc-cats:hover rule re-showed it). We hard-close it and keep it
+    //     shut until the pointer genuinely leaves.
     // ================================================================
     var catsBtn = document.getElementById('nc-cats-btn');
     var cats = document.getElementById('nc-cats');

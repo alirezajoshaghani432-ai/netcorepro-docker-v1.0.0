@@ -225,7 +225,7 @@ async function main() {
 }
 
 function done() {
-  console.log('\n  test_dashboard_sync: ' + pass + ' passed, ' + fail + ' failed');
+  console.log('\n  test_dashboard_roundtrip: ' + pass + ' passed, ' + fail + ' failed');
   if (fails.length) { console.log('  FAILURES:'); fails.forEach(f => console.log('   - ' + f)); }
   process.exit(fail ? 1 : 0);
 }

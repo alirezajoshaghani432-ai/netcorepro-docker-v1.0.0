@@ -1,10 +1,3 @@
-// Media, newsletter and activity-log suite.
-//   * image upload -> the file is stored, served back with an image
-//     content-type and listed in the admin uploads library;
-//   * newsletter subscribe / list / delete, including a duplicate
-//     subscribe which must not raise a server error;
-//   * activity log is paginated and readable by admins only;
-//   * customer profile update persists and is returned by /me.
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 let pass=0, fail=0; const fails=[];
 function ok(n,c,e){ if(c)pass++; else {fail++; fails.push(n+(e?' :: '+e:'')); console.log('  ✗',n,e||'');} }
@@ -52,11 +45,11 @@ async function main(){
 
   // 4) PROFILE edit round-trip: update phone/company -> read back via /auth/me
   const newPhone = '0912'+Math.floor(Math.random()*10000000);
-  const pu = await jx('PUT','/api/auth/profile',{ full_name:'Customer Test', phone:newPhone, company:'Acme Co' }, cust);
+  const pu = await jx('PUT','/api/auth/profile',{ full_name:'Customer Test', phone:newPhone, company:'RoundTrip Co' }, cust);
   ok('profile update 200', pu.status===200, 'status='+pu.status);
   const me = await jx('GET','/api/auth/me',null,cust);
   ok('profile change persisted (phone)', me.j?.data?.phone===newPhone, 'got='+me.j?.data?.phone);
-  ok('profile change persisted (company)', me.j?.data?.company==='Acme Co', 'got='+me.j?.data?.company);
+  ok('profile change persisted (company)', me.j?.data?.company==='RoundTrip Co', 'got='+me.j?.data?.company);
 
   // 5) REPORTS data: dashboard aggregates present, no 500
   const dash = await jx('GET','/api/admin/dashboard',null,admin);
@@ -81,7 +74,7 @@ async function main(){
     if (url) { const fname = url.split('/').pop(); try { fs.unlinkSync(new URL(fname, dir)); } catch {} }
   } catch {}
 
-  console.log(`\n  test_media_and_reports: ${pass} passed, ${fail} failed`);
+  console.log(`\n  test_roundtrip5: ${pass} passed, ${fail} failed`);
   if(fails.length){ fails.forEach(f=>console.log('   - '+f)); }
   process.exit(fail?1:0);
 }

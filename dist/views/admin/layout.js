@@ -121,6 +121,7 @@ ${opts.extraHead || ''}
     <div class="px-4 mt-4 mb-1 text-[11px] text-white/50 font-bold">محتوای سایت</div>
     ${link('/admin/site-content', 'fa-pen-to-square', 'محتوای صفحات')}
     ${link('/admin/banners', 'fa-images', 'مدیریت بنرها')}
+    ${link('/admin/home-pages', 'fa-layer-group', 'صفحات هوم چندگانه')}
     ${link('/admin/posts', 'fa-newspaper', 'مقالات')}
     ${link('/admin/comments', 'fa-comments', 'دیدگاه‌ها', 'comments_pending')}
     <div class="px-4 mt-4 mb-1 text-[11px] text-white/50 font-bold">کاربران</div>

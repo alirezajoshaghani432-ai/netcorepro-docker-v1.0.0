@@ -11,7 +11,7 @@ Run:  python3 scripts/perf/build_css.py
 """
 import json, os, re, subprocess, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = '/home/root/webapp/netcorepro'
 CSS = os.path.join(ROOT, 'public/static/css')
 PERF = os.path.join(ROOT, 'scripts/perf')
 R = json.load(open(os.path.join(PERF, 'ranges.json')))

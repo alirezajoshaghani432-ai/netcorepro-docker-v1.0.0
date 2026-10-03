@@ -52,6 +52,8 @@ services:
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - dbdata:/var/lib/mysql
+      # ایمپورت خودکار دیتابیس (فقط در اولین اجرا، روی volume خالی)
+      - ./database/netcorepro.sql:/docker-entrypoint-initdb.d/01-netcorepro.sql:ro
     healthcheck:
       # --su-mysql = سوکت یونیکس با کاربر سیستم mysql (نه TCP ناشناس)
       # --innodb_initialized = دیتادیر آماده است
@@ -94,7 +96,6 @@ services:
       MYSQL_WAIT_SECONDS: "180"
     volumes:
       # فایل SQLite قدیمی برای مهاجرت یک‌باره (فقط-خواندنی) + آپلودها
-      - ./data:/app/data:ro
       - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]

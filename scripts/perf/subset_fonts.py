@@ -17,7 +17,7 @@ Design notes
 """
 import json, os, subprocess
 
-ROOT = '/home/root/webapp/netcorepro'
+ROOT = __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
 WF = os.path.join(ROOT, 'public/static/webfonts')
 VZ = os.path.join(ROOT, 'public/static/fonts/vazirmatn')
 PERF = os.path.join(ROOT, 'scripts/perf')

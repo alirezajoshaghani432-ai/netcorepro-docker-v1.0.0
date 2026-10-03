@@ -498,11 +498,19 @@ export function adminProductsPage() {
         window.ncMarkDirty && window.ncMarkDirty();
       };
       function bindProductForm(id) {
+        (function () {
+          var dv = document.getElementById('pf-disc-val'), dp = document.getElementById('pf-dprice'), hint = document.getElementById('pf-disc-hint');
+          if (dv && dp) dv.addEventListener('input', function () {
+            if (dv.value === '' || !(parseFloat(dv.value) > 0)) { dp.value = ''; if (hint) hint.textContent = ''; window.ncMarkDirty && window.ncMarkDirty(); }
+          });
+        })();
         document.getElementById('product-form').addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(e.target);
           const data = Object.fromEntries(fd.entries());
-          ['category_id','brand_id','price','discount_price','stock','featured'].forEach(k => { if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k]); else if (data[k] === '') delete data[k]; });
+          ['category_id','brand_id','price','discount_price','stock','featured'].forEach(k => { if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k]); else if (data[k] === '') { if (k === 'discount_price') data[k] = null; else delete data[k]; } });
+          // a discount that is not lower than the price is meaningless -> treat as "no discount"
+          if (data.discount_price !== null && data.discount_price !== undefined && (!(data.discount_price > 0) || data.discount_price >= data.price)) data.discount_price = null;
           data.gallery = JSON.stringify(collectGallery());
           data.specs = JSON.stringify(collectSpecs());
           data.key_features = JSON.stringify(collectFeatures());

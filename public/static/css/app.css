@@ -784,12 +784,12 @@ textarea.nc-input{resize:vertical;min-height:90px}
 /* Grouped spec headers (e.g. «ارتباطات», «ابعاد و وزن») */
 .nc-specs-table .nc-specs-group th{background:#eef4ff;color:var(--nc-primary);font-weight:800;font-size:13px;text-align:right;padding:10px 14px;border-radius:8px}
 /* Key features (checked list under product title) */
-.nc-pdp-keyfeats{background:#f2fbf6;border:1px solid #d3f0e0;border-radius:12px;padding:14px 16px;margin-top:6px;font-size:13.5px}
-.nc-pdp-keyfeats strong{display:block;margin-bottom:8px;color:#0b7a45;font-size:13px}
-.nc-pdp-keyfeats strong i{margin-left:4px}
+.nc-pdp-keyfeats{background:#f0f6ff;border:1px solid #d5e4fb;border-right:3px solid var(--nc-primary);border-radius:12px;padding:14px 16px;margin-top:6px;font-size:13.5px}
+.nc-pdp-keyfeats strong{display:block;margin-bottom:8px;color:var(--nc-primary-d);font-size:13px}
+.nc-pdp-keyfeats strong i{margin-left:4px;color:var(--nc-primary)}
 .nc-pdp-keyfeats ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
-.nc-pdp-keyfeats li{display:flex;align-items:flex-start;gap:8px;color:#3d5248}
-.nc-pdp-keyfeats li i{color:#16a34a;margin-top:4px;font-size:12px;flex-shrink:0}
+.nc-pdp-keyfeats li{display:flex;align-items:flex-start;gap:8px;color:#334e6e}
+.nc-pdp-keyfeats li i{color:var(--nc-primary);margin-top:4px;font-size:12px;flex-shrink:0}
 .nc-specs-table td:first-child{width:32%;min-width:130px;color:var(--nc-muted);background:#fafbff;font-weight:600}
 .nc-specs-table td:last-child{color:var(--nc-ink);font-weight:600}
 /* comments */
@@ -849,18 +849,6 @@ textarea.nc-input{resize:vertical;min-height:90px}
 .nc-inforow-v{color:#1e293b;font-weight:700}
 .nc-inforow-v.link{color:var(--nc-primary,#4f46e5);text-decoration:none}
 .nc-inforow-v.link:hover{text-decoration:underline}
-.nc-pdp-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:14px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 60%,#fdf4ff 100%);border:1px solid #e0e7ff}
-.nc-pdp-cta-text{display:flex;align-items:center;gap:12px;min-width:0}
-.nc-pdp-cta-text>i{font-size:22px;flex-shrink:0;width:46px;height:46px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;background:linear-gradient(135deg,#6366f1 0%,#a855f7 55%,#ec4899 100%);color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.35)}
-.nc-pdp-cta-text b{display:block;font-size:13.5px;color:#312e81}
-.nc-pdp-cta-text span{display:block;font-size:11.5px;color:#6366f1;margin-top:2px}
-.nc-pdp-cta-actions{display:flex;gap:8px;flex-wrap:wrap}
-.nc-cta-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:10px;text-decoration:none;transition:transform .15s,box-shadow .15s;border:1px solid transparent}
-.nc-cta-btn:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.1)}
-.nc-cta-btn.call{background:linear-gradient(135deg,#4f46e5,#6d28d9);color:#fff}.nc-cta-btn.call i{color:#c7d2fe}
-.nc-cta-btn.wa{background:#25D366;color:#fff;border-color:#1eb355}.nc-cta-btn.wa i{font-size:15px}.nc-cta-btn.wa:hover{background:#1ebe5b}
-.nc-cta-btn.tg{background:#229ED9;color:#fff;border-color:#1c8bc0}.nc-cta-btn.tg i{font-size:15px}.nc-cta-btn.tg:hover{background:#1e8fc7}
-@media (max-width:640px){.nc-pdp-cta{flex-direction:column;align-items:stretch}.nc-pdp-cta-actions{justify-content:center}}
 
 /* ===== V7 (voice batch 2): PDP meta line, brand logo on gallery, expert chat block ===== */
 .nc-pdp-metaline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0 4px;font-size:12.5px;color:#64748b}
@@ -1019,13 +1007,6 @@ section.nc-container:first-of-type{margin-top:18px}
 .nc-footer-social a.nc-social-mail:hover{background:#475569}
 
 /* extra CTA / expert variants introduced by the channel system */
-.nc-cta-btn{max-width:100%}
-.nc-cta-btn span,.nc-cta-btn{unicode-bidi:plaintext}
-.nc-cta-btn.mobile{background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff}
-.nc-cta-btn.eitaa{background:#f2801d;color:#fff}.nc-cta-btn.eitaa:hover{background:#dd7015}
-.nc-cta-btn.mail{background:#475569;color:#fff}.nc-cta-btn.mail:hover{background:#334155}
-.nc-cta-btn.ig{background:linear-gradient(135deg,#f58529,#dd2a7b,#8134af);color:#fff}
-.nc-pdp-cta-actions{display:flex;flex-wrap:wrap;gap:8px}
 
 .nc-expert-btns{flex-wrap:wrap}
 .nc-expert-btn{flex:1 1 calc(50% - 4px);min-width:0}
@@ -1324,3 +1305,20 @@ section.nc-container:first-of-type{margin-top:18px}
 .nc-tax-note{margin-top:14px;padding:10px 14px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:12.5px;line-height:1.9}
 .nc-tax-note i{color:#d97706;margin-left:6px}
 .nc-brand-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+
+/* ===== Brand logo (header + mobile bar) ===== */
+.nc-logo--img .nc-logo-text{display:none}
+.nc-header-inner:has(.nc-logo--img){padding-top:8px;padding-bottom:8px}
+.nc-logo--img .nc-logo-img{height:76px;width:auto;max-width:none;border-radius:0;display:block}
+.nc-mobile-logo{display:inline-flex;align-items:center}
+.nc-mobile-logo-img{height:52px;width:auto;display:block}
+.nc-mobilebar{padding-top:6px;padding-bottom:6px}
+
+/* ===== Footer trust seal (enamad) ===== */
+.nc-footer-trust{display:flex;justify-content:center;padding:6px 16px 22px}
+.nc-enamad-box{background:#fff;border-radius:14px;padding:8px 12px;min-width:96px;min-height:96px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.nc-enamad-box a{display:block;line-height:0}
+.nc-enamad-box img{max-height:84px;width:auto;display:block}
+
+/* ===== PDP: short description sits below the "full specs" link ===== */
+.nc-pdp-info .nc-pdp-short{margin:16px 0 0;padding-top:14px;border-top:1px dashed #dbe3f3}

@@ -215,6 +215,9 @@ products.put('/:id', adminRequired, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
+    // Clearing the discount (empty / 0 / not below the price) must really reset it to NULL.
+    if ('discount_price' in d && (!d.discount_price || (d.price !== undefined && d.discount_price >= d.price)))
+        d.discount_price = null;
     if ('gallery' in d)
         d.gallery = validJsonOrNull(d.gallery);
     if ('specs' in d)

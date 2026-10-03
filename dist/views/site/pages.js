@@ -837,7 +837,6 @@ export function productPage(slug) {
     const chatExternal = expert ? expert.external : false;
     const expertLabel = (settings.chan_expert_label || '').trim() || 'گفتگو با کارشناسان';
     const expertNote = (settings.chan_expert_note || '').trim() || 'استعلام قیمت کالا برای همکاران و کارفرمایان';
-    const ctaBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-cta-btn ${c.cls}"><i class="${c.icon}"></i> ${esc(c.display || c.label)}</a>`).join('');
     const expertBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-expert-btn ${c.cls}"><i class="${c.icon}"></i><span>${esc(c.display || c.label)}</span></a>`).join('');
     // V6d: small promo banner under the PDP gallery (editable from admin: site_blocks page='product' section='promo_banner')
     const promoBlocks = getBlocks('product', 'promo_banner');
@@ -899,15 +898,8 @@ export function productPage(slug) {
             <strong><i class="fas fa-star"></i> ویژگی‌های کلیدی:</strong>
             <ul>${keyFeatures.map(f => `<li><i class="fas fa-check-circle"></i><span>${esc(f)}</span></li>`).join('')}</ul>
           </div>` : ''}
-          <p class="nc-pdp-short">${esc(p.short_description || '')}</p>
           ${specs.length ? `<a href="#pdp-tabs" onclick="switchTab('specs')" class="nc-pdp-morespecs standalone"><i class="fas fa-list-ul ml-1"></i>مشاهده مشخصات فنی کامل <i class="fas fa-angle-down"></i></a>` : ''}
-          <div class="nc-pdp-cta">
-            <div class="nc-pdp-cta-text">
-              <i class="fas fa-headset"></i>
-              <div><b>نیاز به مشاوره قبل از خرید دارید؟</b><span>کارشناسان ما آماده پاسخگویی هستند — استعلام قیمت و موجودی</span></div>
-            </div>
-            <div class="nc-pdp-cta-actions">${ctaBtns}</div>
-          </div>
+          ${p.short_description ? `<p class="nc-pdp-short">${esc(p.short_description)}</p>` : ''}
         </div>
 
         <!-- buy box (side) -->
@@ -953,7 +945,7 @@ export function productPage(slug) {
       <div class="nc-pdp-tabs" id="pdp-tabs">
         <div class="nc-pdp-tabbar" role="tablist">
           ${specs.length ? '<button class="nc-pdp-tab active" data-tab="specs" role="tab">مشخصات فنی</button>' : ''}
-          <button class="nc-pdp-tab${specs.length ? '' : ' active'}" data-tab="review" role="tab">نقد و بررسی</button>
+          <button class="nc-pdp-tab${specs.length ? '' : ' active'}" data-tab="review" role="tab">توضیحات</button>
           <button class="nc-pdp-tab" data-tab="comments" role="tab">دیدگاه‌ها (${comments.length})</button>
           <button class="nc-pdp-tab" data-tab="qa" role="tab">پرسش و پاسخ</button>
         </div>

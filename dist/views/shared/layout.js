@@ -11,7 +11,7 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20260910a';
+export const ASSET_V = '20261001a';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -39,7 +39,7 @@ const LOCAL_HEAD = `
  * Algorithm — in an RTL paragraph a trailing "(5)" after a LATIN run gets
  * reordered to the LEFT of that run, so a Persian reader scanning right→left
  * meets the count in the MIDDLE of the name. Proven with a per-character
- * probe (scripts/qa/bidi_probe.py):
+ * probe:
  *     source 'کابل Cat6 UTP (5)'  ->  reader scan 'کابل)5(PTU6taC'
  * Pure-Persian labels ("سوییچ 5 پورت (7)") were never affected, which is
  * exactly why only the mixed Persian+Latin rows were reported.
@@ -90,6 +90,9 @@ export function siteLayout(opts, content) {
     const settings = getAllSettings();
     const siteName = settings.site_name || 'NetCore Pro';
     const tagline = settings.site_tagline || 'تجهیزات شبکه حرفه‌ای';
+    // Brand logo: admin-uploaded one wins, otherwise the bundled default.
+    const logoSrc = settings.site_logo || '/static/images/logo.png';
+    const logoDims = settings.site_logo ? '' : 'width="139" height="176"';
     const desc = opts.description || settings.site_description || '';
     const path = opts.currentPath || '/';
     const phone = settings.phone || '۰۲۵-۳۷۱۶۵';
@@ -108,7 +111,7 @@ export function siteLayout(opts, content) {
 
     const ogTitle = `${opts.title} | ${siteName}`;
     const ogDesc = desc || 'فروشگاه آنلاین تخصصی تجهیزات شبکه، فیبر نوری و برق';
-    const ogImage = opts.ogImage || settings.og_image || '/static/images/og-default.svg';
+    const ogImage = opts.ogImage || settings.og_image || '/static/images/og-logo.png';
     const metaKeywords = opts.keywords ? `<meta name="keywords" content="${escapeAttr(opts.keywords)}">` : '';
     // SEO: canonical URL (path only — the host is prepended by search engines from the fetch URL,
     // and settings.site_url lets the admin pin an absolute canonical domain)
@@ -142,9 +145,9 @@ export function siteLayout(opts, content) {
 <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
 <meta name="twitter:image" content="${escapeAttr(ogImage)}">
 ${canonicalTag}${jsonLdTag}
-<link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
-<link rel="alternate icon" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/static/images/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/images/favicon-192.png">
+<link rel="apple-touch-icon" href="/static/images/apple-touch-icon.png">
 ${LOCAL_HEAD}
 ${opts.extraHead || ''}
 <script>
@@ -192,13 +195,12 @@ ${opts.extraHead || ''}
 <header class="nc-header" role="banner">
   <div class="nc-container nc-header-inner">
     <!-- right: logo -->
-    <a href="/" class="nc-logo" aria-label="صفحه اصلی ${escapeHtml(siteName)}">
-      ${settings.site_logo ? `${ncImg(settings.site_logo, { alt: siteName, cls: 'nc-logo-img', sizes: '170px', ratio: false, loading: 'eager', fetchpriority: 'high' })}` : ''}
+    <a href="/" class="nc-logo nc-logo--img" aria-label="صفحه اصلی ${escapeHtml(siteName)}">
+      ${ncImg(logoSrc, { alt: siteName, cls: 'nc-logo-img', sizes: '120px', ratio: false, loading: 'eager', fetchpriority: 'high', attrs: logoDims })}
       <div class="nc-logo-text">
         <span class="nc-logo-title">${escapeHtml(siteName)}</span>
         <span class="nc-logo-sub">${escapeHtml(tagline)}</span>
       </div>
-      <span class="nc-logo-home"><i class="fas fa-home"></i></span>
     </a>
 
     <!-- center: search -->
@@ -261,7 +263,7 @@ ${opts.extraHead || ''}
   <!-- ===== Mobile top bar ===== -->
   <div class="nc-mobilebar nc-show-mobile">
     <button id="mobile-menu-btn" class="nc-icon-btn" aria-label="منو"><i class="fas fa-bars"></i></button>
-    <a href="/" class="nc-mobile-logo">${escapeHtml(siteName)}</a>
+    <a href="/" class="nc-mobile-logo" aria-label="${escapeAttr(siteName)}">${ncImg(logoSrc, { alt: siteName, cls: 'nc-mobile-logo-img', sizes: '60px', ratio: false, loading: 'eager', attrs: logoDims })}</a>
     <a href="/account" class="nc-icon-btn" aria-label="حساب کاربری"><i class="far fa-user"></i></a>
   </div>
   <form class="nc-search nc-search-mobile nc-show-mobile" id="nc-search-form-m" role="search">
@@ -348,6 +350,11 @@ ${content}
         <input type="email" name="email" required placeholder="ایمیل خود را برای دریافت تخفیف‌ها وارد کنید" aria-label="ایمیل">
         <button type="submit" class="nc-newsletter-btn"><i class="fas fa-paper-plane ml-2"></i>عضویت در خبرنامه</button>
       </form>
+    </div>
+  </div>
+  <div class="nc-container nc-footer-trust">
+    <div class="nc-enamad-box">
+      <a referrerpolicy='origin' target='_blank' rel="noopener" href='https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J'><img referrerpolicy='origin' src='https://trustseal.enamad.ir/logo.aspx?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J' alt='نماد اعتماد الکترونیکی' style='cursor:pointer' code='QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J' loading="lazy"></a>
     </div>
   </div>
   <div class="nc-footer-bottom">

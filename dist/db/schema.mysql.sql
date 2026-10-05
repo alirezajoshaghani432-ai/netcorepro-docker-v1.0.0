@@ -1,4 +1,4 @@
--- NetCore Pro - MySQL / MariaDB schema (mirrors schema.sql for SQLite)
+-- Radis - MySQL / MariaDB schema (mirrors schema.sql for SQLite)
 -- Charset: utf8mb4 for full Persian + emoji support
 
 CREATE TABLE IF NOT EXISTS users (

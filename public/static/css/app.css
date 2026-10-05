@@ -1,4 +1,4 @@
-/* NetCore Pro — site + admin shared styles
+/* رادیس — site + admin shared styles
  * Light e-commerce theme (purple/red), fully responsive, mobile web-app feel.
  */
 
@@ -164,7 +164,7 @@ img{max-width:100%}
 .nc-prod-name:hover{color:var(--nc-primary)}
 .nc-prod-foot{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
 .nc-prod-price{text-align:left}
-.nc-prod-old{font-size:12px;color:#b6bccf;text-decoration:line-through;display:block}
+.nc-prod-old{font-size:12px;color:#e11d48;text-decoration:line-through;text-decoration-color:#e11d48;display:block}
 .nc-prod-new{font-size:17px;font-weight:900;color:var(--nc-ink)}
 .nc-prod-new small{font-size:11px;font-weight:500;color:var(--nc-muted)}
 .nc-prod-cart{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--nc-primary),var(--nc-primary-l));color:#fff;border:0;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;transition:filter .2s}
@@ -525,7 +525,7 @@ textarea.nc-input{resize:vertical;min-height:90px}
 .nc-pdp-title{font-size:23px;font-weight:800;color:var(--nc-ink);line-height:1.6;margin:0 0 12px}
 .nc-pdp-short{font-size:14px;color:#555c75;line-height:1.9;margin:0 0 18px}
 .nc-pdp-pricebox{display:flex;align-items:baseline;gap:12px;background:#f7f6ff;border:1px solid #ece8ff;border-radius:14px;padding:16px 18px;margin-bottom:18px}
-.nc-pdp-old{font-size:15px;color:#b6bccf;text-decoration:line-through}
+.nc-pdp-old{font-size:15px;color:#e11d48;text-decoration:line-through}
 .nc-pdp-price{font-size:26px;font-weight:900;color:var(--nc-primary)}
 .nc-pdp-price small{font-size:13px;font-weight:600;color:var(--nc-muted)}
 .nc-pdp-stock{font-size:13px;font-weight:700;color:#11a36b;margin-bottom:16px}
@@ -734,8 +734,8 @@ textarea.nc-input{resize:vertical;min-height:90px}
 .nc-pdp3 .nc-pdp-gallery{position:relative;flex-direction:column;gap:12px;aspect-ratio:auto;padding:16px}
 .nc-pdp3 .nc-pdp-gallery>img{width:100%;max-height:300px;object-fit:contain}
 .nc-pdp3 .nc-prod-badge{position:absolute;top:10px;right:10px;background:var(--nc-accent);color:#fff;font-size:12px;font-weight:800;border-radius:8px;padding:3px 9px;z-index:2}
-.nc-pdp-thumbs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.nc-pdp-thumb{width:58px;height:58px;border:1.5px solid var(--nc-line);border-radius:10px;background:#fff;padding:5px;cursor:pointer;transition:border-color .15s}
+.nc-pdp-thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;max-width:340px;margin:6px auto 0}
+.nc-pdp-thumb{width:100%;aspect-ratio:1/1;border:1.5px solid var(--nc-line);border-radius:10px;background:#fff;padding:6px;cursor:pointer;transition:border-color .15s}
 .nc-pdp-thumb img{width:100%;height:100%;object-fit:contain}
 .nc-pdp-thumb.active,.nc-pdp-thumb:hover{border-color:var(--nc-primary)}
 .nc-pdp-quickspecs{background:#f7faff;border:1px solid #e3edfd;border-radius:12px;padding:14px 16px;margin-top:6px;font-size:13.5px}
@@ -750,7 +750,7 @@ textarea.nc-input{resize:vertical;min-height:90px}
 .nc-buybox-guarantee{display:flex;align-items:center;gap:8px;background:#eafaf1;color:#0e8a5a;border:1px solid #d2f0e0;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:700}
 .nc-buybox-rows{display:flex;flex-direction:column;gap:8px;border-bottom:1px dashed var(--nc-line);padding-bottom:12px}
 .nc-buybox-row{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;color:var(--nc-muted)}
-.nc-buybox-old{color:#b6bccf;text-decoration:line-through;font-weight:600}
+.nc-buybox-old{color:#e11d48;text-decoration:line-through;font-weight:600}
 .nc-buybox-row.profit b{color:var(--nc-accent);font-weight:800}
 .nc-buybox-row.final span{font-weight:700;color:var(--nc-ink)}
 .nc-buybox-row.final b{font-size:21px;font-weight:900;color:var(--nc-primary)}
@@ -890,9 +890,6 @@ textarea.nc-input{resize:vertical;min-height:90px}
 @media (max-width:900px){.nc-cat-ico{width:64px;height:64px;border-radius:14px;font-size:24px}.nc-cat-img{border-radius:14px}}
 
 /* V6d: PDP promo banner under gallery (barghchi-style) */
-.nc-pdp-promobanner{display:block;margin-top:12px;border-radius:12px;overflow:hidden;border:1px solid var(--nc-border,#e2e8f0);transition:box-shadow .2s ease,transform .2s ease}
-.nc-pdp-promobanner img{display:block;width:100%;height:auto;max-height:120px;object-fit:cover}
-.nc-pdp-promobanner:hover{box-shadow:0 6px 18px rgba(2,6,23,.12);transform:translateY(-2px)}
 
 /* F4 (voice 4): consistent vertical rhythm between homepage sections — they felt "stuck together" */
 section.nc-container{margin-top:38px}
@@ -1308,17 +1305,20 @@ section.nc-container:first-of-type{margin-top:18px}
 
 /* ===== Brand logo (header + mobile bar) ===== */
 .nc-logo--img .nc-logo-text{display:none}
-.nc-header-inner:has(.nc-logo--img){padding-top:8px;padding-bottom:8px}
-.nc-logo--img .nc-logo-img{height:76px;width:auto;max-width:none;border-radius:0;display:block}
+.nc-header-inner:has(.nc-logo--img){padding-top:0;padding-bottom:6px}
+.nc-logo--img .nc-logo-img{height:var(--nc-logo-h,64px);width:auto;max-width:none;border-radius:0;display:block;margin-top:var(--nc-logo-y,0px)}
 .nc-mobile-logo{display:inline-flex;align-items:center}
-.nc-mobile-logo-img{height:52px;width:auto;display:block}
+.nc-mobile-logo-img{height:var(--nc-logo-hm,44px);width:auto;display:block;margin-top:var(--nc-logo-y,0px)}
 .nc-mobilebar{padding-top:6px;padding-bottom:6px}
 
 /* ===== Footer trust seal (enamad) ===== */
 .nc-footer-trust{display:flex;justify-content:center;padding:6px 16px 22px}
-.nc-enamad-box{background:#fff;border-radius:14px;padding:8px 12px;min-width:96px;min-height:96px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.nc-enamad-box{display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 14px rgba(0,0,0,.25))}
 .nc-enamad-box a{display:block;line-height:0}
-.nc-enamad-box img{max-height:84px;width:auto;display:block}
+.nc-enamad-box img{height:150px;width:auto;display:block;border-radius:14px;transition:transform .15s}
+.nc-enamad-box a:hover img{transform:translateY(-2px)}
 
 /* ===== PDP: short description sits below the "full specs" link ===== */
 .nc-pdp-info .nc-pdp-short{margin:16px 0 0;padding-top:14px;border-top:1px dashed #dbe3f3}
+
+.nc-pct{display:inline-block;font-style:normal;font-size:11.5px;font-weight:800;color:#fff;background:#e11d48;border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:middle;line-height:1.7}.nc-buybox-row.final .nc-pct{font-size:12px}

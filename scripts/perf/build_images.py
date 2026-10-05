@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-F2f — responsive image pipeline for the NetCore Pro storefront.
+F2f — responsive image pipeline for the رادیس storefront.
 
 For every raster image under public/static/{images,uploads} this script emits
 WebP variants at a set of breakpoint widths into public/static/rimg/, mirroring

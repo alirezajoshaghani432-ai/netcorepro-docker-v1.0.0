@@ -1,4 +1,4 @@
-// SQL Server driver wrapper for NetCore Pro
+// SQL Server driver wrapper for رادیس
 // Used when DB_TYPE=mssql (Windows Server / IIS deployment)
 //
 // IMPORTANT: This module is loaded dynamically only when DB_TYPE=mssql.

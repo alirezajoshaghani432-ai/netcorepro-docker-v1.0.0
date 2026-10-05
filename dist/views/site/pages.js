@@ -1,7 +1,7 @@
 import db from '../../db/index.js';
 import { siteLayout } from '../shared/layout.js';
 import { getAllSettings, formatPrice } from '../../utils/helpers.js';
-import { getBlocks, getPage, getHomePageBySlug, getHomePages } from '../../api/content.js';
+import { getBlocks, countBlocks, getPage, getHomePageBySlug, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
 import { ncImg, imgPreload, bestUrl } from '../../utils/img.js';
 // F2f — `sizes` presets: tell the browser the real rendered width so it
@@ -113,7 +113,7 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${formatPrice(price)} <small>تومان</small></span>
+          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
         </div>
         <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
       </div>
@@ -123,7 +123,7 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${formatPrice(price)} <small>تومان</small></span>
+          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
         </div>
         <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
       </div>
@@ -134,7 +134,7 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${formatPrice(price)} <small>تومان</small></span>
+          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
         </div>
         <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
       </div>
@@ -172,6 +172,18 @@ export function homePage() {
 
     // Hero slides are editable from the admin dashboard (site_blocks page='home' section='hero').
     // description = subtitle line, href = link, title from .cta? we map: title->title, description->sub, href->href, image->img.
+    const featureDefaults = [
+        { icon: 'fa-truck-fast', title: 'ارسال سریع', desc: 'به سراسر کشور' },
+        { icon: 'fa-shield-halved', title: 'گارانتی اصالت', desc: 'تضمین کالای اصل' },
+        { icon: 'fa-headset', title: 'پشتیبانی', desc: 'مشاوره تخصصی' },
+        { icon: 'fa-credit-card', title: 'پرداخت امن', desc: 'درگاه معتبر' },
+    ];
+    // Editable from admin (site_blocks home/features). Inactive blocks are hidden;
+    // built-in defaults are used only when nothing was ever configured.
+    const featureRows = getBlocks('home', 'features');
+    const featureItems = featureRows.length
+        ? featureRows.map(b => ({ icon: b.icon || 'fa-check', title: b.title || '', desc: b.description || '' }))
+        : (countBlocks('home', 'features') ? [] : featureDefaults);
     const heroBlocks = getBlocks('home', 'hero');
     const defaultSlides = [
         { img: '/static/images/hero-1-datacenter.jpg', title: 'تجهیزات شبکه لگراند', sub: 'اورجینال با گارانتی اصالت کالا', cta: 'مشاهده محصولات', href: '/products' },
@@ -260,21 +272,16 @@ export function homePage() {
     </section>
 
     <!-- Features strip -->
-    <section class="nc-container">
+    ${featureItems.length ? `<section class="nc-container">
       <div class="nc-features">
-        ${[
-            { icon: 'fa-truck-fast', title: 'ارسال سریع', desc: 'به سراسر کشور' },
-            { icon: 'fa-shield-halved', title: 'گارانتی اصالت', desc: 'تضمین کالای اصل' },
-            { icon: 'fa-headset', title: 'پشتیبانی', desc: 'مشاوره تخصصی' },
-            { icon: 'fa-credit-card', title: 'پرداخت امن', desc: 'درگاه معتبر' },
-        ].map(f => `
+        ${featureItems.map(f => `
           <div class="nc-feature">
-            <i class="fas ${f.icon}"></i>
-            <div><strong>${f.title}</strong><span>${f.desc}</span></div>
+            <i class="${/(^|\s)(fa|fas|far|fab|fal|fa-solid|fa-regular|fa-brands)(\s|$)/.test(f.icon) ? '' : 'fas '}${esc(f.icon)}"></i>
+            <div><strong>${esc(f.title)}</strong><span>${esc(f.desc)}</span></div>
           </div>
         `).join('')}
       </div>
-    </section>
+    </section>` : ''}
 
     <!-- Categories -->
     <section class="nc-container">
@@ -712,7 +719,7 @@ export function productsPage(query) {
             <div class="nc-prod-foot">
               <div class="nc-prod-price">
                 \${has ? '<span class="nc-prod-old">' + formatPrice(p.price) + '</span>' : ''}
-                <span class="nc-prod-new">\${formatPrice(price)} <small>تومان</small></span>
+                <span class="nc-prod-new">\${pct > 0 ? '<em class="nc-pct">' + formatPrice(pct) + '٪</em>' : ''}\${formatPrice(price)} <small>تومان</small></span>
               </div>
               <button class="nc-prod-cart" onclick='addCartFromList(\${ncpEsc(JSON.stringify(p))})' aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
             </div>
@@ -838,11 +845,6 @@ export function productPage(slug) {
     const expertLabel = (settings.chan_expert_label || '').trim() || 'گفتگو با کارشناسان';
     const expertNote = (settings.chan_expert_note || '').trim() || 'استعلام قیمت کالا برای همکاران و کارفرمایان';
     const expertBtns = channels.map(c => `<a href="${esc(c.href)}"${c.external ? ' target="_blank" rel="noopener"' : ''} class="nc-expert-btn ${c.cls}"><i class="${c.icon}"></i><span>${esc(c.display || c.label)}</span></a>`).join('');
-    // V6d: small promo banner under the PDP gallery (editable from admin: site_blocks page='product' section='promo_banner')
-    const promoBlocks = getBlocks('product', 'promo_banner');
-    const promoBanner = (promoBlocks && promoBlocks.length)
-        ? { image: promoBlocks[0].image || '/static/images/banner-mid-2-router.jpg', href: promoBlocks[0].href || '/products', title: promoBlocks[0].title || 'پیشنهاد ویژه' }
-        : { image: '/static/images/banner-mid-2-router.jpg', href: '/products?category=routers', title: 'پیشنهاد ویژه' };
     // VAT note (voice n9): one small sentence under every product description.
     // The percent is per-product (products.tax_percent) falling back to the
     // global setting; hidden entirely when tax is disabled.
@@ -873,9 +875,6 @@ export function productPage(slug) {
           <div class="nc-pdp-thumbs">
             ${allImages.map((g, i) => `<button class="nc-pdp-thumb${i === 0 ? ' active' : ''}" data-src="${esc(g)}" aria-label="تصویر ${i + 1}">${ncImg(g, { alt: '', sizes: '58px', ratio: false })}</button>`).join('')}
           </div>` : ''}
-          <a href="${esc(promoBanner.href)}" class="nc-pdp-promobanner" aria-label="${esc(promoBanner.title)}">
-            ${ncImg(promoBanner.image, { alt: promoBanner.title, sizes: SZ_PDP, ratio: false })}
-          </a>
         </div>
 
         <!-- info -->
@@ -909,7 +908,7 @@ export function productPage(slug) {
             ${has ? `
             <div class="nc-buybox-row"><span>قیمت:</span><b class="nc-buybox-old">${formatPrice(p.price)} تومان</b></div>
             <div class="nc-buybox-row profit"><span>سود شما:</span><b>${formatPrice(profit)} تومان (${formatPrice(pct)}٪)</b></div>` : ''}
-            <div class="nc-buybox-row final"><span>قیمت نهایی:</span><b>${formatPrice(price)} <small>تومان</small></b></div>
+            <div class="nc-buybox-row final"><span>قیمت نهایی:</span><b>${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪ تخفیف</em>` : ''}${formatPrice(price)} <small>تومان</small></b></div>
           </div>
           <div class="nc-pdp-stock ${p.stock > 0 ? 'in' : 'out'}">
             <i class="fas ${p.stock > 0 ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
@@ -926,13 +925,6 @@ export function productPage(slug) {
           <button onclick="addNow()" class="nc-btn-primary nc-buybox-add"><i class="fas fa-cart-plus ml-2"></i>افزودن به سبد خرید</button>` : '<div class="nc-pdp-unavailable">این محصول در حال حاضر موجود نیست</div>'}
           <a href="${esc(chatLink)}"${chatExternal ? ' target="_blank" rel="noopener"' : ''} class="nc-buybox-chat"><i class="fas fa-headset ml-2"></i>${esc(expertLabel)}</a>
           <a href="/cart" class="nc-buybox-invoice"><i class="fas fa-file-invoice ml-2"></i>دریافت پیش‌فاکتور</a>
-          <div class="nc-expert-block">
-            <div class="nc-expert-head">
-              <span class="nc-expert-avatar"><img src="/static/images/expert.svg" alt="کارشناس فروش"><i class="nc-expert-dot"></i></span>
-              <div><b>${esc(expertLabel)}</b><span>${esc(expertNote)}</span></div>
-            </div>
-            <div class="nc-expert-btns">${expertBtns}</div>
-          </div>
           <div class="nc-pdp-trust">
             <span><i class="fas fa-truck-fast"></i> ارسال سریع</span>
             <span><i class="fas fa-rotate-left"></i> ۷ روز ضمانت بازگشت</span>
@@ -1527,7 +1519,7 @@ export function loginPage() {
         <div class="nc-auth-head">
           <div class="nc-auth-icon"><i class="fas fa-right-to-bracket"></i></div>
           <h1>ورود به حساب</h1>
-          <p>به فروشگاه نت‌کور پرو خوش آمدید</p>
+          <p>به فروشگاه رادیس خوش آمدید</p>
         </div>
 
         <div class="nc-auth-tabs" role="tablist" aria-label="روش ورود">
@@ -1632,7 +1624,7 @@ export function loginPage() {
               document.getElementById('otp-verify-form').style.display = '';
               var hint = document.getElementById('otp-demo-hint');
               if (r.data.data && r.data.data.debug_code) {
-                hint.textContent = 'کد آزمایشی: ' + r.data.data.debug_code + ' (سرویس پیامک بعداً فعال می‌شود)';
+                hint.textContent = 'کد آزمایشی: ' + r.data.data.debug_code + ' (حالت آزمایشی)';
                 document.getElementById('otp-code').value = r.data.data.debug_code;
               }
               toast(r.data.message || 'کد ارسال شد', 'success');
@@ -1744,7 +1736,7 @@ export function accountPage() {
           { k: 'tickets', l: 'تیکت‌های من', i: 'fa-headset' },
           { k: 'password', l: hasPw ? 'تغییر رمز عبور' : 'تعیین رمز عبور', i: hasPw ? 'fa-key' : 'fa-lock-open' }
         ];
-        const uname = (me && (me.full_name || me.company)) || 'کاربر نت‌کور';
+        const uname = (me && (me.full_name || me.company)) || 'کاربر رادیس';
         const uid = (me && me.phone) ? me.phone : (isPhoneAcc ? '' : ((me && me.email) || ''));
         const initial = ncpEsc(String(uname).trim().charAt(0) || 'ن');
         root.innerHTML = \`
@@ -1976,8 +1968,8 @@ export function aboutPage() {
         { title: 'قیمت‌گذاری شفاف و رقابتی' }
     ];
     const whyItems = whyUs.length ? whyUs : whyFallback;
-    const introTitle = intro?.title || `درباره ${settings.site_name || 'NetCore Pro'}`;
-    const introBody = intro?.body || `${settings.site_name || 'NetCore Pro'} یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.`;
+    const introTitle = intro?.title || `درباره ${settings.site_name || 'رادیس'}`;
+    const introBody = intro?.body || `${settings.site_name || 'رادیس'} یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.`;
     const missionTitle = mission?.title || 'ماموریت ما';
     const missionBody = mission?.body || 'عرضه تجهیزات اصلی و گارانتی‌دار از برندهای مطرح جهان نظیر Cisco، Mikrotik، HP، Juniper، Fortinet و Ubiquiti همراه با مشاوره فنی تخصصی.';
     // Animated stat counters (count-up on scroll into view)
@@ -2102,7 +2094,7 @@ export function contactPage() {
           <ul class="nc-contact-list">
             <li><span class="nc-contact-ico"><i class="fas fa-phone"></i></span><div><div class="nc-contact-label">تلفن</div><div class="nc-contact-val">${esc(settings.phone || '۰۲۱-۹۱۰۰۱۰۰۰')}</div></div></li>
             <li><span class="nc-contact-ico"><i class="fas fa-mobile-screen"></i></span><div><div class="nc-contact-label">موبایل</div><div class="nc-contact-val">${esc(settings.mobile || '۰۹۱۲۰۰۰۰۰۰۰')}</div></div></li>
-            <li><span class="nc-contact-ico"><i class="fas fa-envelope"></i></span><div><div class="nc-contact-label">ایمیل</div><div class="nc-contact-val">${esc(settings.email || 'info@netcorepro.ir')}</div></div></li>
+            <li><span class="nc-contact-ico"><i class="fas fa-envelope"></i></span><div><div class="nc-contact-label">ایمیل</div><div class="nc-contact-val">${esc(settings.email || 'info@example.com')}</div></div></li>
             <li><span class="nc-contact-ico"><i class="fas fa-location-dot"></i></span><div><div class="nc-contact-label">آدرس</div><div class="nc-contact-val">${esc(settings.address || 'تهران، خیابان ولیعصر')}</div></div></li>
           </ul>
         </div>

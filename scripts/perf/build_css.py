@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetCore Pro — storefront CSS bundler (F2 performance).
+"""رادیس — storefront CSS bundler (F2 performance).
 
 Emits ONE render-blocking stylesheet:  public/static/css/nc-site.min.css
       = fonts(@font-face)  +  FontAwesome subset  +  purged Tailwind  +  app.css
@@ -11,7 +11,7 @@ Run:  python3 scripts/perf/build_css.py
 """
 import json, os, re, subprocess, sys
 
-ROOT = __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
+ROOT = '/home/root/webapp/netcorepro'
 CSS = os.path.join(ROOT, 'public/static/css')
 PERF = os.path.join(ROOT, 'scripts/perf')
 R = json.load(open(os.path.join(PERF, 'ranges.json')))

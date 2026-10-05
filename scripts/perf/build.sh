@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NetCore Pro — storefront asset pipeline (F2).
+# رادیس — storefront asset pipeline (F2).
 # Usage: bash scripts/perf/build.sh            (version read from layout.js)
 set -euo pipefail
 cd "$(dirname "$0")/../.."

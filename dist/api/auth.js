@@ -5,6 +5,8 @@ import db from '../db/index.js';
 import { signToken } from '../utils/jwt.js';
 import { authRequired } from '../middleware/auth.js';
 import { logActivity } from '../utils/helpers.js';
+import { smsEnabled, sendOtp } from '../utils/sms.js';
+import { randomInt } from 'node:crypto';
 const auth = new Hono();
 const loginSchema = z.object({
     email: z.string().email('ایمیل معتبر نیست'),
@@ -17,13 +19,14 @@ const registerSchema = z.object({
     phone: z.preprocess((v) => (v === undefined || v === null || v === '' ? undefined : normalizeIranPhone(v)), z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست (مثال: 09123456789)').optional()),
     company: z.string().optional()
 });
-// ===== Phone OTP login (demo/test mode) =====
-// No SMS gateway is configured yet (to be purchased later), so a fixed
-// demo code is issued and also returned in the API response so the shop
-// owner/testers can log in without a real SMS provider. Once a gateway
-// (Kavenegar/IPPanel/...) is purchased, replace sendSms() below with a
-// real API call and stop returning `debug_code` in production.
+// ===== Phone OTP login =====
+// SMS service enabled (admin → Settings → SMS service): a random 5-digit code is
+// generated and delivered through Kavenegar. While it is disabled the panel runs
+// in demo mode with the fixed code below, which is also returned to the browser
+// so the flow can be tried without a gateway.
 const DEMO_OTP_CODE = '12345';
+const OTP_RESEND_SECONDS = 60;
+const otpLastSent = new Map();
 const OTP_TTL_MINUTES = 5;
 /**
  * F6 — Iranian mobile normalisation.
@@ -60,17 +63,33 @@ auth.post('/otp/send', async (c) => {
     if (blocked && blocked.status === 'blocked') {
         return c.json({ success: false, message: 'حساب کاربری شما مسدود شده است', code: 403 }, 403);
     }
+    const live = smsEnabled();
+    if (live) {
+        // basic abuse protection: one code per phone every OTP_RESEND_SECONDS
+        const prev = otpLastSent.get(phone) || 0;
+        if (Date.now() - prev < OTP_RESEND_SECONDS * 1000) {
+            return c.json({ success: false, message: 'لطفاً کمی صبر کنید و دوباره تلاش کنید', code: 429 }, 429);
+        }
+        otpLastSent.set(phone, Date.now());
+        if (otpLastSent.size > 5000) { for (const [k, t] of otpLastSent) if (Date.now() - t > 3600e3) otpLastSent.delete(k); }
+    }
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
-    // TODO: once an SMS gateway service is purchased, generate a random code
-    // and send it via the gateway instead of using the fixed demo code.
-    const code = DEMO_OTP_CODE;
+    const code = live ? String(randomInt(10000, 100000)) : DEMO_OTP_CODE;
+    if (live) {
+        const r = await sendOtp(phone, code);
+        if (!r.ok) {
+            logActivity({ action: 'error', entity_type: 'otp', details: { phone, sms: r.message }, ip_address: c.req.header('x-forwarded-for') || 'local' });
+            return c.json({ success: false, message: 'ارسال پیامک با خطا مواجه شد. لطفاً کمی بعد دوباره تلاش کنید', code: 502 }, 502);
+        }
+    }
     db.prepare(`INSERT INTO otp_codes (phone, code, expires_at) VALUES (?, ?, ?)`).run(phone, code, expiresAt);
     logActivity({ action: 'create', entity_type: 'otp', details: { phone }, ip_address: c.req.header('x-forwarded-for') || 'local' });
+    if (live) {
+        return c.json({ success: true, message: 'کد تایید به شماره موبایل شما پیامک شد', data: { expires_in: OTP_TTL_MINUTES * 60 }, code: 200 });
+    }
     return c.json({
         success: true,
         message: 'کد تایید ارسال شد (حالت آزمایشی — سرویس پیامک هنوز فعال نشده است)',
-        // debug_code is exposed only because no SMS provider is connected yet;
-        // remove this field once a real gateway is purchased and wired up.
         data: { debug_code: code, expires_in: OTP_TTL_MINUTES * 60 },
         code: 200
     });

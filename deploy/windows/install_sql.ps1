@@ -1,4 +1,4 @@
-# NetCore Pro - SQL Server Schema Installer (PowerShell)
+# Radis - SQL Server Schema Installer (PowerShell)
 # Applies scripts\db\mssql_schema.sql against a target SQL Server instance.
 #
 # Usage:

@@ -141,6 +141,27 @@ else {
         updated_at TEXT DEFAULT (datetime('now'))
     )`);
 }
+// ===== SMS log (Kavenegar integration, see utils/sms.js) =====
+try {
+    if (SELECTED_DB === 'mysql') {
+        db.exec(`CREATE TABLE IF NOT EXISTS sms_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            phone VARCHAR(32),
+            event VARCHAR(40),
+            kind VARCHAR(20),
+            status VARCHAR(20),
+            response VARCHAR(500),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } else {
+        db.exec(`CREATE TABLE IF NOT EXISTS sms_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            phone TEXT, event TEXT, kind TEXT, status TEXT, response TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )`);
+    }
+} catch (e) { console.error('[db] sms_logs create error:', String(e.message).slice(0, 160)); }
+
 // Back-fill: rows created by OTP auto-registration used a placeholder e-mail.
 try {
     db.prepare(`UPDATE users SET password_set = 0

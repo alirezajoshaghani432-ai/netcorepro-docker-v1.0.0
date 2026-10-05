@@ -1,4 +1,4 @@
--- NetCore Pro database dump
+-- رادیس database dump
 SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
@@ -671,14 +671,14 @@ INSERT INTO `settings` (`key`, `value`, `updated_at`) VALUES ('address','قم، 
 ('chan_telegram_off','','2026-08-03 06:36:51'),
 ('chan_whatsapp_label','','2026-08-03 06:36:51'),
 ('chan_whatsapp_off','','2026-08-03 06:36:51'),
-('contact_email','info@netcorepro.ir','2026-08-03 06:36:51'),
+('contact_email','info@example.com','2026-08-03 06:36:51'),
 ('contact_mobile','0912-551-5448','2026-08-03 06:36:51'),
 ('contact_phone','۰۲۵-۳۷۱۶۵','2026-08-03 06:36:51'),
 ('currency','تومان','2026-07-04 23:12:19'),
 ('eitaa','Mr_Kojekav','2026-08-03 06:36:51'),
-('email','info@netcorepro.ir','2026-08-06 07:06:24'),
-('footer_about','NetCore Pro مرجع تخصصی فروش تجهیزات شبکه، فیبر نوری و برقی برای کسب‌وکارها و سازمان‌ها. ما تامین تجهیزات اصلی با گارانتی معتبر را تضمین می‌کنیم.','2026-08-06 07:05:50'),
-('instagram','https://instagram.com/netcorepro','2026-08-06 07:06:24'),
+('email','info@example.com','2026-08-06 07:06:24'),
+('footer_about','رادیس مرجع تخصصی فروش تجهیزات شبکه، فیبر نوری و برقی برای کسب‌وکارها و سازمان‌ها. ما تامین تجهیزات اصلی با گارانتی معتبر را تضمین می‌کنیم.','2026-08-06 07:05:50'),
+('instagram','https://instagram.com/radis','2026-08-06 07:06:24'),
 ('mobile','۰۹۱۲-۳۴۵-۶۷۸۹','2026-08-03 06:36:51'),
 ('og_image','/static/images/og-logo.png','2026-10-01 16:44:02'),
 ('pay_card_bank','ملت','2026-08-03 06:36:51'),
@@ -693,13 +693,13 @@ INSERT INTO `settings` (`key`, `value`, `updated_at`) VALUES ('address','قم، 
 ('shipping_cost','500000','2026-08-03 06:36:51'),
 ('site_description','فروشگاه آنلاین تخصصی تجهیزات شبکه، فیبر نوری و برقی شامل سوییچ، روتر، رک، کابل و باکس','2026-08-03 06:36:51'),
 ('site_logo','','2026-08-03 06:36:51'),
-('site_name','NetCore Pro','2026-08-22 16:55:00'),
+('site_name','رادیس','2026-08-22 16:55:00'),
 ('site_tagline','تجهیزات شبکه حرفه‌ای','2026-08-06 07:05:50'),
-('site_title','NetCore Pro - فروشگاه تخصصی تجهیزات شبکه','2026-07-04 23:12:19'),
+('site_title','رادیس - فروشگاه تخصصی تجهیزات شبکه','2026-07-04 23:12:19'),
 ('site_url','http://185.250.249.187:8090','2026-08-19 16:58:42'),
 ('tax_enabled','فعال','2026-09-10 09:59:21'),
 ('tax_percent','9','2026-09-10 09:59:21'),
-('telegram','https://t.me/netcorepro','2026-08-06 07:06:24'),
+('telegram','https://t.me/radis','2026-08-06 07:06:24'),
 ('whatsapp','+989125515448','2026-08-06 07:06:24');
 /*!40000 ALTER TABLE `settings` ENABLE KEYS */;
 UNLOCK TABLES;
@@ -745,8 +745,7 @@ INSERT INTO `site_blocks` (`id`, `page`, `section`, `icon`, `image`, `title`, `d
 (18,'footer','quick_links',NULL,NULL,'دسته‌بندی‌ها',NULL,'/categories',1,1,'2026-07-04 23:12:19','2026-07-04 23:12:19'),
 (19,'footer','quick_links',NULL,NULL,'مقالات',NULL,'/blog',2,1,'2026-07-04 23:12:19','2026-07-04 23:12:19'),
 (20,'footer','quick_links',NULL,NULL,'درباره ما',NULL,'/about',3,1,'2026-07-04 23:12:19','2026-07-04 23:12:19'),
-(21,'footer','quick_links',NULL,NULL,'تماس با ما',NULL,'/contact',4,1,'2026-07-04 23:12:19','2026-07-04 23:12:19'),
-(23,'product','promo_banner',NULL,'/static/images/banner-mid-2-router.jpg','پیشنهاد ویژه مودم و روتر','بنر تبلیغاتی زیر گالری محصول','/products?category=routers',1,1,'2026-07-12 16:46:40','2026-07-12 16:46:40');
+(21,'footer','quick_links',NULL,NULL,'تماس با ما',NULL,'/contact',4,1,'2026-07-04 23:12:19','2026-07-04 23:12:19');
 /*!40000 ALTER TABLE `site_blocks` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -772,9 +771,9 @@ UNLOCK TABLES;
 LOCK TABLES `site_pages` WRITE;
 /*!40000 ALTER TABLE `site_pages` DISABLE KEYS */;
 INSERT INTO `site_pages` (`id`, `page`, `section`, `title`, `subtitle`, `body`, `seo_title`, `seo_description`, `seo_keywords`, `is_active`, `updated_at`) VALUES (1,'home','hero','راهکار <span class=\"gradient-text\">تجهیزات شبکه</span><br>برای کسب‌وکار شما','از سوییچ و روتر تا فایروال و اکسس‌پوینت، تمام نیازهای زیرساختی شبکه شما در یک‌جا.',NULL,NULL,NULL,NULL,1,'2026-07-04 23:12:19'),
-(2,'about','intro','درباره NetCore Pro','فروشگاه تخصصی B2B تجهیزات شبکه','NetCore Pro یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.',NULL,NULL,NULL,1,'2026-08-19 15:04:10'),
+(2,'about','intro','درباره رادیس','فروشگاه تخصصی B2B تجهیزات شبکه','رادیس یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.',NULL,NULL,NULL,1,'2026-08-19 15:04:10'),
 (3,'about','mission','ماموریت ما',NULL,'<p>عرضه تجهیزات اصلی و گارانتی‌دار از برندهای مطرح جهان نظیر Cisco، Mikrotik، HP، Juniper، Fortinet و Ubiquiti همراه با مشاوره فنی تخصصی.</p>',NULL,NULL,NULL,1,'2026-07-04 23:12:19'),
-(4,'privacy','body','حریم خصوصی کاربران','سیاست رازداری NetCore Pro','<h3>اطلاعات جمع‌آوری شده</h3><p>ما تنها اطلاعات لازم برای ارائه خدمات (نام، ایمیل، شماره تماس، آدرس ارسال) را دریافت می‌کنیم.</p><h3>محرمانگی</h3><p>اطلاعات کاربران به هیچ شخص ثالثی فروخته نمی‌شود و فقط برای پردازش سفارش‌ها و ارتباط با شما استفاده می‌گردد.</p>',NULL,NULL,NULL,1,'2026-07-04 23:12:19'),
+(4,'privacy','body','حریم خصوصی کاربران','سیاست رازداری رادیس','<h3>اطلاعات جمع‌آوری شده</h3><p>ما تنها اطلاعات لازم برای ارائه خدمات (نام، ایمیل، شماره تماس، آدرس ارسال) را دریافت می‌کنیم.</p><h3>محرمانگی</h3><p>اطلاعات کاربران به هیچ شخص ثالثی فروخته نمی‌شود و فقط برای پردازش سفارش‌ها و ارتباط با شما استفاده می‌گردد.</p>',NULL,NULL,NULL,1,'2026-07-04 23:12:19'),
 (5,'terms','body','شرایط و قوانین استفاده',NULL,'<h3>پذیرش قوانین</h3><p>با استفاده از این وب‌سایت، شما تمام قوانین زیر را پذیرفته‌اید.</p><h3>ثبت سفارش</h3><p>سفارشات پس از تایید موجودی توسط واحد فروش پردازش می‌شوند.</p><h3>گارانتی</h3><p>کلیه محصولات دارای گارانتی شرکتی هستند.</p>',NULL,NULL,NULL,1,'2026-07-04 23:12:19'),
 (6,'about','main','صفحه‌تست msh680hr','زیرعنوان','متن تست صفحه',NULL,NULL,NULL,1,'2026-08-06 07:04:54');
 /*!40000 ALTER TABLE `site_pages` ENABLE KEYS */;
@@ -801,7 +800,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `home_pages` WRITE;
 /*!40000 ALTER TABLE `home_pages` DISABLE KEYS */;
-INSERT INTO `home_pages` (`id`, `slug`, `title`, `tagline`, `hero_image`, `hero_title`, `hero_sub`, `hero_link`, `category_ids`, `brand_ids`, `show_in_nav`, `sort_order`, `is_active`, `seo_title`, `seo_description`, `created_at`, `updated_at`) VALUES (1,'digital','محصولات دیجیتال','روتر، مودم و سوییچ‌های شبکه با گارانتی معتبر',NULL,'دنیای محصولات دیجیتال شبکه','جدیدترین روترها، مودم‌ها و سوییچ‌ها با بهترین قیمت','/products?category=routers','2,9',NULL,1,0,1,'محصولات دیجیتال | نت‌کور پرو','خرید روتر، مودم و سوییچ شبکه با گارانتی اصالت','2026-09-10 10:11:02','2026-09-10 10:11:02');
+INSERT INTO `home_pages` (`id`, `slug`, `title`, `tagline`, `hero_image`, `hero_title`, `hero_sub`, `hero_link`, `category_ids`, `brand_ids`, `show_in_nav`, `sort_order`, `is_active`, `seo_title`, `seo_description`, `created_at`, `updated_at`) VALUES (1,'digital','محصولات دیجیتال','روتر، مودم و سوییچ‌های شبکه با گارانتی معتبر',NULL,'دنیای محصولات دیجیتال شبکه','جدیدترین روترها، مودم‌ها و سوییچ‌ها با بهترین قیمت','/products?category=routers','2,9',NULL,1,0,1,'محصولات دیجیتال | رادیس','خرید روتر، مودم و سوییچ شبکه با گارانتی اصالت','2026-09-10 10:11:02','2026-09-10 10:11:02');
 /*!40000 ALTER TABLE `home_pages` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -826,7 +825,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` (`id`, `email`, `password`, `full_name`, `phone`, `role`, `company`, `address`, `city`, `postal_code`, `status`, `password_set`, `created_at`, `updated_at`) VALUES (1,'admin@netcorepro.ir','$2a$10$SGQGGHOfZ6OHNu9/2D0c9.DF5L1wHIkDctQSpmnTtnQBM5MWRnKiW','مدیر سیستم','025-37165','admin','NetCore Pro',NULL,NULL,NULL,'active',1,'2026-07-04 23:12:19','2026-08-06 05:10:17');
+INSERT INTO `users` (`id`, `email`, `password`, `full_name`, `phone`, `role`, `company`, `address`, `city`, `postal_code`, `status`, `password_set`, `created_at`, `updated_at`) VALUES (1,'admin@netcorepro.ir','$2a$10$SGQGGHOfZ6OHNu9/2D0c9.DF5L1wHIkDctQSpmnTtnQBM5MWRnKiW','مدیر سیستم','025-37165','admin','رادیس',NULL,NULL,NULL,'active',1,'2026-07-04 23:12:19','2026-08-06 05:10:17');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -890,4 +889,5 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+INSERT INTO `settings` (`key`, `value`) VALUES ('enamad_url','https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J') ON DUPLICATE KEY UPDATE `value`=VALUES(`value`);
 SET FOREIGN_KEY_CHECKS=1;

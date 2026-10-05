@@ -1,4 +1,4 @@
-# NetCore Pro - Windows Uninstaller (PowerShell)
+# Radis - Windows Uninstaller (PowerShell)
 # Removes the IIS Site, App Pool, and firewall rules created by install.ps1.
 
 param(
@@ -21,11 +21,11 @@ if (Test-Path "IIS:\AppPools\$AppPool") {
     Remove-WebAppPool -Name $AppPool
 }
 
-Get-NetFirewallRule -DisplayName "NetCore Pro *" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+Get-NetFirewallRule -DisplayName "Radis *" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
 if (-not $KeepFiles -and (Test-Path $SitePath)) {
     Write-Host "Deleting $SitePath ..." -ForegroundColor Yellow
     Remove-Item -Path $SitePath -Recurse -Force
 }
 
-Write-Host "NetCore Pro uninstalled." -ForegroundColor Green
+Write-Host "Radis uninstalled." -ForegroundColor Green

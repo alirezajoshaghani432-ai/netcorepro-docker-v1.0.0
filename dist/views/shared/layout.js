@@ -11,7 +11,7 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20261001a';
+export const ASSET_V = '20261004b';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -39,7 +39,7 @@ const LOCAL_HEAD = `
  * Algorithm — in an RTL paragraph a trailing "(5)" after a LATIN run gets
  * reordered to the LEFT of that run, so a Persian reader scanning right→left
  * meets the count in the MIDDLE of the name. Proven with a per-character
- * probe:
+ * probe (scripts/qa/bidi_probe.py):
  *     source 'کابل Cat6 UTP (5)'  ->  reader scan 'کابل)5(PTU6taC'
  * Pure-Persian labels ("سوییچ 5 پورت (7)") were never affected, which is
  * exactly why only the mixed Persian+Latin rows were reported.
@@ -88,11 +88,16 @@ function getNavBrands() {
 }
 export function siteLayout(opts, content) {
     const settings = getAllSettings();
-    const siteName = settings.site_name || 'NetCore Pro';
+    const siteName = settings.site_name || 'رادیس';
     const tagline = settings.site_tagline || 'تجهیزات شبکه حرفه‌ای';
     // Brand logo: admin-uploaded one wins, otherwise the bundled default.
     const logoSrc = settings.site_logo || '/static/images/logo.png';
+    // Logo size / vertical offset (admin: Settings → Logo). Values are clamped numbers only.
+    const logoNum = (v, d, lo, hi) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+    const logoStyle = `--nc-logo-h:${logoNum(settings.logo_height, 64, 24, 140)}px;--nc-logo-y:${logoNum(settings.logo_offset_y, 0, -40, 40)}px;--nc-logo-hm:${logoNum(settings.logo_height_mobile, 44, 20, 90)}px`;
     const logoDims = settings.site_logo ? '' : 'width="139" height="176"';
+  // e-Namad link: editable from the admin settings; empty value hides the seal.
+  const enamadUrl = ((settings.enamad_url ?? 'https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J') + '').trim();
     const desc = opts.description || settings.site_description || '';
     const path = opts.currentPath || '/';
     const phone = settings.phone || '۰۲۵-۳۷۱۶۵';
@@ -195,7 +200,7 @@ ${opts.extraHead || ''}
 <header class="nc-header" role="banner">
   <div class="nc-container nc-header-inner">
     <!-- right: logo -->
-    <a href="/" class="nc-logo nc-logo--img" aria-label="صفحه اصلی ${escapeHtml(siteName)}">
+    <a href="/" class="nc-logo nc-logo--img" style="${logoStyle}" aria-label="صفحه اصلی ${escapeHtml(siteName)}">
       ${ncImg(logoSrc, { alt: siteName, cls: 'nc-logo-img', sizes: '120px', ratio: false, loading: 'eager', fetchpriority: 'high', attrs: logoDims })}
       <div class="nc-logo-text">
         <span class="nc-logo-title">${escapeHtml(siteName)}</span>
@@ -263,7 +268,7 @@ ${opts.extraHead || ''}
   <!-- ===== Mobile top bar ===== -->
   <div class="nc-mobilebar nc-show-mobile">
     <button id="mobile-menu-btn" class="nc-icon-btn" aria-label="منو"><i class="fas fa-bars"></i></button>
-    <a href="/" class="nc-mobile-logo" aria-label="${escapeAttr(siteName)}">${ncImg(logoSrc, { alt: siteName, cls: 'nc-mobile-logo-img', sizes: '60px', ratio: false, loading: 'eager', attrs: logoDims })}</a>
+    <a href="/" class="nc-mobile-logo" style="${logoStyle}" aria-label="${escapeAttr(siteName)}">${ncImg(logoSrc, { alt: siteName, cls: 'nc-mobile-logo-img', sizes: '60px', ratio: false, loading: 'eager', attrs: logoDims })}</a>
     <a href="/account" class="nc-icon-btn" aria-label="حساب کاربری"><i class="far fa-user"></i></a>
   </div>
   <form class="nc-search nc-search-mobile nc-show-mobile" id="nc-search-form-m" role="search">
@@ -353,9 +358,7 @@ ${content}
     </div>
   </div>
   <div class="nc-container nc-footer-trust">
-    <div class="nc-enamad-box">
-      <a referrerpolicy='origin' target='_blank' rel="noopener" href='https://trustseal.enamad.ir/?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J'><img referrerpolicy='origin' src='https://trustseal.enamad.ir/logo.aspx?id=679276&Code=QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J' alt='نماد اعتماد الکترونیکی' style='cursor:pointer' code='QP59HdYkl13Yw7bbsIR4ce1jhmPPzt4J' loading="lazy"></a>
-    </div>
+    ${enamadUrl ? `<div class="nc-enamad-box"><a href="${escapeHtml(enamadUrl)}" target="_blank" rel="noopener" title="نماد اعتماد الکترونیکی"><img src="/static/images/enamad.png" width="126" height="150" alt="نماد اعتماد الکترونیکی" decoding="async"></a></div>` : ''}
   </div>
   <div class="nc-footer-bottom">
     <span>© ${new Date().getFullYear()} ${escapeHtml(siteName)} — تمام حقوق محفوظ است.</span>

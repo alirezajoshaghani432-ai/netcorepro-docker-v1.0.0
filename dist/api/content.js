@@ -186,6 +186,17 @@ export function getBlocks(page, section) {
     }
 }
 
+// Total number of rows (active or not) for a section — lets views distinguish
+// "never configured" (use built-in defaults) from "everything switched off".
+export function countBlocks(page, section) {
+    try {
+        const r = db.prepare('SELECT COUNT(*) AS n FROM site_blocks WHERE page = ? AND section = ?').get(page, section);
+        return Number(r && r.n) || 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
 export function getPage(page, section) {
     try {
         return db.prepare(`SELECT id, page, section, title, subtitle, body

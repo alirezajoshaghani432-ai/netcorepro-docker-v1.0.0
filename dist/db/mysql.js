@@ -1,4 +1,4 @@
-// MySQL 8 driver wrapper for NetCore Pro
+// MySQL 8 driver wrapper for رادیس
 // Used when DB_TYPE=mysql (production Linux deployment)
 let pool = null;
 let mysqlLib = null;

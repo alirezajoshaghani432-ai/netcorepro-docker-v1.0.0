@@ -1,4 +1,4 @@
--- NetCore Pro - Database Schema (Phase 6)
+-- Radis - Database Schema (Phase 6)
 -- SQLite for development, mirrors MySQL 8 production structure
 
 PRAGMA foreign_keys = ON;

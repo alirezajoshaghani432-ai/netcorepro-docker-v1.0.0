@@ -1,4 +1,4 @@
-/* NetCore Pro — public site client runtime
+/* رادیس — public site client runtime
  * Provides: window.NCPCart, window.NCPAuth, window.toast, window.formatPrice, window.formatDate
  * Used by all /* pages. Loaded at the end of <body>.
  */

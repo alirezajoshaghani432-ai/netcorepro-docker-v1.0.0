@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetCore Pro — webfont subsetting (F2 performance).
+"""رادیس — webfont subsetting (F2 performance).
 
 Produces:
   public/static/webfonts/fa-{solid-900,regular-400,brands-400}.sub.woff2
@@ -17,7 +17,7 @@ Design notes
 """
 import json, os, subprocess
 
-ROOT = __import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.dirname(__import__('os').path.abspath(__file__))))
+ROOT = '/home/root/webapp/netcorepro'
 WF = os.path.join(ROOT, 'public/static/webfonts')
 VZ = os.path.join(ROOT, 'public/static/fonts/vazirmatn')
 PERF = os.path.join(ROOT, 'scripts/perf')

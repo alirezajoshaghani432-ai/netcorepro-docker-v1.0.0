@@ -1,4 +1,4 @@
-/* NetCore Pro — admin panel client runtime
+/* رادیس — admin panel client runtime
  * Loaded on /admin/* pages. Provides: window.toast, window.formatPrice, window.formatDate,
  * auto attaches admin_token to axios, manages sidebar / user info / badges, simple modal helper.
  */

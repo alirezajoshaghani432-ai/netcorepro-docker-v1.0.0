@@ -1,5 +1,5 @@
 /**
- * NetCore Pro — migration V4 (2026-08-05)
+ * Radis — migration V4 (2026-08-05)
  *
  * Owner request (voice note): "give me a panel where I can change these names
  * myself, add or remove a category, so I don't have to call you every time."

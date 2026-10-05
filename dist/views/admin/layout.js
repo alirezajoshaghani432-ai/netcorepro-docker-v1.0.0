@@ -68,7 +68,7 @@ window.toast = window.toast || function(message){ try { console.info('[toast]', 
 
 export function adminLayout(opts, content) {
     const settings = getAllSettings();
-    const siteName = settings.site_name || 'NetCore Pro';
+    const siteName = settings.site_name || 'رادیس';
     const path = opts.currentPath || '/admin';
     const isActive = (p) => path === p || (p !== '/admin' && path.startsWith(p));
     const link = (href, icon, label, badgeKey) => `<a href="${href}" data-path="${href}" class="sidebar-link ${isActive(href) ? 'active' : ''} flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition">

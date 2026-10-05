@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  NetCore Pro - IIS Application Request Routing (ARR) configuration
+  Radis - IIS Application Request Routing (ARR) configuration
   Mode: Reverse-proxy IIS -> Node.js running on http://localhost:3000
 
   Prerequisites:

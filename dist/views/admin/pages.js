@@ -17,7 +17,7 @@ export function adminLoginPage() {
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ورود به پنل مدیریت | NetCore Pro</title>
+<title>ورود به پنل مدیریت | رادیس</title>
 <link rel="stylesheet" href="/static/css/vazirmatn.css">
 <link rel="stylesheet" href="/static/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/css/app.css">
@@ -36,7 +36,7 @@ export function adminLoginPage() {
 <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
   <div class="text-center mb-6">
     <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center mb-3"><i class="fas fa-shield-halved text-white text-2xl"></i></div>
-    <h1 class="text-2xl font-bold text-slate-800">پنل مدیریت NetCore Pro</h1>
+    <h1 class="text-2xl font-bold text-slate-800">پنل مدیریت رادیس</h1>
     <p class="text-sm text-slate-500 mt-1">برای ورود اطلاعات خود را وارد کنید</p>
   </div>
   <form id="admin-login-form" class="space-y-4">
@@ -1193,9 +1193,9 @@ export function adminSettingsPage() {
         icon: d.icon,
         hint: d.type === 'tel' ? 'مثال: 02112345678 یا 09121234567'
             : d.type === 'wa' ? 'شماره یا لینک کامل — مثال: 09121234567'
-            : d.type === 'tg' ? 'آیدی بدون @ یا لینک کامل — مثال: netcorepro'
-            : d.type === 'eitaa' ? 'آیدی بدون @ یا لینک کامل — مثال: netcorepro'
-            : d.type === 'mail' ? 'مثال: sales@netcorepro.ir'
+            : d.type === 'tg' ? 'آیدی بدون @ یا لینک کامل — مثال: radis'
+            : d.type === 'eitaa' ? 'آیدی بدون @ یا لینک کامل — مثال: radis'
+            : d.type === 'mail' ? 'مثال: sales@example.com'
             : d.type === 'ig' ? 'آیدی بدون @ یا لینک کامل' : ''
     }));
     const content = `
@@ -1206,10 +1206,24 @@ export function adminSettingsPage() {
         <button type="submit" class="btn-indigo text-white px-6 py-2.5 rounded-lg"><i class="fas fa-save ml-2"></i>ذخیره تنظیمات</button>
       </form>
     </div>
+    <div class=\"bg-white rounded-xl shadow-sm p-5 mt-5\" id=\"sms-tools\">
+      <h2 class=\"font-bold mb-1\"><i class=\"fas fa-sms ml-1 text-indigo-600\"></i>ابزارهای سرویس پیامک</h2>
+      <p class=\"text-xs text-slate-500 mb-4 leading-6\">ابتدا تنظیمات بالا را ذخیره کنید، سپس اتصال را آزمایش کنید.</p>
+      <div class=\"flex flex-wrap gap-2 items-center mb-3\">
+        <input id=\"sms-test-phone\" dir=\"ltr\" placeholder=\"09123456789\" class=\"border rounded-lg px-3 py-2 text-sm w-48\">
+        <button type=\"button\" id=\"sms-test-btn\" class=\"btn-indigo text-white px-4 py-2 rounded-lg text-sm\"><i class=\"fas fa-paper-plane ml-1\"></i>ارسال پیامک آزمایشی</button>
+        <button type=\"button\" id=\"sms-credit-btn\" class=\"border px-4 py-2 rounded-lg text-sm\"><i class=\"fas fa-wallet ml-1\"></i>مشاهده اعتبار</button>
+        <button type=\"button\" id=\"sms-logs-btn\" class=\"border px-4 py-2 rounded-lg text-sm\"><i class=\"fas fa-list ml-1\"></i>گزارش آخرین ارسال‌ها</button>
+      </div>
+      <div id=\"sms-out\" class=\"text-sm leading-7\"></div>
+    </div>
     <script>
       const CHANNELS = ${adminJson(channelMeta)};
       const FIELDS = [
         { k:'site_logo', l:'لوگوی سایت (در هدر نمایش داده می‌شود)', image: true },
+        { k:'logo_height', l:'ارتفاع لوگو در دسکتاپ (پیکسل، پیش‌فرض ۶۴)', ph:'64' },
+        { k:'logo_height_mobile', l:'ارتفاع لوگو در موبایل (پیکسل، پیش‌فرض ۴۴)', ph:'44' },
+        { k:'logo_offset_y', l:'جابه‌جایی عمودی لوگو (پیکسل؛ منفی = بالاتر، پیش‌فرض ۰)', ph:'0' },
         { k:'site_name', l:'نام سایت' },
         { k:'site_tagline', l:'شعار سایت (زیر لوگو)' },
         { k:'site_description', l:'توضیح سایت', textarea: true },
@@ -1225,6 +1239,22 @@ export function adminSettingsPage() {
         { k:'chan_primary', l:'دکمه اصلی «گفتگو با کارشناسان» از کدام راه باشد؟', select: CHANNELS.map(c => c.key), selectLabels: CHANNELS.map(c => c.label) },
         { k:'chan_expert_label', l:'عنوان دکمه اصلی', ph:'گفتگو با کارشناسان' },
         { k:'chan_expert_note', l:'یادداشت زیر دکمه‌های تماس (اختیاری)', textarea:true, ph:'مثلاً: پاسخگویی شنبه تا چهارشنبه ۹ تا ۱۷' },
+        { sec:'نماد اعتماد الکترونیکی (اینماد)', icon:'fa-shield-halved', help:'لینک صفحهٔ نماد خود را از پنل اینماد کپی و اینجا بگذارید. نشان اینماد در فوتر سایت نمایش داده می‌شود و با کلیک روی آن، بازدیدکننده به همین لینک (صفحهٔ تأیید اینماد) می‌رود. اگر فیلد را خالی کنید، نشان از فوتر حذف می‌شود.' },
+        { k:'enamad_url', l:'لینک اینماد', ph:'https://trustseal.enamad.ir/?id=...&Code=...' },
+        { sec:'سرویس پیامک (کاوه‌نگار)', icon:'fa-sms', help:'پس از خرید سرویس از کاوه‌نگار، کلید API را از پنل کاوه‌نگار (بخش «تنظیمات حساب ← API») کپی و اینجا وارد کنید. تا وقتی «غیرفعال» باشد، ورود با موبایل در حالت آزمایشی (کد ثابت) کار می‌کند و پیامکی ارسال نمی‌شود. اگر نام قالب (Template) را وارد کنید پیام با متد «تایید/Lookup» و در غیر این صورت به‌صورت متن ساده از شماره خط ارسال می‌شود.' },
+        { k:'sms_enabled', l:'سرویس پیامک فعال باشد؟', select:['فعال','غیرفعال'] },
+        { k:'sms_api_key', l:'کلید API کاوه‌نگار', ph:'API Key' },
+        { k:'sms_sender', l:'شماره خط ارسال‌کننده (برای پیام‌های متنی)', ph:'مثلاً 10008663' },
+        { k:'sms_otp_template', l:'نام قالب کد ورود (اختیاری — token = کد تایید)', ph:'مثلاً verify' },
+        { k:'sms_order_new_enabled', l:'ارسال پیامک ثبت سفارش به مشتری؟', select:['فعال','غیرفعال'] },
+        { k:'sms_order_new_template', l:'نام قالب ثبت سفارش (اختیاری — token = شماره سفارش، token2 = مبلغ)', ph:'مثلاً order-new' },
+        { k:'sms_order_new_text', l:'متن پیامک ثبت سفارش (در صورت نبود قالب)  — متغیرها: {name} {order_number} {total} {shop}', textarea:true, ph:'{name} عزیز، سفارش {order_number} با مبلغ {total} تومان در {shop} ثبت شد.' },
+        { k:'sms_order_admin_enabled', l:'اطلاع‌رسانی سفارش جدید به مدیر فروشگاه؟', select:['فعال','غیرفعال'] },
+        { k:'sms_admin_phone', l:'شماره موبایل مدیر (برای اطلاع سفارش جدید)', ph:'09123456789' },
+        { k:'sms_order_admin_text', l:'متن پیامک مدیر', textarea:true, ph:'سفارش جدید {order_number} از {name} به مبلغ {total} تومان ثبت شد.' },
+        { k:'sms_status_enabled', l:'ارسال پیامک تغییر وضعیت سفارش / پرداخت به مشتری؟', select:['فعال','غیرفعال'] },
+        { k:'sms_status_template', l:'نام قالب تغییر وضعیت (اختیاری — token = شماره سفارش، token2 = وضعیت)', ph:'مثلاً order-status' },
+        { k:'sms_status_text', l:'متن پیامک تغییر وضعیت (در صورت نبود قالب) — متغیرها: {name} {order_number} {status} {shop}', textarea:true, ph:'{name} عزیز، وضعیت سفارش {order_number}: {status} ({shop})' },
         { sec:'مالیات بر ارزش افزوده', icon:'fa-percent', help:'مالیات فقط در مرحله پرداخت (پیش‌فاکتور نهایی و درگاه) به مبلغ سفارش اضافه می‌شود و در حین خرید نمایش داده نمی‌شود. زیر توضیحات هر محصول هم یک جمله کوچک درباره مالیات درج می‌شود. اگر برای محصولی «درصد مالیات» جداگانه ثبت کنید، همان جایگزین درصد سراسری می‌شود.' },
         { k:'tax_enabled', l:'مالیات فعال باشد؟', select:['فعال','غیرفعال'] },
         { k:'tax_percent', l:'درصد مالیات سراسری (مثلاً 9)', ph:'9' },
@@ -1322,6 +1352,32 @@ export function adminSettingsPage() {
         finally { btn.disabled = false; btn.innerHTML = orig; }
       });
       loadSettings();
+      (function () {
+        const out = document.getElementById('sms-out');
+        function show(msg, ok) { out.className = 'text-sm leading-7 ' + (ok ? 'text-emerald-700' : 'text-rose-600'); out.textContent = msg; }
+        document.getElementById('sms-test-btn').addEventListener('click', async function () {
+          const phone = document.getElementById('sms-test-phone').value;
+          show('در حال ارسال...', true);
+          try { const r = await axios.post('/api/admin/sms/test', { phone: phone }); show(r.data.message, true); }
+          catch (err) { show((err.response && err.response.data && err.response.data.message) || 'خطا در ارسال', false); }
+        });
+        document.getElementById('sms-credit-btn').addEventListener('click', async function () {
+          show('در حال دریافت...', true);
+          try { const r = await axios.get('/api/admin/sms/credit'); show('اعتبار باقی‌مانده: ' + r.data.data.remaincredit, true); }
+          catch (err) { show((err.response && err.response.data && err.response.data.message) || 'خطا', false); }
+        });
+        document.getElementById('sms-logs-btn').addEventListener('click', async function () {
+          try {
+            const r = await axios.get('/api/admin/sms/logs');
+            const rows = r.data.data || [];
+            if (!rows.length) { show('هنوز پیامکی ثبت نشده است', true); return; }
+            out.className = 'text-sm';
+            out.innerHTML = '<div class="overflow-x-auto"><table class="w-full text-xs border"><thead class="bg-slate-50"><tr><th class="p-2">زمان</th><th class="p-2">شماره</th><th class="p-2">رویداد</th><th class="p-2">وضعیت</th><th class="p-2">پاسخ</th></tr></thead><tbody>' +
+              rows.map(function (x) { return '<tr class="border-t"><td class="p-2" dir="ltr">' + escAdmin(x.created_at) + '</td><td class="p-2" dir="ltr">' + escAdmin(x.phone) + '</td><td class="p-2">' + escAdmin(x.event) + '</td><td class="p-2">' + escAdmin(x.status) + '</td><td class="p-2">' + escAdmin(x.response) + '</td></tr>'; }).join('') +
+              '</tbody></table></div>';
+          } catch (err) { show('خطا در دریافت گزارش', false); }
+        });
+      })();
     </script>
   `;
     return adminLayout({ title: 'تنظیمات', currentPath: '/admin/settings' }, content);

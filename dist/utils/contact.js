@@ -1,5 +1,5 @@
 /**
- * NetCore Pro — contact / chat channels (F1)
+ * رادیس — contact / chat channels (F1)
  * ------------------------------------------------------------------
  * Every "گفتگو با کارشناسان / گفتگوی سریع / ارسال لیست / تلگرام /
  * واتساپ / ایتا / تماس تلفنی" button in the storefront is rendered from

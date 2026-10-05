@@ -1,5 +1,5 @@
 // =====================================================================
-//  SQLite -> MySQL/MariaDB data migration for NetCore Pro
+//  SQLite -> MySQL/MariaDB data migration for Radis
 // ---------------------------------------------------------------------
 //  - Reads every row from the SQLite file (DB_PATH or data/netcorepro.db)
 //  - Creates the MySQL schema (dist/db/schema.mysql.sql)

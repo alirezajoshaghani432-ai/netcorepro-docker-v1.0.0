@@ -12,7 +12,7 @@ try {
     }
 }
 catch (e) { /* tables may not exist yet — proceed with seeding */ }
-console.log('🌱 Seeding NetCore Pro database...');
+console.log('🌱 Seeding رادیس database...');
 const IS_MYSQL = (process.env.DB_TYPE || 'mysql').toLowerCase() === 'mysql';
 // Reset autoincrement counters BEFORE the transaction (FKs are off only during clear)
 if (IS_MYSQL) {
@@ -54,7 +54,7 @@ const tx = db.transaction(() => {
     const adminPass = bcrypt.hashSync('admin123', 10);
     const customerPass = bcrypt.hashSync('123456', 10);
     db.prepare(`INSERT INTO users (email, password, full_name, phone, role, company, address, city)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run('admin@netcorepro.ir', adminPass, 'مدیر سیستم', '025-37165', 'admin', 'NetCore Pro', 'قم، خیابان آذر', 'قم');
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run('admin@netcorepro.ir', adminPass, 'مدیر سیستم', '025-37165', 'admin', 'رادیس', 'قم، خیابان آذر', 'قم');
     db.prepare(`INSERT INTO users (email, password, full_name, phone, role, company, address, city)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run('customer@example.com', customerPass, 'مشتری نمونه', '09121234567', 'customer', 'شرکت تست', 'تهران، خیابان آزادی', 'تهران');
     // Categories — matching the storefront catalog
@@ -128,20 +128,20 @@ const tx = db.transaction(() => {
     posts.forEach(p => insertPost.run(p.title, p.slug, p.excerpt, p.content, p.cover, p.cat));
     // Settings
     const settings = [
-        { k: 'site_name', v: 'NetCore Pro' },
+        { k: 'site_name', v: 'رادیس' },
         { k: 'site_tagline', v: 'تجهیزات شبکه حرفه‌ای' },
-        { k: 'site_title', v: 'NetCore Pro - فروشگاه تخصصی تجهیزات شبکه' },
+        { k: 'site_title', v: 'رادیس - فروشگاه تخصصی تجهیزات شبکه' },
         { k: 'site_description', v: 'فروشگاه آنلاین تخصصی تجهیزات شبکه، فیبر نوری و برقی شامل سوییچ، روتر، رک، کابل و باکس' },
         { k: 'phone', v: '۰۲۵-۳۷۱۶۵' },
         { k: 'mobile', v: '۰۹۱۲-۳۴۵-۶۷۸۹' },
-        { k: 'email', v: 'info@netcorepro.ir' },
+        { k: 'email', v: 'info@example.com' },
         { k: 'address', v: 'قم، خیابان آذر، طالقانی، پاساژ سعدی، طبقه همکف، پلاک ۲۸' },
         { k: 'shipping_cost', v: '500000' },
         { k: 'currency', v: 'تومان' },
-        { k: 'footer_about', v: 'NetCore Pro مرجع تخصصی فروش تجهیزات شبکه، فیبر نوری و برقی برای کسب‌وکارها و سازمان‌ها. ما تامین تجهیزات اصلی با گارانتی معتبر را تضمین می‌کنیم.' },
+        { k: 'footer_about', v: 'رادیس مرجع تخصصی فروش تجهیزات شبکه، فیبر نوری و برقی برای کسب‌وکارها و سازمان‌ها. ما تامین تجهیزات اصلی با گارانتی معتبر را تضمین می‌کنیم.' },
         { k: 'og_image', v: '/static/images/og-default.svg' },
-        { k: 'instagram', v: 'https://instagram.com/netcorepro' },
-        { k: 'telegram', v: 'https://t.me/netcorepro' },
+        { k: 'instagram', v: 'https://instagram.com/radis' },
+        { k: 'telegram', v: 'https://t.me/radis' },
         { k: 'whatsapp', v: '+989121234567' }
     ];
     const insertSetting = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)`);
@@ -195,16 +195,16 @@ const tx = db.transaction(() => {
         'از سوییچ و روتر تا فایروال و اکسس‌پوینت، تمام نیازهای زیرساختی شبکه شما در یک‌جا.',
         null);
     insertPage.run('about', 'intro',
-        'درباره NetCore Pro',
+        'درباره رادیس',
         'فروشگاه تخصصی B2B تجهیزات شبکه',
-        '<p>NetCore Pro یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.</p>');
+        '<p>رادیس یک فروشگاه آنلاین تخصصی B2B در زمینه تجهیزات شبکه است که هدف آن ارائه راهکارهای زیرساختی شبکه برای سازمان‌ها، کسب‌وکارها و متخصصان IT می‌باشد.</p>');
     insertPage.run('about', 'mission',
         'ماموریت ما',
         null,
         '<p>عرضه تجهیزات اصلی و گارانتی‌دار از برندهای مطرح جهان نظیر Cisco، Mikrotik، HP، Juniper، Fortinet و Ubiquiti همراه با مشاوره فنی تخصصی.</p>');
     insertPage.run('privacy', 'body',
         'حریم خصوصی کاربران',
-        'سیاست رازداری NetCore Pro',
+        'سیاست رازداری رادیس',
         '<h3>اطلاعات جمع‌آوری شده</h3><p>ما تنها اطلاعات لازم برای ارائه خدمات (نام، ایمیل، شماره تماس، آدرس ارسال) را دریافت می‌کنیم.</p><h3>محرمانگی</h3><p>اطلاعات کاربران به هیچ شخص ثالثی فروخته نمی‌شود و فقط برای پردازش سفارش‌ها و ارتباط با شما استفاده می‌گردد.</p>');
     insertPage.run('terms', 'body',
         'شرایط و قوانین استفاده',

@@ -1,4 +1,4 @@
-# NetCore Pro - Windows Server Installation Script (PowerShell)
+# Radis - Windows Server Installation Script (PowerShell)
 # Run as Administrator on Windows Server 2019/2022.
 #
 # Usage:
@@ -30,7 +30,7 @@ param(
 $ErrorActionPreference = "Stop"
 Write-Host ""
 Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host "  NetCore Pro - Windows / IIS Installer"        -ForegroundColor Cyan
+Write-Host "  Radis - Windows / IIS Installer"        -ForegroundColor Cyan
 Write-Host "===============================================" -ForegroundColor Cyan
 
 # 1. Admin check
@@ -127,10 +127,10 @@ Set-Acl $SitePath $acl
 
 # 9. Firewall
 Write-Host "[8/8] Opening firewall ports..." -ForegroundColor Yellow
-New-NetFirewallRule -DisplayName "NetCore Pro HTTP"  -Direction Inbound -Action Allow -Protocol TCP -LocalPort $HttpPort  -ErrorAction SilentlyContinue | Out-Null
-New-NetFirewallRule -DisplayName "NetCore Pro HTTPS" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $HttpsPort -ErrorAction SilentlyContinue | Out-Null
+New-NetFirewallRule -DisplayName "Radis HTTP"  -Direction Inbound -Action Allow -Protocol TCP -LocalPort $HttpPort  -ErrorAction SilentlyContinue | Out-Null
+New-NetFirewallRule -DisplayName "Radis HTTPS" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $HttpsPort -ErrorAction SilentlyContinue | Out-Null
 if (-not $SkipSql) {
-    New-NetFirewallRule -DisplayName "NetCore Pro SQL" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -ErrorAction SilentlyContinue | Out-Null
+    New-NetFirewallRule -DisplayName "Radis SQL" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -ErrorAction SilentlyContinue | Out-Null
 }
 
 # 10. Optional SQL schema

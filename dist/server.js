@@ -219,7 +219,7 @@ app.get('/api', (c) => {
     return c.json({
         success: true,
         data: {
-            name: 'NetCore Pro API',
+            name: 'رادیس API',
             version: '1.0.0',
             endpoints: ['/api/health', '/api/auth', '/api/products', '/api/orders', '/api/tickets', '/api/blog']
         },
@@ -383,7 +383,7 @@ app.onError((err, c) => {
 // ===== Start =====
 const PORT = parseInt(process.env.PORT || '3000');
 const server = serve({ fetch: app.fetch, port: PORT, hostname: '0.0.0.0' }, (info) => {
-    console.log(`✅ NetCore Pro server running on http://localhost:${info.port}`);
+    console.log(`✅ رادیس server running on http://localhost:${info.port}`);
     console.log(`   📦 Site:   http://localhost:${info.port}/`);
     console.log(`   🛡️  Admin:  http://localhost:${info.port}/admin/login`);
     console.log(`   ❤️  Health: http://localhost:${info.port}/api/health`);

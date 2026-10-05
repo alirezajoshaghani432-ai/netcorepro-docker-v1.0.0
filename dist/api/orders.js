@@ -4,6 +4,7 @@ import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
 import { generateOrderNumber, getSetting, logActivity } from '../utils/helpers.js';
 import { toEnDigits } from '../utils/contact.js';
+import { notifyOrderCreated, notifyOrderStatus } from '../utils/sms.js';
 const orders = new Hono();
 const orderSchema = z.object({
     customer_name: z.string().min(2, 'نام معتبر نیست'),
@@ -96,6 +97,7 @@ orders.post('/', authOptional, async (c) => {
         details: { order_number: orderNumber, total },
         ip_address: c.req.header('x-forwarded-for') || 'local'
     });
+    notifyOrderCreated({ order_number: orderNumber, customer_name: d.customer_name, customer_phone: d.customer_phone, total });
     return c.json({ success: true, data: { id: orderId, order_number: orderNumber, total, payment_method: payMethod }, message: 'سفارش با موفقیت ثبت شد', code: 200 });
 });
 // List orders (admin sees all, user sees own)
@@ -194,6 +196,7 @@ orders.put('/:id/payment', adminRequired, async (c) => {
     const ps = parsed.data.payment_status;
     db.prepare(`UPDATE orders SET payment_status = ?, paid_at = CASE WHEN ? = 'paid' THEN CURRENT_TIMESTAMP ELSE paid_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(ps, ps, id);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update_payment', entity_type: 'order', entity_id: id, details: { payment_status: ps } });
+    if (ps === 'paid' || ps === 'failed' || ps === 'refunded') notifyOrderStatus(id, ps);
     return c.json({ success: true, message: 'وضعیت پرداخت به‌روزرسانی شد', code: 200 });
 });
 
@@ -231,6 +234,7 @@ orders.put('/:id/status', adminRequired, async (c) => {
     });
     tx();
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update_status', entity_type: 'order', entity_id: id, details: { new_status: newStatus } });
+    if (existing.status !== newStatus) notifyOrderStatus(id, newStatus);
     return c.json({ success: true, message: 'وضعیت به‌روزرسانی شد', code: 200 });
 });
 orders.delete('/:id', adminRequired, (c) => {

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
 import { getAllSettings, setSetting, logActivity } from '../utils/helpers.js';
+import { sendText, sendTemplate, accountInfo, smsEnabled, SMS_MASK } from '../utils/sms.js';
 import { generateVariantsFor } from '../utils/imggen.js';
 const misc = new Hono();
 // Newsletter subscribe
@@ -97,17 +98,46 @@ misc.delete('/admin/messages/:id', adminRequired, (c) => {
 });
 // === Admin: Settings ===
 misc.get('/admin/settings', adminRequired, (c) => {
-    return c.json({ success: true, data: getAllSettings(), code: 200 });
+    const all = getAllSettings();
+    // never send the stored API key back to the browser
+    if (all.sms_api_key) all.sms_api_key = SMS_MASK;
+    return c.json({ success: true, data: all, code: 200 });
 });
 misc.put('/admin/settings', adminRequired, async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => ({}));
     if (!body || typeof body !== 'object')
         return c.json({ success: false, message: 'داده نامعتبر', code: 400 }, 400);
-    Object.entries(body).forEach(([k, v]) => setSetting(k, String(v ?? '')));
+    Object.entries(body).forEach(([k, v]) => {
+        // the masked placeholder means "unchanged"
+        if (k === 'sms_api_key' && String(v ?? '').trim() === SMS_MASK) return;
+        setSetting(k, String(v ?? '').trim() === '' ? '' : String(v));
+    });
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'settings', details: { keys: Object.keys(body) } });
     return c.json({ success: true, message: 'تنظیمات ذخیره شد', code: 200 });
 });
+// === Admin: SMS service (Kavenegar) ===
+misc.post('/admin/sms/test', adminRequired, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const phone = String(body.phone || '').replace(/[^0-9]/g, '');
+    if (!/^09\d{9}$/.test(phone))
+        return c.json({ success: false, message: 'شماره موبایل معتبر نیست (مثال: 09123456789)', code: 400 }, 400);
+    if (!smsEnabled())
+        return c.json({ success: false, message: 'ابتدا سرویس پیامک را «فعال» و کلید API را ذخیره کنید', code: 400 }, 400);
+    const r = await sendText(phone, 'پیامک آزمایشی از پنل مدیریت - اتصال سرویس پیامک برقرار است.', 'test');
+    return c.json({ success: r.ok, message: r.ok ? 'پیامک آزمایشی ارسال شد' : ('ارسال ناموفق: ' + (r.message || 'خطای نامشخص')), code: r.ok ? 200 : 502 }, r.ok ? 200 : 502);
+});
+misc.get('/admin/sms/credit', adminRequired, async (c) => {
+    const r = await accountInfo();
+    if (!r.ok) return c.json({ success: false, message: 'دریافت اعتبار ناموفق: ' + (r.message || ''), code: 502 }, 502);
+    const e = r.entries || {};
+    return c.json({ success: true, data: { remaincredit: e.remaincredit, type: e.type, expiredate: e.expiredate }, code: 200 });
+});
+misc.get('/admin/sms/logs', adminRequired, (c) => {
+    const items = db.prepare(`SELECT id, phone, event, kind, status, response, created_at FROM sms_logs ORDER BY id DESC LIMIT 30`).all();
+    return c.json({ success: true, data: items, code: 200 });
+});
+
 // === Admin: Users CRUD ===
 misc.get('/admin/users', adminRequired, (c) => {
     const role = c.req.query('role') || '';

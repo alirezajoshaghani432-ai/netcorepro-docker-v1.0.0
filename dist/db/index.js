@@ -65,6 +65,8 @@ ensureColumn('products', 'sort_order', 'INTEGER DEFAULT 0');
 ensureColumn('products', 'key_features', 'TEXT');
 // Guarantee type/name shown on the product page buy box (customer voice request)
 ensureColumn('products', 'guarantee', 'TEXT');
+// Empty SKUs collide on the UNIQUE index (only one '' allowed) -> normalize to NULL
+try { db.prepare(`UPDATE products SET sku = NULL WHERE sku = ''`).run(); } catch (e) { console.error('[db] sku normalize:', e.message); }
 ensureColumn('categories', 'seo_title', 'TEXT');
 ensureColumn('categories', 'seo_description', 'TEXT');
 ensureColumn('categories', 'seo_keywords', 'TEXT');

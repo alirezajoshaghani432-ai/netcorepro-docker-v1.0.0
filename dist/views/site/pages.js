@@ -463,6 +463,14 @@ export function homePage() {
         dots.forEach(function (d) { d.addEventListener('click', function () { go(parseInt(d.dataset.i, 10)); start(); }); });
         slider.addEventListener('mouseenter', stop);
         slider.addEventListener('mouseleave', start);
+        // swipe on mobile (arrows are hidden on small screens)
+        var tx = null;
+        slider.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; stop(); }, { passive: true });
+        slider.addEventListener('touchend', function (e) {
+          if (tx === null) return; var dx = e.changedTouches[0].clientX - tx; tx = null;
+          if (Math.abs(dx) > 40) { if (dx > 0) next(); else prev(); }
+          start();
+        }, { passive: true });
         start();
       })();
 

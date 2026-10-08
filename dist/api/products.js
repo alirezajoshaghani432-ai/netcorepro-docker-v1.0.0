@@ -192,6 +192,7 @@ products.post('/', adminRequired, async (c) => {
         }
         d.slug = candidate;
     }
+    d.sku = (d.sku || '').trim() || null;
     if (d.sku) {
         const dupSku = db.prepare(`SELECT id, name FROM products WHERE sku = ?`).get(d.sku);
         if (dupSku)
@@ -215,6 +216,21 @@ products.put('/:id', adminRequired, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
+    // An empty SKU must be stored as NULL: MySQL's UNIQUE index allows many NULLs
+    // but only ONE '' — so saving a second product without SKU used to fail.
+    if ('sku' in d) {
+        d.sku = (d.sku || '').trim() || null;
+        if (d.sku) {
+            const dupSku = db.prepare(`SELECT id, name FROM products WHERE sku = ? AND id <> ?`).get(d.sku, id);
+            if (dupSku)
+                return c.json({ success: false, message: `کد محصول (SKU) تکراری است — قبلاً برای «${dupSku.name}» ثبت شده`, code: 400 }, 400);
+        }
+    }
+    if ('slug' in d && d.slug) {
+        const dupSlug = db.prepare(`SELECT id, name FROM products WHERE slug = ? AND id <> ?`).get(d.slug, id);
+        if (dupSlug)
+            return c.json({ success: false, message: `نامک (slug) تکراری است — قبلاً برای «${dupSlug.name}» ثبت شده`, code: 400 }, 400);
+    }
     // Clearing the discount (empty / 0 / not below the price) must really reset it to NULL.
     if ('discount_price' in d && (!d.discount_price || (d.price !== undefined && d.discount_price >= d.price)))
         d.discount_price = null;
@@ -238,7 +254,8 @@ products.put('/:id', adminRequired, async (c) => {
     }
     catch (e) {
         // UNIQUE slug/sku conflict etc. -> clear 400 instead of a 500 crash
-        const msg = /UNIQUE/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : 'خطا در به‌روزرسانی محصول';
+        console.error('[products.update] id=' + id + ':', e?.message);
+        const msg = /UNIQUE|Duplicate/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : 'خطا در به‌روزرسانی محصول: ' + (e?.message || '');
         return c.json({ success: false, message: msg, code: 400 }, 400);
     }
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'product', entity_id: id });

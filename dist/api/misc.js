@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
-import { getAllSettings, setSetting, logActivity } from '../utils/helpers.js';
+import { getAllSettings, setSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
 import { sendText, sendTemplate, accountInfo, smsEnabled, SMS_MASK } from '../utils/sms.js';
 import { generateVariantsFor } from '../utils/imggen.js';
 const misc = new Hono();
@@ -14,7 +14,7 @@ misc.post('/newsletter/subscribe', async (c) => {
     const body = await c.req.json().catch(() => ({}));
     // Normalize (trim + lowercase) BEFORE validating so whitespace/case variants of the
     // same address don't create duplicate subscribers and padded input is still accepted.
-    const schema = z.object({ email: z.string().trim().toLowerCase().pipe(z.string().email('ایمیل معتبر نیست')) });
+    const schema = z.object({ email: z.string().trim().toLowerCase().pipe(z.string().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست')) }); // Round 13: 190 = column size
     const parsed = schema.safeParse(body);
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
@@ -35,7 +35,7 @@ misc.post('/newsletter/subscribe', async (c) => {
 misc.post('/newsletter/unsubscribe', async (c) => {
     const body = await c.req.json().catch(() => ({}));
     // Normalize (trim + lowercase) BEFORE validating to match how subscriptions are stored.
-    const schema = z.object({ email: z.string().trim().toLowerCase().pipe(z.string().email('ایمیل معتبر نیست')) });
+    const schema = z.object({ email: z.string().trim().toLowerCase().pipe(z.string().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست')) }); // Round 13: 190 = column size
     const parsed = schema.safeParse(body);
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
@@ -53,11 +53,12 @@ misc.post('/newsletter/unsubscribe', async (c) => {
 misc.post('/messages', async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const schema = z.object({
-        name: z.string().min(2, 'نام معتبر نیست'),
-        email: z.string().email('ایمیل معتبر نیست').optional().or(z.literal('')),
-        phone: z.string().optional(),
-        subject: z.string().optional(),
-        body: z.string().min(5, 'متن پیام معتبر نیست')
+        // Round 8: limits = DB column sizes (longer input used to crash with a MySQL error)
+        name: z.string().min(2, 'نام معتبر نیست').max(190, 'نام بیش از حد طولانی است'),
+        email: z.string().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست').optional().or(z.literal('')),
+        phone: z.string().max(32, 'شماره تماس معتبر نیست').optional(),
+        subject: z.string().max(255, 'موضوع بیش از حد طولانی است').optional(),
+        body: z.string().min(5, 'متن پیام معتبر نیست').max(5000, 'متن پیام بیش از حد طولانی است (حداکثر ۵۰۰۰ کاراکتر)')
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success)
@@ -152,9 +153,23 @@ misc.put('/admin/users/:id/status', adminRequired, async (c) => {
     const parsed = schema.safeParse(body);
     if (!parsed.success)
         return c.json({ success: false, message: 'وضعیت نامعتبر', code: 400 }, 400);
+    // Round 7 (2026-11-03): never lock the panel out — an admin cannot block their
+    // own account, and the LAST active admin cannot be blocked.
+    const target = db.prepare(`SELECT id, role, status FROM users WHERE id = ?`).get(id);
+    if (!target)
+        return c.json({ success: false, message: 'کاربر یافت نشد', code: 404 }, 404);
+    if (parsed.data.status === 'blocked') {
+        if (id === user.id)
+            return c.json({ success: false, message: 'نمی‌توانید حساب خودتان را مسدود کنید', code: 400 }, 400);
+        if (target.role === 'admin' && target.status !== 'blocked') {
+            const activeAdmins = Number(db.prepare(`SELECT COUNT(*) AS t FROM users WHERE role = 'admin' AND status <> 'blocked'`).get().t) || 0;
+            if (activeAdmins <= 1)
+                return c.json({ success: false, message: 'این تنها مدیر فعال سیستم است و مسدود کردنش دسترسی به پنل را قطع می‌کند', code: 400 }, 400);
+        }
+    }
     db.prepare(`UPDATE users SET status = ? WHERE id = ?`).run(parsed.data.status, id);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update_status', entity_type: 'user', entity_id: id, details: { new_status: parsed.data.status } });
-    return c.json({ success: true, message: 'وضعیت به‌روزرسانی شد', code: 200 });
+    return c.json({ success: true, message: parsed.data.status === 'blocked' ? 'کاربر مسدود شد (دیگر نمی‌تواند وارد شود)' : 'کاربر فعال شد', code: 200 });
 });
 misc.delete('/admin/users/:id', adminRequired, (c) => {
     const user = c.get('user');
@@ -198,6 +213,8 @@ const categorySchema = z.object({
     // V4: owner-controlled visibility in the header mega-menu.
     // Accepts boolean or 0/1 so the checkbox and the API both work.
     show_in_menu: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional().nullable(),
+    // 2026-11-03: real on/off switch (inactive = hidden on the site, never deleted)
+    is_active: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional().nullable(),
     seo_title: z.string().optional().nullable(),
     seo_description: z.string().optional().nullable(),
     seo_keywords: z.string().optional().nullable()
@@ -267,12 +284,12 @@ misc.post('/admin/categories', adminRequired, async (c) => {
             return c.json({ success: false, message: 'دسته مادر یافت نشد', code: 400 }, 400);
     }
     try {
-        const r = db.prepare(`INSERT INTO categories (name, slug, description, icon, image, parent_id, sort_order, show_in_menu, seo_title, seo_description, seo_keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(d.name, d.slug, d.description || null, d.icon || null, d.image || null, d.parent_id || null, d.sort_order ?? 0, menuFlag(d.show_in_menu), d.seo_title || null, d.seo_description || null, d.seo_keywords || null);
+        const r = db.prepare(`INSERT INTO categories (name, slug, description, icon, image, parent_id, sort_order, show_in_menu, is_active, seo_title, seo_description, seo_keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(d.name, d.slug, d.description || null, d.icon || null, d.image || null, d.parent_id || null, d.sort_order ?? 0, menuFlag(d.show_in_menu), menuFlag(d.is_active), d.seo_title || null, d.seo_description || null, d.seo_keywords || null);
         logActivity({ user_id: user.id, user_name: user.full_name, action: 'create', entity_type: 'category', entity_id: r.lastInsertRowid });
         return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'دسته ایجاد شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: /UNIQUE|Duplicate/i.test(e?.message || '') ? 'این نامک (slug) قبلاً برای دستهٔ دیگری استفاده شده است' : friendlyDbError(e, 'خطا در ایجاد دسته'), code: 400 }, 400);
     }
 });
 misc.put('/admin/categories/:id', adminRequired, async (c) => {
@@ -296,14 +313,37 @@ misc.put('/admin/categories/:id', adminRequired, async (c) => {
             return c.json({ success: false, message: 'نمی‌توان یک زیرشاخه را به‌عنوان مادر انتخاب کرد (حلقه ایجاد می‌شود)', code: 400 }, 400);
     }
     try {
-        db.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, icon = ?, image = ?, parent_id = ?, sort_order = ?, show_in_menu = ?, seo_title = ?, seo_description = ?, seo_keywords = ? WHERE id = ?`)
-            .run(d.name, d.slug, d.description || null, d.icon || null, d.image || null, d.parent_id || null, d.sort_order ?? 0, menuFlag(d.show_in_menu), d.seo_title || null, d.seo_description || null, d.seo_keywords || null, id);
+        // is_active changes only when actually sent (older clients never silently re-activate)
+        const activeVal = (d.is_active === undefined || d.is_active === null) ? null : menuFlag(d.is_active);
+        db.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, icon = ?, image = ?, parent_id = ?, sort_order = ?, show_in_menu = ?, is_active = COALESCE(?, is_active), seo_title = ?, seo_description = ?, seo_keywords = ? WHERE id = ?`)
+            .run(d.name, d.slug, d.description || null, d.icon || null, d.image || null, d.parent_id || null, d.sort_order ?? 0, menuFlag(d.show_in_menu), activeVal, d.seo_title || null, d.seo_description || null, d.seo_keywords || null, id);
         logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'category', entity_id: id });
         return c.json({ success: true, message: 'دسته به‌روزرسانی شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: friendlyDbError(e), code: 400 }, 400);
     }
+});
+/** 2026-11-03 (owner voice note): activate / deactivate a category WITHOUT deleting it.
+ *  Inactive = category + sub-categories + their products disappear from the public site;
+ *  products keep their own status, so re-activating restores everything as before. */
+misc.patch('/admin/categories/:id/active', adminRequired, async (c) => {
+    const user = c.get('user');
+    const id = parseInt(c.req.param('id') || '0');
+    const body = await c.req.json().catch(() => ({}));
+    if (body.is_active === undefined || body.is_active === null)
+        return c.json({ success: false, message: 'وضعیت (is_active) ارسال نشده است', code: 400 }, 400);
+    const flag = menuFlag(body.is_active);
+    const row = db.prepare(`SELECT id, name FROM categories WHERE id = ?`).get(id);
+    if (!row)
+        return c.json({ success: false, message: 'دسته یافت نشد', code: 404 }, 404);
+    db.prepare(`UPDATE categories SET is_active = ? WHERE id = ?`).run(flag, id);
+    const kids = db.prepare(`SELECT COUNT(*) AS t FROM categories WHERE parent_id = ?`).get(id).t;
+    logActivity({ user_id: user.id, user_name: user.full_name, action: flag ? 'activate' : 'deactivate', entity_type: 'category', entity_id: id, details: { name: row.name } });
+    const msg = flag
+        ? `دستهٔ «${row.name}» فعال شد و دوباره در سایت نمایش داده می‌شود`
+        : `دستهٔ «${row.name}» غیرفعال شد${kids ? ' (همراه زیرشاخه‌هایش)' : ''} — چیزی حذف نشده و هر زمان بخواهید قابل فعال‌سازی است`;
+    return c.json({ success: true, data: { id, is_active: flag }, message: msg, code: 200 });
 });
 misc.delete('/admin/categories/:id', adminRequired, (c) => {
     const user = c.get('user');
@@ -314,7 +354,7 @@ misc.delete('/admin/categories/:id', adminRequired, (c) => {
     // Guard FK integrity: category referenced by products or sub-categories cannot be hard-deleted
     const prodCount = db.prepare(`SELECT COUNT(*) AS t FROM products WHERE category_id = ?`).get(id).t;
     if (prodCount > 0)
-        return c.json({ success: false, message: `این دسته ${prodCount} محصول دارد؛ ابتدا محصول‌ها را جابه‌جا یا حذف کنید`, code: 400 }, 400);
+        return c.json({ success: false, message: `این دسته ${prodCount} محصول دارد و حذف نمی‌شود؛ اگر می‌خواهید در سایت نمایش داده نشود، از دکمهٔ «فعال/غیرفعال» استفاده کنید`, code: 400 }, 400);
     const childCount = db.prepare(`SELECT COUNT(*) AS t FROM categories WHERE parent_id = ?`).get(id).t;
     if (childCount > 0)
         return c.json({ success: false, message: `این دسته ${childCount} زیرشاخه دارد؛ ابتدا زیرشاخه‌ها را حذف کنید`, code: 400 }, 400);
@@ -389,7 +429,7 @@ misc.post('/admin/categories/reorder', adminRequired, async (c) => {
         return c.json({ success: true, message: 'ترتیب منو ذخیره شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: friendlyDbError(e), code: 400 }, 400);
     }
 });
 
@@ -411,7 +451,7 @@ misc.post('/admin/brands', adminRequired, async (c) => {
         return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'برند ایجاد شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: friendlyDbError(e), code: 400 }, 400);
     }
 });
 misc.put('/admin/brands/:id', adminRequired, async (c) => {
@@ -431,7 +471,7 @@ misc.put('/admin/brands/:id', adminRequired, async (c) => {
         return c.json({ success: true, message: 'برند به‌روزرسانی شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: friendlyDbError(e), code: 400 }, 400);
     }
 });
 misc.delete('/admin/brands/:id', adminRequired, (c) => {
@@ -562,7 +602,8 @@ misc.post('/admin/upload', adminRequired, async (c) => {
         return c.json({ success: true, data: { url }, message: 'تصویر آپلود شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا در آپلود تصویر: ' + (e?.message || ''), code: 500 }, 500);
+        console.error('[upload]', e?.message);
+        return c.json({ success: false, message: 'خطا در آپلود تصویر — فایل را بررسی کنید یا دوباره تلاش کنید', code: 500 }, 500);
     }
 });
 // list uploaded images (media library)

@@ -76,6 +76,11 @@
     },
     add: function (product, qty) {
       qty = Number(qty) || 1;
+      // S2: products without a price are «استعلام قیمت» — never cart them for 0
+      if (!(Number(product && (product.discount_price || product.price)) > 0)) {
+        window.toast('قیمت این کالا استعلامی است؛ لطفاً با کارشناسان تماس بگیرید', 'warning');
+        return;
+      }
       var items = readCart();
       var pid = product.id;
       var existing = items.find(function (it) { return it.product_id === pid; });

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS categories (
   parent_id INT NULL,
   sort_order INT DEFAULT 0,
   show_in_menu TINYINT NOT NULL DEFAULT 1,
+  is_active TINYINT NOT NULL DEFAULT 1,
   seo_title VARCHAR(255),
   seo_description TEXT,
   seo_keywords TEXT,

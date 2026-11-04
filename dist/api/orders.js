@@ -2,23 +2,27 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
-import { generateOrderNumber, getSetting, logActivity } from '../utils/helpers.js';
+import { generateOrderNumber, getSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
 import { toEnDigits } from '../utils/contact.js';
 import { notifyOrderCreated, notifyOrderStatus } from '../utils/sms.js';
+import { catVisSql } from '../utils/catvis.js';
+import { searchClause } from '../utils/search.js';
 const orders = new Hono();
+// Round 11 (2026-11-03): max lengths = DB column sizes. Longer input used to hit
+// MySQL «Data too long» -> «خطای داخلی سرور» for the customer at checkout.
 const orderSchema = z.object({
-    customer_name: z.string().min(2, 'نام معتبر نیست'),
-    customer_phone: z.string().min(10, 'شماره تلفن معتبر نیست'),
-    customer_email: z.string().email('ایمیل معتبر نیست').optional().or(z.literal('')),
-    shipping_address: z.string().min(5, 'آدرس معتبر نیست'),
-    shipping_city: z.string().optional(),
-    shipping_postal: z.string().optional(),
-    notes: z.string().optional(),
+    customer_name: z.string().trim().min(2, 'نام معتبر نیست').max(190, 'نام بیش از حد طولانی است'),
+    customer_phone: z.string().trim().min(10, 'شماره تلفن معتبر نیست').max(32, 'شماره تلفن معتبر نیست'),
+    customer_email: z.string().trim().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست').optional().or(z.literal('')),
+    shipping_address: z.string().trim().min(5, 'آدرس معتبر نیست').max(1000, 'آدرس بیش از حد طولانی است'),
+    shipping_city: z.string().trim().max(100, 'نام شهر بیش از حد طولانی است').optional(),
+    shipping_postal: z.string().trim().max(20, 'کد پستی معتبر نیست').optional(),
+    notes: z.string().trim().max(2000, 'توضیحات بیش از حد طولانی است (حداکثر ۲۰۰۰ کاراکتر)').optional(),
     payment_method: z.enum(['card', 'gateway', 'cod']).optional(),
     items: z.array(z.object({
         product_id: z.number().int().positive(),
-        quantity: z.number().int().positive()
-    })).min(1, 'سبد خرید خالی است')
+        quantity: z.number().int().positive().max(10000, 'تعداد سفارش بیش از حد مجاز است')
+    })).min(1, 'سبد خرید خالی است').max(100, 'تعداد اقلام سبد خرید بیش از حد مجاز است')
 });
 // Create order (guest or logged-in)
 orders.post('/', authOptional, async (c) => {
@@ -41,13 +45,17 @@ orders.post('/', authOptional, async (c) => {
     let subtotal = 0;
     const validatedItems = [];
     for (const [productId, quantity] of mergedQty) {
-        const p = db.prepare(`SELECT * FROM products WHERE id = ? AND status = 'active'`).get(productId);
+        const p = db.prepare(`SELECT * FROM products WHERE id = ? AND status = 'active'${catVisSql('category_id')}`).get(productId);
         if (!p)
             return c.json({ success: false, message: `محصول با شناسه ${productId} یافت نشد`, code: 400 }, 400);
         if (p.stock < quantity) {
             return c.json({ success: false, message: `موجودی محصول «${p.name}» کافی نیست (موجودی: ${p.stock})`, code: 400 }, 400);
         }
         const unitPrice = p.discount_price || p.price;
+        // S2 (2026-11-03): a product without a price («استعلام قیمت») must never be
+        // ordered for 0 toman.
+        if (!(Number(unitPrice) > 0))
+            return c.json({ success: false, message: `قیمت «${p.name}» مشخص نیست — برای استعلام قیمت با کارشناسان تماس بگیرید`, code: 400 }, 400);
         const itemTotal = unitPrice * quantity;
         subtotal += itemTotal;
         validatedItems.push({ product: p, quantity, unit_price: unitPrice, total: itemTotal });
@@ -120,9 +128,24 @@ orders.get('/', authRequired, (c) => {
         where += where ? ` AND status = ?` : `WHERE status = ?`;
         params.push(status);
     }
+    // Round 6 (2026-11-03): admin search by order number / customer name / phone / email
+    // (Persian-normalized: ی/ي، ک/ك، ارقام فارسی/عربی). Ignored for non-admins.
+    const q = String(c.req.query('q') || '').trim().slice(0, 100);
+    if (q && user.role === 'admin') {
+        const sc = searchClause(q, ['order_number', 'customer_name', 'customer_phone', 'customer_email']);
+        if (sc.sql) {
+            where += where ? sc.sql : 'WHERE 1=1' + sc.sql;
+            params.push(...sc.params);
+        }
+    }
     const items = db.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
     const total = db.prepare(`SELECT COUNT(*) AS t FROM orders ${where}`).get(...params).t;
-    return c.json({ success: true, data: { items, total, page, limit }, code: 200 });
+    let counts;
+    if (user.role === 'admin') {
+        counts = {};
+        for (const r of db.prepare(`SELECT status, COUNT(*) AS n FROM orders GROUP BY status`).all()) counts[r.status] = Number(r.n);
+    }
+    return c.json({ success: true, data: { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)), counts }, code: 200 });
 });
 // Get one order (admin or owner)
 orders.get('/:id', authRequired, (c) => {
@@ -225,10 +248,10 @@ orders.put('/:id/status', adminRequired, async (c) => {
         // Re-deduct stock when an order is reactivated OUT of cancelled
         if (existing.status === 'cancelled' && newStatus !== 'cancelled') {
             const its = db.prepare(`SELECT product_id, quantity FROM order_items WHERE order_id = ?`).all(id);
-            const deduct = db.prepare(`UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?`);
+            const deduct = db.prepare(`UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END WHERE id = ?`); // portable (MAX(0,x) is SQLite-only)
             for (const it of its)
                 if (it.product_id)
-                    deduct.run(it.quantity, it.product_id);
+                    deduct.run(it.quantity, it.quantity, it.product_id);
         }
         db.prepare(`UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(newStatus, id);
     });
@@ -237,25 +260,76 @@ orders.put('/:id/status', adminRequired, async (c) => {
     if (existing.status !== newStatus) notifyOrderStatus(id, newStatus);
     return c.json({ success: true, message: 'وضعیت به‌روزرسانی شد', code: 200 });
 });
+// =====================================================================
+//  2026-11-03 (owner voice note): «یه گزینه پاک شدن بذار ... سفارش‌های تستی
+//  در انتظار رو با یه دکمه پاک کنم». Bulk delete by ids OR by status filter.
+//  Same safety rules as the single delete: stock that an order still holds
+//  (pending / confirmed / shipping) goes back to inventory; delivered and
+//  cancelled orders never touch stock again.
+// =====================================================================
+const STOCK_HOLDING = new Set(['pending', 'confirmed', 'shipping']);
+function deleteOrdersTx(rows) {
+    const itemsStmt = db.prepare(`SELECT product_id, quantity FROM order_items WHERE order_id = ?`);
+    const restore = db.prepare(`UPDATE products SET stock = stock + ? WHERE id = ?`);
+    const delItems = db.prepare(`DELETE FROM order_items WHERE order_id = ?`);
+    const delOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
+    const tx = db.transaction(() => {
+        for (const o of rows) {
+            if (STOCK_HOLDING.has(o.status)) {
+                for (const it of itemsStmt.all(o.id))
+                    if (it.product_id) restore.run(it.quantity, it.product_id);
+            }
+            delItems.run(o.id);
+            delOrder.run(o.id);
+        }
+    });
+    tx();
+}
+orders.post('/bulk-delete', adminRequired, async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => ({}));
+    const schema = z.object({
+        ids: z.array(z.number().int().positive()).max(2000).optional(),
+        status: z.enum(['all', 'pending', 'confirmed', 'shipping', 'delivered', 'cancelled']).optional(),
+        confirm: z.string().optional()
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success)
+        return c.json({ success: false, message: 'ورودی نامعتبر است', code: 400 }, 400);
+    const d = parsed.data;
+    let rows = [];
+    if (d.ids && d.ids.length) {
+        rows = db.prepare(`SELECT id, status FROM orders WHERE id IN (${d.ids.map(() => '?').join(',')})`).all(...d.ids);
+    }
+    else if (d.status) {
+        // deleting by filter is destructive -> the client must echo a confirm word
+        if (d.confirm !== 'DELETE')
+            return c.json({ success: false, message: 'تأیید حذف گروهی ارسال نشده است', code: 400 }, 400);
+        rows = d.status === 'all'
+            ? db.prepare(`SELECT id, status FROM orders`).all()
+            : db.prepare(`SELECT id, status FROM orders WHERE status = ?`).all(d.status);
+    }
+    else {
+        return c.json({ success: false, message: 'سفارشی برای حذف انتخاب نشده است', code: 400 }, 400);
+    }
+    if (!rows.length)
+        return c.json({ success: true, data: { deleted: 0 }, message: 'سفارشی برای حذف پیدا نشد', code: 200 });
+    try { deleteOrdersTx(rows); }
+    catch (e) {
+        console.error('[orders.bulk-delete]', e?.message);
+        return c.json({ success: false, message: friendlyDbError(e, 'خطا در حذف سفارش‌ها'), code: 400 }, 400);
+    }
+    logActivity({ user_id: user.id, user_name: user.full_name, action: 'bulk_delete', entity_type: 'order', entity_id: 0, details: { count: rows.length, by: d.ids ? 'ids' : 'status:' + d.status } });
+    return c.json({ success: true, data: { deleted: rows.length }, message: `${rows.length} سفارش حذف شد`, code: 200 });
+});
 orders.delete('/:id', adminRequired, (c) => {
     const user = c.get('user');
     const id = parseInt(c.req.param('id') || '0');
-    const existing = db.prepare(`SELECT status FROM orders WHERE id = ?`).get(id);
+    const existing = db.prepare(`SELECT id, status FROM orders WHERE id = ?`).get(id);
     if (!existing)
         return c.json({ success: false, message: 'سفارش یافت نشد', code: 404 }, 404);
-    const tx = db.transaction(() => {
-        // If the order still held stock (not cancelled), return it to inventory before deleting
-        if (existing.status !== 'cancelled') {
-            const its = db.prepare(`SELECT product_id, quantity FROM order_items WHERE order_id = ?`).all(id);
-            const restore = db.prepare(`UPDATE products SET stock = stock + ? WHERE id = ?`);
-            for (const it of its)
-                if (it.product_id)
-                    restore.run(it.quantity, it.product_id);
-        }
-        db.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(id);
-        db.prepare(`DELETE FROM orders WHERE id = ?`).run(id);
-    });
-    tx();
+    try { deleteOrdersTx([existing]); }
+    catch (e) { return c.json({ success: false, message: friendlyDbError(e, 'خطا در حذف سفارش'), code: 400 }, 400); }
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'delete', entity_type: 'order', entity_id: id });
     return c.json({ success: true, message: 'سفارش حذف شد', code: 200 });
 });

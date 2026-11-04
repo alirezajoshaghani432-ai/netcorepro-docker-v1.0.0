@@ -37,11 +37,18 @@ function translateSql(sql) {
     // inside a string literal escapes the closing quote -> ER_PARSE_ERROR.
     // Double it so MySQL sees a literal backslash as the escape character.
     s = s.replace(/ESCAPE\s+'\\'/gi, "ESCAPE '\\\\'");
+    // Safety net for SQLite-only scalar functions (2026-11-03): 2-arg MAX(0, x)
+    // is a syntax error on MySQL -> GREATEST(0, x); CAST(x AS INTEGER) -> SIGNED.
+    s = s.replace(/\bMAX\(\s*0\s*,/gi, 'GREATEST(0,');
+    s = s.replace(/\bAS\s+INTEGER\s*\)/gi, 'AS SIGNED)');
     return s;
 }
 
 function normalizeParam(v) {
     if (typeof v === 'boolean') return v ? 1 : 0;
+    // Round 15: NaN/Infinity (e.g. parseInt of a non-numeric :id) is rendered by
+    // mysql2 as a bare identifier -> «Unknown column 'NaN'» 500. Bind NULL instead.
+    if (typeof v === 'number' && !Number.isFinite(v)) return null;
     if (typeof v === 'string') {
         // ISO date strings (new Date().toISOString()) -> MySQL DATETIME format (UTC)
         const m = v.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d+)?Z?$/);

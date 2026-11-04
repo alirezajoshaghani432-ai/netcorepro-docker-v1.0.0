@@ -53,14 +53,14 @@ content.get('/admin/blocks', adminRequired, (c) => {
 });
 
 const blockSchema = z.object({
-    page: z.string().min(1, 'page الزامی است'),
-    section: z.string().min(1, 'section الزامی است'),
-    icon: z.string().optional().nullable(),
-    image: z.string().optional().nullable(),
-    title: z.string().min(1, 'عنوان الزامی است'),
-    description: z.string().optional().nullable(),
-    href: z.string().optional().nullable(),
-    sort_order: z.coerce.number().int().optional().default(0),
+    page: z.string().min(1, 'page الزامی است').max(50, 'نام صفحه حداکثر ۵۰ کاراکتر'),
+    section: z.string().min(1, 'section الزامی است').max(50, 'نام بخش حداکثر ۵۰ کاراکتر'),
+    icon: z.string().max(190, 'آیکون حداکثر ۱۹۰ کاراکتر').optional().nullable(),
+    image: z.string().max(500, 'آدرس تصویر حداکثر ۵۰۰ کاراکتر').optional().nullable(),
+    title: z.string().min(1, 'عنوان الزامی است').max(255, 'عنوان حداکثر ۲۵۵ کاراکتر'),
+    description: z.string().max(60000, 'توضیحات بیش از حد طولانی است').optional().nullable(),
+    href: z.string().max(500, 'لینک حداکثر ۵۰۰ کاراکتر').optional().nullable(),
+    sort_order: z.coerce.number().int().min(-1000000, 'ترتیب نامعتبر').max(1000000, 'ترتیب نامعتبر').optional().default(0),
     is_active: z.coerce.number().int().min(0).max(1).optional().default(1)
 });
 
@@ -86,6 +86,8 @@ content.put('/admin/blocks/:id', adminRequired, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
+    if (!db.prepare(`SELECT id FROM site_blocks WHERE id = ?`).get(id))
+        return c.json({ success: false, message: 'بلوک یافت نشد', code: 404 }, 404);
     db.prepare(`UPDATE site_blocks
                 SET page = ?, section = ?, icon = ?, image = ?, title = ?, description = ?, href = ?,
                     sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
@@ -111,10 +113,10 @@ content.get('/admin/pages', adminRequired, (c) => {
 });
 
 const pageSchema = z.object({
-    page: z.string().min(1, 'page الزامی است'),
-    section: z.string().min(1, 'section الزامی است'),
-    title: z.string().optional().nullable(),
-    subtitle: z.string().optional().nullable(),
+    page: z.string().min(1, 'page الزامی است').max(50, 'نام صفحه حداکثر ۵۰ کاراکتر'),
+    section: z.string().min(1, 'section الزامی است').max(50, 'نام بخش حداکثر ۵۰ کاراکتر'),
+    title: z.string().max(255, 'عنوان حداکثر ۲۵۵ کاراکتر').optional().nullable(),
+    subtitle: z.string().max(500, 'زیرعنوان حداکثر ۵۰۰ کاراکتر').optional().nullable(),
     body: z.string().optional().nullable(),
     seo_title: z.string().optional().nullable(),
     seo_description: z.string().optional().nullable(),
@@ -153,6 +155,11 @@ content.put('/admin/pages/:id', adminRequired, async (c) => {
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);
     const d = parsed.data;
+    if (!db.prepare(`SELECT id FROM site_pages WHERE id = ?`).get(id))
+        return c.json({ success: false, message: 'صفحه یافت نشد', code: 404 }, 404);
+    const clash = db.prepare(`SELECT id FROM site_pages WHERE page = ? AND section = ? AND id != ?`).get(d.page, d.section, id);
+    if (clash)
+        return c.json({ success: false, message: 'برای این صفحه و بخش قبلاً محتوا ثبت شده است', code: 400 }, 400);
     db.prepare(`UPDATE site_pages
                 SET page = ?, section = ?, title = ?, subtitle = ?, body = ?,
                     seo_title = ?, seo_description = ?, seo_keywords = ?,
@@ -223,7 +230,7 @@ const homePageSchema = z.object({
     category_ids: z.string().optional().nullable(), // CSV of category ids
     brand_ids: z.string().optional().nullable(), // CSV of brand ids
     show_in_nav: z.coerce.number().int().min(0).max(1).optional(),
-    sort_order: z.coerce.number().int().optional(),
+    sort_order: z.coerce.number().int().min(-1000000, 'ترتیب نامعتبر').max(1000000, 'ترتیب نامعتبر').optional(),
     is_active: z.coerce.number().int().min(0).max(1).optional(),
     seo_title: z.string().max(255).optional().nullable(),
     seo_description: z.string().max(500).optional().nullable(),

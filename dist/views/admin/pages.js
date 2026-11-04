@@ -202,14 +202,41 @@ export function dashboardPage() {
 export function adminProductsPage() {
     const content = `
     <div class="bg-white rounded-xl shadow-sm p-5">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h2 class="font-bold text-slate-800">لیست محصولات</h2>
-        <div class="flex items-center gap-2 flex-1 justify-end">
+        <div class="flex items-center gap-2 flex-1 justify-end flex-wrap">
+          <select id="prod-status" onchange="filterProducts()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm" title="فیلتر وضعیت">
+            <option value="">همه محصولات</option>
+            <option value="active">فقط فعال‌ها</option>
+            <option value="inactive">فقط غیرفعال‌ها</option>
+            <option value="price_issue">قیمت نامعتبر (۰ یا کمتر از ۱۰۰۰ تومان)</option>
+            <option value="low_stock">موجودی کم (کمتر از ۵)</option>
+          </select>
+          <select id="prod-cat" onchange="filterProducts()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm max-w-[14rem]" title="فیلتر دسته‌بندی (شامل زیرشاخه‌ها)">
+            <option value="">همه دسته‌ها</option>
+          </select>
           <div class="relative w-full max-w-xs">
             <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
             <input id="prod-search" type="text" placeholder="جستجو: نام، کد محصول (SKU)، نامک..." class="w-full border border-slate-300 rounded-lg pr-8 pl-3 py-2 text-sm" oninput="filterProducts()">
           </div>
+          <div class="relative" id="pio-export-wrap">
+            <button type="button" onclick="document.getElementById('pio-export-menu').classList.toggle('hidden')" class="border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-sm whitespace-nowrap" title="گرفتن خروجی از همهٔ محصولات"><i class="fas fa-file-export ml-1 text-emerald-600"></i>خروجی (Export) <i class="fas fa-chevron-down text-[10px] mr-1"></i></button>
+            <div id="pio-export-menu" class="hidden absolute left-0 mt-1 w-60 bg-white border rounded-xl shadow-lg z-30 py-1 text-sm">
+              <button type="button" onclick="ncpExportProducts('xlsx');this.parentNode.classList.add('hidden')" class="w-full text-right px-4 py-2 hover:bg-slate-50"><i class="fas fa-file-excel ml-2 text-emerald-600"></i>فایل اکسل (xlsx)</button>
+              <button type="button" onclick="ncpExportProducts('csv');this.parentNode.classList.add('hidden')" class="w-full text-right px-4 py-2 hover:bg-slate-50"><i class="fas fa-file-csv ml-2 text-sky-600"></i>فایل CSV</button>
+              <button type="button" onclick="ncpExportProducts('json');this.parentNode.classList.add('hidden')" class="w-full text-right px-4 py-2 hover:bg-slate-50"><i class="fas fa-file-code ml-2 text-violet-600"></i>پشتیبان کامل (JSON)<span class="block text-[10px] text-slate-400 mr-6">برای انتقال به سایت دیگر</span></button>
+            </div>
+          </div>
+          <button type="button" onclick="ncpOpenImport()" class="border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-sm whitespace-nowrap" title="ورود گروهی محصولات از فایل اکسل / CSV / خروجی سایت دیگر"><i class="fas fa-file-import ml-1 text-indigo-600"></i>ورود (Import)</button>
           <button onclick="newProduct()" class="btn-indigo text-white px-4 py-2 rounded-lg text-sm whitespace-nowrap"><i class="fas fa-plus ml-1"></i>محصول جدید</button>
+        </div>
+      </div>
+      <div id="pbulk-bar" class="hidden mb-3 flex items-center justify-between gap-2 flex-wrap rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-2 text-sm">
+        <span><i class="fas fa-check-square text-indigo-600 ml-1"></i><b id="pbulk-count">0</b> محصول انتخاب شده</span>
+        <div class="flex gap-2 flex-wrap">
+          <button type="button" onclick="bulkProductStatus('active')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs"><i class="fas fa-toggle-on ml-1"></i>فعال کردن انتخاب‌شده‌ها</button>
+          <button type="button" onclick="bulkProductStatus('inactive')" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs" title="محصولات حذف نمی‌شوند؛ فقط از سایت پنهان می‌شوند"><i class="fas fa-toggle-off ml-1"></i>غیرفعال کردن انتخاب‌شده‌ها</button>
+          <button type="button" onclick="clearProdSel()" class="border border-slate-300 bg-white px-3 py-1.5 rounded-lg text-xs">لغو انتخاب</button>
         </div>
       </div>
       <div id="products-table" class="overflow-x-auto"><div class="text-center py-12"><span class="spinner"></span></div></div>
@@ -220,48 +247,158 @@ export function adminProductsPage() {
         const tbl = document.getElementById('products-table');
         try {
           const [pr, cr, br] = await Promise.all([
-            axios.get('/api/products', { params: { limit: 100 } }),
+            // admin endpoint: ALL products (active + inactive), no 100-row cap
+            axios.get('/api/products/admin/list'),
             axios.get('/api/admin/categories'),
             axios.get('/api/admin/brands')
           ]);
           CATEGORIES = cr.data.data; BRANDS = br.data.data;
           ALL_PRODUCTS = pr.data.data.items;
-          renderProducts(ALL_PRODUCTS);
+          const cn = pr.data.data.counts || {};
+          const st = document.getElementById('prod-status');
+          if (st) {
+            st.options[0].textContent = 'همه محصولات (' + formatPrice((cn.active || 0) + (cn.inactive || 0)) + ')';
+            st.options[1].textContent = 'فقط فعال‌ها (' + formatPrice(cn.active || 0) + ')';
+            st.options[2].textContent = 'فقط غیرفعال‌ها (' + formatPrice(cn.inactive || 0) + ')';
+            const pi = ALL_PRODUCTS.filter(priceIssue).length;
+            st.options[3].textContent = 'قیمت نامعتبر: ۰ یا کمتر از ۱۰۰۰ تومان (' + formatPrice(pi) + ')';
+            st.options[3].hidden = pi === 0;
+            const ls = ALL_PRODUCTS.filter(lowStock).length;
+            st.options[4].textContent = 'موجودی کم: کمتر از ۵ عدد (' + formatPrice(ls) + ')';
+            st.options[4].hidden = ls === 0;
+          }
+          fillProdCatFilter();
+          filterProducts();
         } catch (e) { tbl.innerHTML = '<p class="text-red-500 p-4">خطا در بارگذاری</p>'; }
       }
       let ALL_PRODUCTS = [];
+      // R3-C: category filter (a parent category also shows its sub-categories' products)
+      function catDescIds(id) {
+        const out = new Set([id]); let grew = true;
+        while (grew) { grew = false; CATEGORIES.forEach(c => { if (c.parent_id && out.has(c.parent_id) && !out.has(c.id)) { out.add(c.id); grew = true; } }); }
+        return out;
+      }
+      function fillProdCatFilter() {
+        const el = document.getElementById('prod-cat');
+        if (!el) return;
+        const cur = el.value;
+        const direct = {}; ALL_PRODUCTS.forEach(p => { direct[p.category_id || 0] = (direct[p.category_id || 0] || 0) + 1; });
+        const total = id => { let n = 0; catDescIds(id).forEach(x => { n += direct[x] || 0; }); return n; };
+        const byParent = {}; CATEGORIES.forEach(c => { const k = c.parent_id || 0; (byParent[k] = byParent[k] || []).push(c); });
+        const out = ['<option value="">همه دسته‌ها</option>'];
+        (function walk(pid, depth) {
+          (byParent[pid] || []).forEach(c => {
+            const pad = depth ? '\\u00a0'.repeat(depth * 3) + '└ ' : '';
+            out.push('<option value="' + c.id + '">' + pad + escAdmin(c.name) + ' (' + formatPrice(total(c.id)) + ')' + (c.is_active == 0 ? ' — غیرفعال' : '') + '</option>');
+            walk(c.id, depth + 1);
+          });
+        })(0, 0);
+        const orphan = ALL_PRODUCTS.filter(p => !p.category_id || !CATEGORIES.some(c => c.id === p.category_id)).length;
+        if (orphan) out.push('<option value="none">بدون دسته (' + formatPrice(orphan) + ')</option>');
+        el.innerHTML = out.join('');
+        if (cur && [...el.options].some(o => o.value === cur)) el.value = cur;
+      }
+      // R2-B: bulk select -> activate / deactivate (never deletes)
+      const PSEL = new Set();
+      let SHOWN_PRODUCTS = [];
+      function updateProdBar() {
+        const bar = document.getElementById('pbulk-bar');
+        if (!bar) return;
+        bar.classList.toggle('hidden', PSEL.size === 0);
+        document.getElementById('pbulk-count').textContent = formatPrice(PSEL.size);
+        const all = document.getElementById('psel-all');
+        if (all) { const n = SHOWN_PRODUCTS.filter(p => PSEL.has(p.id)).length; all.checked = n > 0 && n === SHOWN_PRODUCTS.length; all.indeterminate = n > 0 && n < SHOWN_PRODUCTS.length; }
+      }
+      window.toggleProdSel = (id, on) => { on ? PSEL.add(id) : PSEL.delete(id); updateProdBar(); };
+      window.toggleProdSelAll = (on) => {
+        SHOWN_PRODUCTS.forEach(p => on ? PSEL.add(p.id) : PSEL.delete(p.id));
+        document.querySelectorAll('#products-table .psel').forEach(cb => { cb.checked = on; });
+        updateProdBar();
+      };
+      window.clearProdSel = () => { PSEL.clear(); document.querySelectorAll('#products-table .psel').forEach(cb => { cb.checked = false; }); updateProdBar(); };
+      window.bulkProductStatus = async (st) => {
+        const ids = [...PSEL];
+        if (!ids.length) return;
+        if (ids.length > 2000) { toast('حداکثر ۲۰۰۰ محصول در هر بار قابل تغییر است', 'error'); return; }
+        const btns = document.querySelectorAll('#pbulk-bar button');
+        btns.forEach(b => { b.disabled = true; });
+        try {
+          const r = await axios.post('/api/products/admin/bulk-status', { ids, status: st });
+          toast(r.data.message || 'انجام شد', 'success');
+          PSEL.clear();
+          await loadProducts();
+        } catch (e) { toast(e.response?.data?.message || 'خطا در تغییر وضعیت گروهی', 'error'); }
+        finally { btns.forEach(b => { b.disabled = false; }); updateProdBar(); }
+      };
       // F5: normalize Persian/Arabic chars + digits so SKU/name search matches loosely
       function normFa(x) {
         return String(x || '').toLowerCase()
-          .replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک')
+          .replace(/[يیئى]/g, 'ی').replace(/[كک]/g, 'ک').replace(/[آأإ]/g, 'ا').replace(/\\u200c/g, '')
           .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
           .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
           .replace(/[\\s\\-_]+/g, '');
       }
+      // I3 (2026-11-03): price 0 = «استعلام قیمت» on the site; 1..999 toman is almost
+      // always a typo (e.g. «5» instead of «5,000,000») -> flag both for the owner.
+      function effPrice(p) { return Number(p.discount_price || p.price) || 0; }
+      function priceIssue(p) { return effPrice(p) < 1000; }
+      function lowStock(p) { return (Number(p.stock) || 0) < 5; }
+      function priceCell(p) {
+        const v = effPrice(p);
+        if (v <= 0) return '<span class="badge badge-inactive" title="در سایت «استعلام قیمت» نمایش داده می‌شود و قابل سفارش نیست">بدون قیمت</span>';
+        if (v < 1000) return formatPrice(v) + ' <i class="fas fa-triangle-exclamation text-amber-500 mr-1" title="قیمت کمتر از ۱۰۰۰ تومان است — احتمالاً اشتباه تایپی؛ لطفاً بررسی کنید"></i>';
+        return formatPrice(v);
+      }
       function filterProducts() {
         const q = normFa(document.getElementById('prod-search').value);
-        if (!q) { renderProducts(ALL_PRODUCTS); return; }
-        const hits = ALL_PRODUCTS.filter(p =>
+        const stEl = document.getElementById('prod-status');
+        const st = stEl ? stEl.value : '';
+        let list = st === 'price_issue' ? ALL_PRODUCTS.filter(priceIssue) : st === 'low_stock' ? ALL_PRODUCTS.filter(lowStock) : (st ? ALL_PRODUCTS.filter(p => p.status === st) : ALL_PRODUCTS);
+        const catEl = document.getElementById('prod-cat');
+        const cv = catEl ? catEl.value : '';
+        if (cv === 'none') list = list.filter(p => !p.category_id || !CATEGORIES.some(c => c.id === p.category_id));
+        else if (cv) { const ids = catDescIds(parseInt(cv)); list = list.filter(p => ids.has(p.category_id)); }
+        if (q) list = list.filter(p =>
           normFa(p.sku).includes(q) || normFa(p.name).includes(q) || normFa(p.slug).includes(q));
-        renderProducts(hits, q);
+        renderProducts(list, q);
       }
+      // One-click activate / deactivate — nothing is deleted, the product only
+      // disappears from (or comes back to) the public site.
+      window.toggleProductStatus = async (id, next) => {
+        try {
+          const r = await axios.patch('/api/products/' + id + '/status', { status: next });
+          const p = ALL_PRODUCTS.find(x => x.id === id);
+          if (p) p.status = next;
+          toast(r.data.message, 'success');
+          loadProducts();
+        } catch (e) { toast(e.response?.data?.message || 'خطا در تغییر وضعیت', 'error'); }
+      };
       function renderProducts(items, q) {
         const tbl = document.getElementById('products-table');
+        SHOWN_PRODUCTS = items;
+        // drop selections that no longer exist (e.g. deleted product)
+        const __ids = new Set(ALL_PRODUCTS.map(p => p.id));
+        [...PSEL].forEach(id => { if (!__ids.has(id)) PSEL.delete(id); });
+        updateProdBar();
         if (!items.length) { tbl.innerHTML = '<p class="text-center text-slate-400 py-10 text-sm"><i class="fas fa-magnifying-glass ml-1"></i>محصولی با این مشخصات پیدا نشد' + (q ? ' — کد/نام واردشده را بررسی کنید' : '') + '</p>'; return; }
         try {
           tbl.innerHTML = \`<table class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600 text-xs">
-              <tr><th class="px-3 py-3 text-right">تصویر</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">دسته</th><th class="px-3 py-3 text-right">قیمت</th><th class="px-3 py-3 text-right">موجودی</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr>
+              <tr><th class="px-3 py-3 text-right w-8"><input type="checkbox" id="psel-all" onchange="toggleProdSelAll(this.checked)" class="w-4 h-4 cursor-pointer" title="انتخاب همهٔ محصولات نمایش‌داده‌شده"></th><th class="px-3 py-3 text-right">تصویر</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">دسته</th><th class="px-3 py-3 text-right">قیمت</th><th class="px-3 py-3 text-right">موجودی</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr>
             </thead>
-            <tbody>\${items.map(p => \`<tr class="table-row border-t">
-              <td class="px-3 py-2"><img loading="lazy" decoding="async" src="\${escAdmin(p.image || '/static/images/p1.svg')}" alt="\${escAdmin(p.name || 'تصویر محصول')}" class="w-12 h-12 rounded object-cover"></td>
+            <tbody>\${items.map(p => \`<tr class="table-row border-t\${p.status === 'active' ? '' : ' bg-slate-50 opacity-70'}">
+              <td class="px-3 py-2"><input type="checkbox" class="psel w-4 h-4 cursor-pointer" onchange="toggleProdSel(\${p.id}, this.checked)"\${PSEL.has(p.id) ? ' checked' : ''}></td>
+              <td class="px-3 py-2"><img loading="lazy" decoding="async" src="\${escAdmin(p.image || '/static/images/p1.svg')}" alt="\${escAdmin(p.name || 'تصویر محصول')}" class="w-12 h-12 rounded object-cover\${p.status === 'active' ? '' : ' grayscale'}"></td>
               <td class="px-3 py-2"><div class="font-medium">\${escAdmin(p.name)}</div><div class="text-xs text-slate-400">\${escAdmin(p.sku || '-')}</div></td>
-              <td class="px-3 py-2">\${escAdmin(p.category_name || '-')}</td>
-              <td class="px-3 py-2">\${formatPrice(p.discount_price || p.price)}</td>
+              <td class="px-3 py-2">\${escAdmin(p.category_name || '-')}\${p.category_active == 0 ? '<div class="text-[10px] text-amber-600 mt-0.5" title="این دسته غیرفعال است؛ محصولاتش در سایت نمایش داده نمی‌شوند"><i class="fas fa-eye-slash ml-1"></i>دسته غیرفعال است</div>' : ''}</td>
+              <td class="px-3 py-2 whitespace-nowrap">\${priceCell(p)}</td>
               <td class="px-3 py-2"><span class="\${p.stock < 5 ? 'text-red-600' : 'text-slate-700'}">\${p.stock}</span></td>
-              <td class="px-3 py-2"><span class="badge badge-\${p.status === 'active' ? 'active' : 'blocked'}">\${p.status === 'active' ? 'فعال' : 'غیرفعال'}</span></td>
-              <td class="px-3 py-2"><a href="/product/\${escAdmin(p.slug)}" target="_blank" title="مشاهده در سایت" class="text-slate-400 hover:text-emerald-600 ml-2"><i class="fas fa-eye"></i></a><button onclick='editProduct(\${p.id})' class="text-indigo-600 hover:text-indigo-700 ml-2" title="ویرایش"><i class="fas fa-pen"></i></button><button onclick="deleteProduct(\${p.id})" class="text-red-600 hover:text-red-700" title="حذف"><i class="fas fa-trash"></i></button></td>
+              <td class="px-3 py-2 whitespace-nowrap">\${p.status === 'active'
+                ? '<button type="button" onclick="toggleProductStatus(' + p.id + ', &#39;inactive&#39;)" class="badge badge-active cursor-pointer hover:ring-2 hover:ring-emerald-300" title="کلیک کنید تا غیرفعال شود (حذف نمی‌شود)"><i class="fas fa-toggle-on ml-1"></i>فعال</button>'
+                : '<button type="button" onclick="toggleProductStatus(' + p.id + ', &#39;active&#39;)" class="badge badge-blocked cursor-pointer hover:ring-2 hover:ring-rose-300" title="کلیک کنید تا دوباره فعال شود"><i class="fas fa-toggle-off ml-1"></i>غیرفعال</button>'}</td>
+              <td class="px-3 py-2 whitespace-nowrap">\${p.status === 'active' ? '<a href="/product/' + escAdmin(p.slug) + '" target="_blank" title="مشاهده در سایت" class="text-slate-400 hover:text-emerald-600 ml-2"><i class="fas fa-eye"></i></a>' : '<span class="text-slate-300 ml-2" title="محصول غیرفعال در سایت نمایش داده نمی‌شود"><i class="fas fa-eye-slash"></i></span>'}<button onclick='editProduct(\${p.id})' class="text-indigo-600 hover:text-indigo-700 ml-2" title="ویرایش"><i class="fas fa-pen"></i></button><button type="button" onclick="duplicateProduct(\${p.id})" class="text-slate-500 hover:text-indigo-600 ml-2" title="کپی محصول (نسخهٔ غیرفعال برای ساخت سریع محصول مشابه)"><i class="fas fa-copy"></i></button><button onclick="deleteProduct(\${p.id})" class="text-red-600 hover:text-red-700" title="حذف"><i class="fas fa-trash"></i></button></td>
             </tr>\`).join('')}</tbody></table>\`;
+          updateProdBar();
         } catch (e) { tbl.innerHTML = '<p class="text-red-500 p-4">خطا در نمایش لیست</p>'; }
       }
       function catOptions(cats, selectedId) {
@@ -272,7 +409,7 @@ export function adminProductsPage() {
         (function walk(pid, depth) {
           (byParent[pid] || []).forEach(c => {
             const pad = depth ? '&nbsp;'.repeat(depth * 3) + '└ ' : '';
-            out.push('<option value="' + c.id + '" ' + (selectedId === c.id ? 'selected' : '') + '>' + pad + escAdmin(c.name) + '</option>');
+            out.push('<option value="' + c.id + '" ' + (selectedId === c.id ? 'selected' : '') + '>' + pad + escAdmin(c.name) + (c.is_active == 0 ? ' (غیرفعال)' : '') + '</option>');
             walk(c.id, depth + 1);
           });
         })(0, 0);
@@ -288,7 +425,7 @@ export function adminProductsPage() {
           <div class="grid md:grid-cols-3 gap-3">
             <div><label class="block text-sm mb-1">SKU</label><input name="sku" value="\${escAdmin(p.sku || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
             <div><label class="block text-sm mb-1">دسته *</label><select name="category_id" required class="w-full border rounded-lg px-3 py-2 text-sm">\${catOptions(CATEGORIES, p.category_id)}</select></div>
-            <div><label class="block text-sm mb-1">برند</label><select name="brand_id" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">-</option>\${BRANDS.map(b => '<option value="' + b.id + '" ' + (p.brand_id === b.id ? 'selected' : '') + '>' + b.name + '</option>').join('')}</select></div>
+            <div><label class="block text-sm mb-1">برند</label><select name="brand_id" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">-</option>\${BRANDS.map(b => '<option value="' + b.id + '" ' + (p.brand_id === b.id ? 'selected' : '') + '>' + escAdmin(b.name) + '</option>').join('')}</select></div>
           </div>
           <div class="grid md:grid-cols-3 gap-3">
             <div><label class="block text-sm mb-1">قیمت (تومان) *</label><input name="price" id="pf-price" type="number" required value="\${p.price || 0}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
@@ -511,6 +648,13 @@ export function adminProductsPage() {
           ['category_id','brand_id','price','discount_price','stock','featured'].forEach(k => { if (data[k] !== '' && data[k] !== undefined) data[k] = parseInt(data[k]); else if (data[k] === '') { if (k === 'discount_price') data[k] = null; else delete data[k]; } });
           // a discount that is not lower than the price is meaningless -> treat as "no discount"
           if (data.discount_price !== null && data.discount_price !== undefined && (!(data.discount_price > 0) || data.discount_price >= data.price)) data.discount_price = null;
+          // R5-A: catch the «5 instead of 5,000,000» typo at the source (non-blocking:
+          // the owner can still confirm). Native confirm on purpose — confirmAction
+          // would replace this open modal and lose the typed data.
+          {
+            const pv = Number(data.price) || 0;
+            if (pv > 0 && pv < 1000 && !window.confirm('قیمت واردشده ' + formatPrice(pv) + ' تومان است — کمتر از ۱۰۰۰ تومان!\\nاحتمالاً صفرها جا افتاده‌اند (مثلاً ' + formatPrice(pv * 1000000) + ').\\n\\nبا همین قیمت ذخیره شود؟')) { document.getElementById('pf-price') && document.getElementById('pf-price').focus(); return; }
+          }
           data.gallery = JSON.stringify(collectGallery());
           data.specs = JSON.stringify(collectSpecs());
           data.key_features = JSON.stringify(collectFeatures());
@@ -524,12 +668,24 @@ export function adminProductsPage() {
           } catch (err) { toast(err.response?.data?.message || 'خطا', 'error'); btn.disabled = false; }
         });
       }
-      window.deleteProduct = (id) => confirmDialog('آیا از حذف این محصول مطمئن هستید؟', async () => {
-        try { await axios.delete('/api/products/' + id); toast('حذف شد', 'success'); loadProducts(); }
-        catch (e) { toast('خطا', 'error'); }
+      // R4-A: duplicate as an inactive draft, then open it for editing
+      window.duplicateProduct = (id) => confirmDialog('از این محصول یک کپی «غیرفعال» ساخته شود؟ (کد محصول/SKU خالی می‌ماند؛ بعد از ویرایش فعالش کنید)', async () => {
+        try {
+          const r = await axios.post('/api/products/' + id + '/duplicate');
+          toast(r.data.message || 'کپی ساخته شد', 'success');
+          await loadProducts();
+          if (r.data.data && r.data.data.id) editProduct(r.data.data.id);
+        } catch (e) { toast(e.response?.data?.message || 'خطا در کپی محصول', 'error'); }
+      });
+      window.deleteProduct = (id) => confirmDialog('این محصول «برای همیشه» حذف شود؟\\nاگر فقط می‌خواهید در سایت نمایش داده نشود، به‌جای حذف روی دکمهٔ «فعال» در ستون وضعیت بزنید تا غیرفعال شود (قابل برگشت).', async () => {
+        try { const r = await axios.delete('/api/products/' + id); toast(r.data.message || 'حذف شد', 'success'); loadProducts(); }
+        catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
       });
       loadProducts();
+      // close the export dropdown when clicking elsewhere
+      document.addEventListener('click', (e) => { const w = document.getElementById('pio-export-wrap'); if (w && !w.contains(e.target)) document.getElementById('pio-export-menu').classList.add('hidden'); });
     </script>
+    <script src="/static/js/product-io.js?v=20261103b" defer></script>
   `;
     return adminLayout({ title: 'محصولات', currentPath: '/admin/products' }, content);
 }
@@ -537,11 +693,27 @@ export function adminProductsPage() {
 export function adminOrdersPage() {
     const content = `
     <div class="bg-white rounded-xl shadow-sm p-5">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 class="font-bold">سفارش‌ها</h2>
-        <select id="filter-status" class="border rounded-lg px-3 py-1.5 text-sm"><option value="">همه</option><option value="pending">در انتظار</option><option value="confirmed">تایید شده</option><option value="shipping">در حال ارسال</option><option value="delivered">تحویل شده</option><option value="cancelled">لغو شده</option></select>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input id="ord-search" type="search" placeholder="جستجو: شماره سفارش، نام، موبایل، ایمیل" class="border rounded-lg pr-8 pl-3 py-1.5 text-sm w-64 max-w-full" autocomplete="off">
+          </div>
+          <select id="filter-status" class="border rounded-lg px-3 py-1.5 text-sm"><option value="">همه</option><option value="pending">در انتظار</option><option value="confirmed">تایید شده</option><option value="shipping">در حال ارسال</option><option value="delivered">تحویل شده</option><option value="cancelled">لغو شده</option></select>
+          <button id="bulk-del-filter" type="button" class="border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"><i class="fas fa-trash-can ml-1"></i><span>حذف همهٔ سفارش‌های این فیلتر</span></button>
+        </div>
+      </div>
+      <!-- 2026-11-03: bulk actions bar (owner voice note — clean up test orders) -->
+      <div id="bulk-bar" class="hidden mb-3 flex items-center justify-between gap-2 flex-wrap rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm">
+        <span class="text-red-800"><i class="fas fa-check-square ml-1"></i><b id="bulk-count">0</b> سفارش انتخاب شده</span>
+        <div class="flex gap-2">
+          <button id="bulk-clear" type="button" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white">لغو انتخاب</button>
+          <button id="bulk-del-selected" type="button" class="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg"><i class="fas fa-trash ml-1"></i>حذف انتخاب‌شده‌ها</button>
+        </div>
       </div>
       <div id="orders-table" class="overflow-x-auto"><div class="text-center py-12"><span class="spinner"></span></div></div>
+      <div id="orders-pager" class="flex justify-center gap-1 mt-4 flex-wrap"></div>
     </div>
     <script>
       const PAY_METHOD = { card: 'کارت به کارت', gateway: 'درگاه آنلاین', cod: 'هماهنگی تلفنی' };
@@ -559,18 +731,59 @@ export function adminOrdersPage() {
         return '<span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ' + ps[1] + ring + '">' + ps[0] + '</span>'
              + '<span class="block text-[10px] text-slate-400 mt-0.5">' + pm + '</span>';
       }
+      const SELECTED = new Set();   // survives the 30s polling re-render
+      let ORD_PAGE = 1, ORD_ITEMS = [], ORD_TOTAL = 0;
+      const ST_LABEL = { '': 'همه', pending: 'در انتظار', confirmed: 'تایید شده', shipping: 'در حال ارسال', delivered: 'تحویل شده', cancelled: 'لغو شده' };
+      function refreshBulkBar() {
+        document.getElementById('bulk-bar').classList.toggle('hidden', SELECTED.size === 0);
+        document.getElementById('bulk-count').textContent = formatPrice(SELECTED.size);
+        const all = document.getElementById('sel-all');
+        if (all) { const ids = ORD_ITEMS.map(o => o.id); all.checked = ids.length > 0 && ids.every(id => SELECTED.has(id)); }
+      }
+      window.toggleSel = (id, on) => { on ? SELECTED.add(id) : SELECTED.delete(id); refreshBulkBar(); };
+      window.toggleSelAll = (on) => { ORD_ITEMS.forEach(o => on ? SELECTED.add(o.id) : SELECTED.delete(o.id)); document.querySelectorAll('.ord-sel').forEach(cb => { cb.checked = on; }); refreshBulkBar(); };
+      function renderPager(pages) {
+        const el = document.getElementById('orders-pager');
+        if (!pages || pages <= 1) { el.innerHTML = ''; return; }
+        let h = '';
+        for (let i = 1; i <= pages; i++) h += '<button type="button" onclick="gotoOrdPage(' + i + ')" class="px-3 py-1 rounded-lg text-sm ' + (i === ORD_PAGE ? 'btn-indigo text-white' : 'bg-slate-100 hover:bg-slate-200') + '">' + formatPrice(i) + '</button>';
+        el.innerHTML = h;
+      }
+      window.gotoOrdPage = (p) => { ORD_PAGE = p; loadOrders(); };
+      function refreshFilterBtn(counts) {
+        const st = document.getElementById('filter-status').value;
+        const n = st ? ((counts && counts[st]) || 0) : Object.values(counts || {}).reduce((a, b) => a + b, 0);
+        const btn = document.getElementById('bulk-del-filter');
+        btn.querySelector('span').textContent = 'حذف همهٔ سفارش‌های «' + ST_LABEL[st] + '» (' + formatPrice(n) + ')';
+        const searching = !!(document.getElementById('ord-search').value || '').trim();
+        btn.disabled = n === 0 || searching; btn.classList.toggle('opacity-40', n === 0 || searching);
+        btn.title = searching ? 'هنگام جستجو غیرفعال است (این دکمه بر اساس وضعیت حذف می‌کند، نه نتیجهٔ جستجو). برای حذف نتایج جستجو، آن‌ها را تیک بزنید.' : '';
+        btn.dataset.count = searching ? 0 : n;
+        // status dropdown shows how many orders each status has
+        const sel = document.getElementById('filter-status');
+        Array.from(sel.options).forEach(o => {
+          const c = o.value ? ((counts && counts[o.value]) || 0) : Object.values(counts || {}).reduce((a, b) => a + b, 0);
+          o.textContent = ST_LABEL[o.value] + ' (' + formatPrice(c) + ')';
+        });
+      }
       async function loadOrders() {
         const status = document.getElementById('filter-status').value;
         const tbl = document.getElementById('orders-table');
         try {
-          const r = await axios.get('/api/orders', { params: { status, limit: 100 } });
-          const items = r.data.data.items;
-          if (!items.length) { tbl.innerHTML = '<p class="text-center py-12 text-slate-400">سفارشی یافت نشد</p>'; return; }
+          const q = (document.getElementById('ord-search').value || '').trim();
+          const r = await axios.get('/api/orders', { params: { status, limit: 50, page: ORD_PAGE, q: q || undefined } });
+          const data = r.data.data;
+          if (!data.items.length && ORD_PAGE > 1) { ORD_PAGE = 1; return loadOrders(); }
+          const items = ORD_ITEMS = data.items; ORD_TOTAL = data.total;
+          refreshFilterBtn(data.counts);
+          renderPager(data.pages);
+          if (!items.length) { tbl.innerHTML = '<p class="text-center py-12 text-slate-400">سفارشی یافت نشد' + (q ? ' — عبارت جستجو را بررسی کنید' : '') + '</p>'; refreshBulkBar(); return; }
           tbl.innerHTML = \`<table class="w-full text-sm">
             <thead class="bg-slate-50 text-slate-600 text-xs">
-              <tr><th class="px-3 py-3 text-right">شماره</th><th class="px-3 py-3 text-right">مشتری</th><th class="px-3 py-3 text-right">تماس</th><th class="px-3 py-3 text-right">مبلغ</th><th class="px-3 py-3 text-right">تاریخ</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">پرداخت</th><th class="px-3 py-3 text-right">عملیات</th></tr>
+              <tr><th class="px-3 py-3 text-right w-8"><input type="checkbox" id="sel-all" onchange="toggleSelAll(this.checked)" class="w-4 h-4 cursor-pointer" title="انتخاب همهٔ این صفحه"></th><th class="px-3 py-3 text-right">شماره</th><th class="px-3 py-3 text-right">مشتری</th><th class="px-3 py-3 text-right">تماس</th><th class="px-3 py-3 text-right">مبلغ</th><th class="px-3 py-3 text-right">تاریخ</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">پرداخت</th><th class="px-3 py-3 text-right">عملیات</th></tr>
             </thead>
             <tbody>\${items.map(o => \`<tr class="table-row border-t">
+              <td class="px-3 py-2"><input type="checkbox" class="ord-sel w-4 h-4 cursor-pointer" \${SELECTED.has(o.id) ? 'checked' : ''} onchange="toggleSel(\${o.id}, this.checked)"></td>
               <td class="px-3 py-2 font-mono text-indigo-600 text-xs">\${escAdmin(o.order_number)}</td>
               <td class="px-3 py-2">\${escAdmin(o.customer_name)}</td>
               <td class="px-3 py-2 text-xs">\${escAdmin(o.customer_phone)}</td>
@@ -578,15 +791,41 @@ export function adminOrdersPage() {
               <td class="px-3 py-2 text-xs">\${formatDate(o.created_at)}</td>
               <td class="px-3 py-2"><span class="badge badge-\${o.status}">\${statusLabel(o.status)}</span></td>
               <td class="px-3 py-2 whitespace-nowrap">\${payBadge(o)}</td>
-              <td class="px-3 py-2"><button onclick="viewOrder(\${o.id})" class="text-indigo-600"><i class="fas fa-eye"></i></button></td>
+              <td class="px-3 py-2 whitespace-nowrap"><button onclick="viewOrder(\${o.id})" class="text-indigo-600 ml-3" title="جزئیات"><i class="fas fa-eye"></i></button><button onclick="deleteOrder(\${o.id}, '\${escAdmin(o.order_number)}')" class="text-red-500 hover:text-red-700" title="حذف سفارش"><i class="fas fa-trash"></i></button></td>
             </tr>\`).join('')}</tbody></table>\`;
+          refreshBulkBar();
         } catch (e) { tbl.innerHTML = '<p class="text-red-500 p-4">خطا</p>'; }
       }
+      const STOCK_NOTE = '<br><span class="text-xs text-slate-500">موجودیِ کالاهای سفارش‌های «در انتظار / تایید شده / در حال ارسال» به انبار برمی‌گردد. این کار قابل بازگشت نیست.</span>';
+      window.deleteOrder = (id, num) => confirmDialog('سفارش <b dir="ltr">' + num + '</b> برای همیشه حذف شود؟' + STOCK_NOTE, async () => {
+        try { const r = await axios.delete('/api/orders/' + id); SELECTED.delete(id); toast(r.data.message || 'حذف شد', 'success'); closeModal && closeModal(); loadOrders(); }
+        catch (e) { toast(e.response?.data?.message || 'خطا در حذف', 'error'); }
+      });
+      document.getElementById('bulk-clear').addEventListener('click', () => { SELECTED.clear(); document.querySelectorAll('.ord-sel').forEach(cb => { cb.checked = false; }); refreshBulkBar(); });
+      document.getElementById('bulk-del-selected').addEventListener('click', () => {
+        const ids = Array.from(SELECTED);
+        if (!ids.length) return;
+        confirmDialog(formatPrice(ids.length) + ' سفارش انتخاب‌شده برای همیشه حذف شوند؟' + STOCK_NOTE, async () => {
+          try { const r = await axios.post('/api/orders/bulk-delete', { ids }); SELECTED.clear(); toast(r.data.message, 'success'); loadOrders(); }
+          catch (e) { toast(e.response?.data?.message || 'خطا در حذف گروهی', 'error'); }
+        });
+      });
+      document.getElementById('bulk-del-filter').addEventListener('click', (ev) => {
+        const st = document.getElementById('filter-status').value;
+        const n = parseInt(ev.currentTarget.dataset.count || '0');
+        if (!n) return;
+        const label = ST_LABEL[st];
+        const warn = st === '' ? '<br><b class="text-red-600">توجه: همهٔ سفارش‌ها (حتی تحویل‌شده‌ها) حذف می‌شوند!</b>' : '';
+        confirmDialog('همهٔ <b>' + formatPrice(n) + '</b> سفارش با وضعیت «' + label + '» برای همیشه حذف شوند؟' + warn + STOCK_NOTE, async () => {
+          try { const r = await axios.post('/api/orders/bulk-delete', { status: st || 'all', confirm: 'DELETE' }); SELECTED.clear(); ORD_PAGE = 1; toast(r.data.message, 'success'); loadOrders(); }
+          catch (e) { toast(e.response?.data?.message || 'خطا در حذف گروهی', 'error'); }
+        });
+      });
       window.viewOrder = async (id) => {
         try {
           const r = await axios.get('/api/orders/' + id);
           const o = r.data.data;
-          showModal('جزئیات سفارش ' + o.order_number, \`
+          showModal('جزئیات سفارش ' + escAdmin(o.order_number), \`
             <div class="space-y-4">
               <div class="grid md:grid-cols-2 gap-4 text-sm">
                 <div><b>مشتری:</b> \${escAdmin(o.customer_name)}</div>
@@ -635,6 +874,9 @@ export function adminOrdersPage() {
                   <button onclick="updateStatus(\${o.id})" class="btn-indigo text-white px-4 py-2 rounded-lg text-sm">به‌روزرسانی</button>
                 </div>
               </div>
+              <div class="border-t pt-3 text-left">
+                <button onclick="deleteOrder(\${o.id}, '\${escAdmin(o.order_number)}')" class="text-red-600 hover:bg-red-50 border border-red-200 px-4 py-2 rounded-lg text-sm"><i class="fas fa-trash ml-1"></i>حذف این سفارش</button>
+              </div>
             </div>\`, { size: '3xl' });
         } catch (e) { toast('خطا', 'error'); }
       };
@@ -648,7 +890,10 @@ export function adminOrdersPage() {
         try { await axios.put('/api/orders/' + id + '/payment', { payment_status }); toast('وضعیت پرداخت ثبت شد', 'success'); closeModal(); loadOrders(); }
         catch (e) { toast(e.response?.data?.message || 'خطا در ثبت وضعیت پرداخت', 'error'); }
       };
-      document.getElementById('filter-status').addEventListener('change', loadOrders);
+      document.getElementById('filter-status').addEventListener('change', () => { ORD_PAGE = 1; SELECTED.clear(); loadOrders(); });
+      // R6-A: search (debounced)
+      let __ordQT = null;
+      document.getElementById('ord-search').addEventListener('input', () => { clearTimeout(__ordQT); __ordQT = setTimeout(() => { ORD_PAGE = 1; loadOrders(); }, 300); });
       loadOrders();
       setInterval(loadOrders, 30000); // Polling every 30s
     </script>
@@ -756,9 +1001,15 @@ export function adminCommentsPage() {
           </div>\`).join('');
         } catch (e) { toast('خطا', 'error'); }
       }
-      window.approveCom = async (id) => { await axios.put('/api/blog/admin/comments/' + id + '/status', { status: 'approved' }); toast('تایید شد', 'success'); loadComments(); };
-      window.rejectCom = async (id) => { await axios.put('/api/blog/admin/comments/' + id + '/status', { status: 'rejected' }); toast('رد شد', 'success'); loadComments(); };
-      window.delCom = (id) => confirmDialog('حذف این دیدگاه؟', async () => { await axios.delete('/api/blog/admin/comments/' + id); toast('حذف شد', 'success'); loadComments(); });
+      // Round 8: every action reports server errors instead of failing silently
+      async function comAction(fn, okMsg) {
+        try { await fn(); toast(okMsg, 'success'); }
+        catch (e) { toast(e.response?.data?.message || 'خطا در انجام عملیات', 'error'); }
+        loadComments();
+      }
+      window.approveCom = (id) => comAction(() => axios.put('/api/blog/admin/comments/' + id + '/status', { status: 'approved' }), 'دیدگاه تایید شد و در سایت نمایش داده می‌شود');
+      window.rejectCom = (id) => comAction(() => axios.put('/api/blog/admin/comments/' + id + '/status', { status: 'rejected' }), 'دیدگاه رد شد');
+      window.delCom = (id) => confirmDialog('این دیدگاه برای همیشه حذف شود؟', () => comAction(() => axios.delete('/api/blog/admin/comments/' + id), 'دیدگاه حذف شد'));
       document.getElementById('filter-cstatus').addEventListener('change', loadComments);
       loadComments();
     </script>
@@ -860,6 +1111,9 @@ export function adminCategoriesPage() {
         const r = await axios.get('/api/admin/categories');
         CATS = r.data.data;
         const rows = catTreeRows(CATS);
+        // inactive category hides its whole sub-tree on the site
+        const __byId = {}; CATS.forEach(x => { __byId[x.id] = x; });
+        const __off = (c) => { let cur = c, guard = 0; while (cur && guard++ < 50) { if (cur.is_active == 0) return true; cur = __byId[cur.parent_id]; } return false; };
         // --- نگهبان عکس تکراری: اگر دو دسته یک عکس داشته باشند، نشان هشدار بگذار ---
         const __imgCount = {};
         const __key = x => (x.image_hash || x.image || null);  // اول محتوای فایل، بعد مسیر
@@ -878,7 +1132,11 @@ export function adminCategoriesPage() {
             + Object.keys(__dupNames).map(k => '<li>' + escAdmin(__dupNames[k].join(' ، ')) + '</li>').join('')
             + '</ul></div>'
           : '';
-        document.getElementById('cats-list').innerHTML = __dupBanner + \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">تصویر/آیکون</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">Slug</th><th class="px-3 py-3 text-right">محصولات</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${rows.map(c => \`<tr class="border-t\${c.__depth ? ' bg-slate-50/50' : ''}"><td class="px-3 py-2">\${c.image ? '<span class="relative inline-block align-middle" title="' + escAdmin(__dupTitle(c)) + '">' + '<img loading="lazy" src="' + escAdmin(c.image) + '" class="w-10 h-10 rounded object-cover" style="' + (__isDup(c) ? 'outline:2px solid #dc2626;outline-offset:2px' : '') + '">' + (__isDup(c) ? '<i class="fas fa-triangle-exclamation absolute -top-1 -left-1 text-red-600 text-[10px] bg-white rounded-full leading-none p-[1px]"></i>' : '') + '</span>' : '<i class="fas ' + escAdmin(c.icon || 'fa-folder') + ' text-indigo-600"></i>'}</td><td class="px-3 py-2"><span style="padding-right:\${c.__depth * 22}px">\${c.__depth ? '<i class="fas fa-turn-up fa-rotate-90 text-slate-300 ml-1 text-xs"></i>' : ''}\${escAdmin(c.name)}</span>\${c.__depth ? '<span class="text-[10px] text-slate-400 mr-1">(زیرشاخه ' + escAdmin(c.parent_name || '') + ')</span>' : ''}</td><td class="px-3 py-2 text-xs text-slate-500">\${escAdmin(c.slug)}</td><td class="px-3 py-2">\${c.product_count || 0}</td><td class="px-3 py-2"><button onclick='addSubCat(\${c.id})' class="text-green-600 ml-2" title="افزودن زیردسته"><i class="fas fa-plus-circle"></i></button><button onclick='editCat(\${attrJson(c)})' class="text-indigo-600 ml-2" title="ویرایش"><i class="fas fa-pen"></i></button><button onclick="delCat(\${c.id})" class="text-red-600" title="حذف"><i class="fas fa-trash"></i></button></td></tr>\`).join('')}</tbody></table>\`;
+        document.getElementById('cats-list').innerHTML = __dupBanner + \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">تصویر/آیکون</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">Slug</th><th class="px-3 py-3 text-right">محصولات</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${rows.map(c => \`<tr class="border-t\${c.__depth ? ' bg-slate-50/50' : ''}\${__off(c) ? ' opacity-60' : ''}"><td class="px-3 py-2">\${c.image ? '<span class="relative inline-block align-middle" title="' + escAdmin(__dupTitle(c)) + '">' + '<img loading="lazy" src="' + escAdmin(c.image) + '" class="w-10 h-10 rounded object-cover" style="' + (__isDup(c) ? 'outline:2px solid #dc2626;outline-offset:2px' : '') + '">' + (__isDup(c) ? '<i class="fas fa-triangle-exclamation absolute -top-1 -left-1 text-red-600 text-[10px] bg-white rounded-full leading-none p-[1px]"></i>' : '') + '</span>' : '<i class="fas ' + escAdmin(c.icon || 'fa-folder') + ' text-indigo-600"></i>'}</td><td class="px-3 py-2"><span style="padding-right:\${c.__depth * 22}px">\${c.__depth ? '<i class="fas fa-turn-up fa-rotate-90 text-slate-300 ml-1 text-xs"></i>' : ''}\${escAdmin(c.name)}</span>\${c.__depth ? '<span class="text-[10px] text-slate-400 mr-1">(زیرشاخه ' + escAdmin(c.parent_name || '') + ')</span>' : ''}</td><td class="px-3 py-2 text-xs text-slate-500">\${escAdmin(c.slug)}</td><td class="px-3 py-2">\${c.product_count || 0}</td><td class="px-3 py-2 whitespace-nowrap">\${c.is_active == 0
+              ? '<button type="button" onclick="toggleCatActive(' + c.id + ', 1)" class="badge badge-blocked cursor-pointer hover:ring-2 hover:ring-rose-300" title="کلیک کنید تا دوباره فعال شود"><i class="fas fa-toggle-off ml-1"></i>غیرفعال</button>'
+              : (__off(c)
+                ? '<span class="badge badge-blocked" title="دستهٔ مادر غیرفعال است؛ این زیرشاخه هم در سایت نمایش داده نمی‌شود"><i class="fas fa-eye-slash ml-1"></i>مادر غیرفعال</span>'
+                : '<button type="button" onclick="toggleCatActive(' + c.id + ', 0)" class="badge badge-active cursor-pointer hover:ring-2 hover:ring-emerald-300" title="کلیک کنید تا غیرفعال شود (حذف نمی‌شود)"><i class="fas fa-toggle-on ml-1"></i>فعال</button>')}</td><td class="px-3 py-2"><button onclick='addSubCat(\${c.id})' class="text-green-600 ml-2" title="افزودن زیردسته"><i class="fas fa-plus-circle"></i></button><button onclick='editCat(\${attrJson(c)})' class="text-indigo-600 ml-2" title="ویرایش"><i class="fas fa-pen"></i></button><button onclick="delCat(\${c.id})" class="text-red-600" title="حذف"><i class="fas fa-trash"></i></button></td></tr>\`).join('')}</tbody></table>\`;
       }
       function parentOptions(selectedId, excludeId) {
         const byParent = {};
@@ -907,6 +1165,10 @@ export function adminCategoriesPage() {
           <div><label class="block text-sm mb-1">آیکون (FontAwesome)</label><input name="icon" value="\${escAdmin(c.icon || '')}" placeholder="fa-network-wired" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
           \${window.ncpImageField('image', c.image || '', 'تصویر دسته‌بندی')}
           <div><label class="block text-sm mb-1">توضیح</label><input name="description" value="\${escAdmin(c.description || '')}" class="w-full border rounded-lg px-3 py-2 text-sm"></div>
+          <label class="flex items-center gap-2 border rounded-xl p-3 bg-indigo-50/60 cursor-pointer text-sm">
+            <input name="is_active" type="checkbox" \${c.is_active == 0 ? '' : 'checked'} class="w-4 h-4">
+            <span><b>دسته فعال باشد</b><span class="block text-xs text-slate-500 mt-0.5">اگر تیک را بردارید، این دسته و زیرشاخه‌ها و محصولاتش در سایت نمایش داده نمی‌شوند — هیچ‌چیز حذف نمی‌شود و هر زمان بخواهید دوباره فعال می‌شود.</span></span>
+          </label>
           <label class="flex items-center gap-2 border rounded-xl p-3 bg-emerald-50/60 cursor-pointer text-sm">
             <input name="show_in_menu" type="checkbox" \${(c.show_in_menu === undefined || c.show_in_menu === null || c.show_in_menu == 1) ? 'checked' : ''} class="w-4 h-4">
             <span><b>نمایش در منوی سایت</b><span class="block text-xs text-slate-500 mt-0.5">اگر تیک را بردارید، از منوی بالای سایت حذف می‌شود ولی اطلاعات و محصولاتش باقی می‌ماند.</span></span>
@@ -929,6 +1191,7 @@ export function adminCategoriesPage() {
           data.parent_id = data.parent_id ? parseInt(data.parent_id) : null;
           data.sort_order = parseInt(data.sort_order || '0') || 0;
           data.show_in_menu = (data.show_in_menu === 'on' || data.show_in_menu === true) ? 1 : 0;
+          data.is_active = (data.is_active === 'on' || data.is_active === true) ? 1 : 0;
           try {
             if (id) await axios.put('/api/admin/categories/' + id, data);
             else await axios.post('/api/admin/categories', data);
@@ -939,7 +1202,13 @@ export function adminCategoriesPage() {
       window.newCat = () => { showModal('دسته جدید', catForm({}), { size: '2xl' }); bindCatForm(); };
       window.addSubCat = (parentId) => { showModal('زیردسته جدید', catForm({ parent_id: parentId }), { size: '2xl' }); bindCatForm(); };
       window.editCat = (c) => { showModal('ویرایش دسته', catForm(c), { size: '2xl' }); bindCatForm(c.id); };
-      window.delCat = (id) => confirmDialog('حذف؟', async () => { try { const r = await axios.delete('/api/admin/categories/' + id); toast(r.data.message || 'حذف شد', 'success'); loadCats(); } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); } });
+      window.toggleCatActive = async (id, flag) => {
+        try {
+          const r = await axios.patch('/api/admin/categories/' + id + '/active', { is_active: flag });
+          toast(r.data.message, 'success'); loadCats();
+        } catch (e) { toast(e.response?.data?.message || 'خطا در تغییر وضعیت', 'error'); }
+      };
+      window.delCat = (id) => confirmDialog('این دسته «برای همیشه» حذف شود؟\\nاگر فقط می‌خواهید در سایت نمایش داده نشود، به‌جای حذف روی دکمهٔ «فعال» در ستون وضعیت بزنید (قابل برگشت).', async () => { try { const r = await axios.delete('/api/admin/categories/' + id); toast(r.data.message || 'حذف شد', 'success'); loadCats(); } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); } });
       // ---- Bulk price adjustment ----
       window.openBulkPrice = () => {
         showModal('تغییر گروهی قیمت بر اساس دسته', \`<form id="bulk-price-form" class="space-y-3">
@@ -947,7 +1216,7 @@ export function adminCategoriesPage() {
           <div><label class="block text-sm mb-1">درصد تغییر * <span class="text-xs text-slate-400">(مثبت = افزایش، منفی = کاهش. مثلاً 10 یا -5)</span></label><input name="percent" type="number" step="0.1" min="-90" max="500" required class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="10"></div>
           <div><label class="block text-sm mb-1">اعمال روی</label><select name="apply_to" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="both">قیمت اصلی و قیمت تخفیف</option><option value="price">فقط قیمت اصلی</option><option value="discount_price">فقط قیمت تخفیف</option></select></div>
           <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="include_children" checked> شامل زیرشاخه‌ها هم بشود</label>
-          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700"><i class="fas fa-triangle-exclamation ml-1"></i>این عملیات قیمت همه محصولات دسته انتخابی را تغییر می‌دهد و قابل بازگشت خودکار نیست.</div>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700"><i class="fas fa-triangle-exclamation ml-1"></i>این عملیات قیمت همه محصولات دسته انتخابی را تغییر می‌دهد. در صورت اشتباه، از صفحهٔ «سیستم قیمتی» قابل بازگردانی است.</div>
           <div class="flex gap-2 pt-3 border-t"><button type="submit" class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm"><i class="fas fa-percent ml-1"></i>اعمال تغییر</button><button type="button" onclick="closeModal(true)" class="px-5 py-2 bg-slate-200 rounded-lg text-sm">انصراف</button></div>
         </form>\`);
         document.getElementById('bulk-price-form').addEventListener('submit', async (e) => {
@@ -963,7 +1232,7 @@ export function adminCategoriesPage() {
           if (!window.confirm('قیمت محصولات این دسته ' + Math.abs(payload.percent) + '٪ ' + (payload.percent >= 0 ? 'افزایش' : 'کاهش') + ' یابد؟')) return;
           try {
             const r = await axios.post('/api/products/bulk-price', payload);
-            toast(r.data.message, 'success'); window.ncClearDirty && window.ncClearDirty(); closeModal(true); loadCats();
+            toast(r.data.message + ' — برای بازگردانی به «سیستم قیمتی» بروید', 'success'); window.ncClearDirty && window.ncClearDirty(); closeModal(true); loadCats();
           } catch (err) { toast(err.response?.data?.message || 'خطا', 'error'); }
         });
       };
@@ -1021,36 +1290,68 @@ export function adminCustomersPage(role = 'customer') {
     const path = role === 'admin' ? '/admin/users' : '/admin/customers';
     const content = `
     <div class="bg-white rounded-xl shadow-sm p-5">
-      <h2 class="font-bold mb-4">${title}</h2>
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 class="font-bold">${title} <span id="users-count" class="text-xs font-normal text-slate-400"></span></h2>
+        <div class="relative w-full max-w-xs">
+          <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input id="users-search" type="search" autocomplete="off" placeholder="جستجو: نام، ایمیل، موبایل، شرکت" class="w-full border border-slate-300 rounded-lg pr-8 pl-3 py-2 text-sm">
+        </div>
+      </div>
       <div id="users-list"><div class="text-center py-12"><span class="spinner"></span></div></div>
     </div>
     <script>
-      async function loadUsers() {
-        try {
-          const r = await axios.get('/api/admin/users', { params: { role: '${role}' } });
-          const items = r.data.data;
-          document.getElementById('users-list').innerHTML = items.length ? \`<table class="w-full text-sm">
+      // Round 7 (2026-11-03): search + safe block/unblock + honest delete message
+      let ALL_USERS = [];
+      function normU(x) {
+        return String(x || '').toLowerCase()
+          .replace(/[يیئى]/g, 'ی').replace(/[كک]/g, 'ک').replace(/[آأإ]/g, 'ا').replace(/\\u200c/g, '')
+          .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+          .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+          .replace(/\\s+/g, ' ').trim();
+      }
+      function renderUsers() {
+        const q = normU(document.getElementById('users-search').value);
+        const items = q ? ALL_USERS.filter(u => [u.full_name, u.email, u.phone, u.company].some(v => normU(v).includes(q))) : ALL_USERS;
+        document.getElementById('users-count').textContent = '(' + (q ? formatPrice(items.length) + ' از ' : '') + formatPrice(ALL_USERS.length) + ')';
+        document.getElementById('users-list').innerHTML = items.length ? \`<table class="w-full text-sm">
             <thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">ایمیل</th><th class="px-3 py-3 text-right">موبایل</th><th class="px-3 py-3 text-right">شرکت</th><th class="px-3 py-3 text-right">تاریخ ثبت</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead>
-            <tbody>\${items.map(u => \`<tr class="border-t">
+            <tbody>\${items.map(u => \`<tr class="border-t\${u.status === 'blocked' ? ' bg-slate-50 opacity-70' : ''}">
               <td class="px-3 py-2 font-medium">\${escAdmin(u.full_name)}</td>
               <td class="px-3 py-2 text-xs">\${escAdmin(u.email)}</td>
               <td class="px-3 py-2 text-xs">\${escAdmin(u.phone || '-')}</td>
               <td class="px-3 py-2 text-xs">\${escAdmin(u.company || '-')}</td>
               <td class="px-3 py-2 text-xs">\${formatDate(u.created_at)}</td>
-              <td class="px-3 py-2"><span class="badge badge-\${u.status}">\${statusLabel(u.status, 'user')}</span></td>
-              <td class="px-3 py-2">
-                <button onclick="toggleUser(\${u.id}, '\${u.status}')" class="text-amber-600 ml-2" title="تغییر وضعیت"><i class="fas fa-ban"></i></button>
-                <button onclick="delUser(\${u.id})" class="text-red-600"><i class="fas fa-trash"></i></button>
+              <td class="px-3 py-2"><span class="badge badge-\${escAdmin(u.status)}">\${statusLabel(u.status, 'user')}</span></td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                \${u.status === 'blocked'
+                  ? '<button type="button" onclick="toggleUser(' + u.id + ', &#39;blocked&#39;)" class="text-emerald-600 hover:text-emerald-700 ml-2" title="رفع مسدودی (کاربر دوباره می‌تواند وارد شود)"><i class="fas fa-unlock"></i></button>'
+                  : '<button type="button" onclick="toggleUser(' + u.id + ', &#39;active&#39;)" class="text-amber-600 hover:text-amber-700 ml-2" title="مسدود کردن (کاربر دیگر نمی‌تواند وارد شود)"><i class="fas fa-ban"></i></button>'}
+                <button type="button" onclick="delUser(\${u.id})" class="text-red-600 hover:text-red-700" title="حذف (اگر سفارش یا تیکت داشته باشد، به‌جای حذف مسدود می‌شود)"><i class="fas fa-trash"></i></button>
               </td>
-            </tr>\`).join('')}</tbody></table>\` : '<p class="text-center py-12 text-slate-400">کاربری نیست</p>';
-        } catch (e) { document.getElementById('users-list').innerHTML = '<p class="text-red-500 p-4">خطا</p>'; }
+            </tr>\`).join('')}</tbody></table>\` : '<p class="text-center py-12 text-slate-400">' + (q ? 'کاربری با این مشخصات پیدا نشد' : 'کاربری نیست') + '</p>';
       }
-      window.toggleUser = async (id, cur) => {
+      async function loadUsers() {
+        try {
+          const r = await axios.get('/api/admin/users', { params: { role: '${role}' } });
+          ALL_USERS = r.data.data || [];
+          renderUsers();
+        } catch (e) { document.getElementById('users-list').innerHTML = '<p class="text-red-500 p-4">خطا در بارگذاری کاربران</p>'; }
+      }
+      document.getElementById('users-search').addEventListener('input', renderUsers);
+      async function setUserStatus(id, ns) {
+        try {
+          const r = await axios.put('/api/admin/users/' + id + '/status', { status: ns });
+          toast(r.data.message || 'وضعیت تغییر کرد', 'success');
+        } catch (e) { toast(e.response?.data?.message || 'خطا در تغییر وضعیت', 'error'); }
+        loadUsers();
+      }
+      window.toggleUser = (id, cur) => {
         const ns = cur === 'active' ? 'blocked' : 'active';
-        await axios.put('/api/admin/users/' + id + '/status', { status: ns }); toast('تغییر کرد', 'success'); loadUsers();
+        if (ns === 'blocked') confirmDialog('این کاربر مسدود شود؟ (دیگر نمی‌تواند وارد حساب شود؛ هر زمان بخواهید می‌توانید رفع مسدودی کنید)', () => setUserStatus(id, ns));
+        else setUserStatus(id, ns);
       };
-      window.delUser = (id) => confirmDialog('حذف این کاربر؟', async () => {
-        try { await axios.delete('/api/admin/users/' + id); toast('حذف شد', 'success'); loadUsers(); }
+      window.delUser = (id) => confirmDialog('این کاربر حذف شود؟ (اگر سفارش یا تیکت داشته باشد، برای حفظ سوابق به‌جای حذف مسدود می‌شود)', async () => {
+        try { const r = await axios.delete('/api/admin/users/' + id); toast(r.data.message || 'حذف شد', 'success'); loadUsers(); }
         catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
       });
       loadUsers();
@@ -1071,10 +1372,10 @@ export function adminMessagesPage() {
         const items = r.data.data;
         document.getElementById('msg-list').innerHTML = items.length ? items.map(m => \`<div class="border rounded-lg p-4 mb-3 \${m.status === 'unread' ? 'border-r-4 border-r-indigo-500 bg-indigo-50/40' : ''}">
           <div class="flex justify-between mb-2">
-            <div><b>\${escAdmin(m.name)}</b> <span class="text-xs text-slate-500">\${escAdmin(m.email || '')} \${m.phone ? '• ' + m.phone : ''}</span></div>
+            <div><b>\${escAdmin(m.name)}</b> <span class="text-xs text-slate-500">\${escAdmin(m.email || '')} \${m.phone ? '• ' + escAdmin(m.phone) : ''}</span></div>
             <span class="badge badge-\${m.status}">\${statusLabel(m.status, 'message')}</span>
           </div>
-          <div class="text-xs text-slate-400 mb-2">\${formatDate(m.created_at)} \${m.subject ? '• ' + m.subject : ''}</div>
+          <div class="text-xs text-slate-400 mb-2">\${formatDate(m.created_at)} \${m.subject ? '• ' + escAdmin(m.subject) : ''}</div>
           <p class="text-sm text-slate-700 mb-3">\${escAdmin(m.body)}</p>
           <div class="flex gap-2">
             \${m.status === 'unread' ? \`<button onclick="markRead(\${m.id})" class="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs"><i class="fas fa-check ml-1"></i>خوانده شد</button>\` : ''}
@@ -1082,8 +1383,16 @@ export function adminMessagesPage() {
           </div>
         </div>\`).join('') : '<p class="text-center py-12 text-slate-400">پیامی نیست</p>';
       }
-      window.markRead = async (id) => { await axios.put('/api/admin/messages/' + id + '/read'); loadMsgs(); };
-      window.delMsg = (id) => confirmDialog('حذف؟', async () => { await axios.delete('/api/admin/messages/' + id); toast('حذف شد', 'success'); loadMsgs(); });
+      window.markRead = async (id) => {
+        try { await axios.put('/api/admin/messages/' + id + '/read'); }
+        catch (e) { toast(e.response?.data?.message || 'خطا در علامت‌گذاری', 'error'); }
+        loadMsgs();
+      };
+      window.delMsg = (id) => confirmDialog('این پیام برای همیشه حذف شود؟', async () => {
+        try { await axios.delete('/api/admin/messages/' + id); toast('پیام حذف شد', 'success'); }
+        catch (e) { toast(e.response?.data?.message || 'خطا در حذف پیام', 'error'); }
+        loadMsgs();
+      });
       loadMsgs();
     </script>
   `;
@@ -1102,7 +1411,11 @@ export function adminNewsletterPage() {
         const items = r.data.data;
         document.getElementById('ns-list').innerHTML = items.length ? \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">ایمیل</th><th class="px-3 py-3 text-right">تاریخ</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${items.map(s => \`<tr class="border-t"><td class="px-3 py-2">\${escAdmin(s.email)}</td><td class="px-3 py-2 text-xs">\${formatDate(s.created_at)}</td><td class="px-3 py-2"><button onclick="delNS(\${s.id})" class="text-red-600"><i class="fas fa-trash"></i></button></td></tr>\`).join('')}</tbody></table>\` : '<p class="text-center py-12 text-slate-400">مشترکی نیست</p>';
       }
-      window.delNS = (id) => confirmDialog('حذف؟', async () => { await axios.delete('/api/admin/newsletter/' + id); loadNS(); });
+      window.delNS = (id) => confirmDialog('این مشترک از خبرنامه حذف شود؟', async () => {
+        try { await axios.delete('/api/admin/newsletter/' + id); toast('مشترک حذف شد', 'success'); }
+        catch (e) { toast(e.response?.data?.message || 'خطا در حذف', 'error'); }
+        loadNS();
+      });
       loadNS();
     </script>
   `;
@@ -1116,19 +1429,53 @@ export function adminActivityLogsPage() {
       <div id="logs-list"><div class="text-center py-12"><span class="spinner"></span></div></div>
     </div>
     <script>
+      // R3-B: human-readable Persian labels (unknown codes fall back to the raw code)
+      const ACT_FA = { create: 'ایجاد', update: 'ویرایش', delete: 'حذف', login: 'ورود', logout: 'خروج', register: 'ثبت‌نام',
+        update_status: 'تغییر وضعیت', update_payment: 'تغییر وضعیت پرداخت', payment_receipt: 'رسید پرداخت', reply: 'پاسخ',
+        reorder: 'تغییر ترتیب', upload: 'آپلود', upsert: 'ذخیره', block: 'مسدودسازی', archive: 'بایگانی',
+        set_password: 'تعیین رمز', change_password: 'تغییر رمز', import: 'ورود گروهی (Import)', export: 'خروجی (Export)',
+        activate: 'فعال‌سازی', deactivate: 'غیرفعال‌سازی', bulk_activate: 'فعال‌سازی گروهی', bulk_deactivate: 'غیرفعال‌سازی گروهی',
+        bulk_price: 'تغییر قیمت گروهی', bulk_price_undo: 'بازگردانی قیمت گروهی', bulk_delete: 'حذف گروهی', duplicate: 'کپی' };
+      const ENT_FA = { product: 'محصول', category: 'دسته‌بندی', brand: 'برند', order: 'سفارش', user: 'کاربر', post: 'مقاله',
+        comment: 'دیدگاه', ticket: 'تیکت', message: 'پیام', newsletter: 'خبرنامه', settings: 'تنظیمات', image: 'تصویر',
+        profile: 'پروفایل', otp: 'کد تایید', home_page: 'صفحهٔ اصلی', site_page: 'صفحهٔ سایت', site_block: 'بلوک سایت' };
+      const ACT_CLS = { delete: 'badge-blocked', bulk_delete: 'badge-blocked', deactivate: 'badge-inactive', bulk_deactivate: 'badge-inactive' };
+      function logDetails(l) {
+        let d = null; try { d = l.details ? JSON.parse(l.details) : null; } catch (e) { return ''; }
+        if (!d || typeof d !== 'object') return '';
+        const parts = [];
+        if (d.name) parts.push(String(d.name));
+        if (d.summary) parts.push(String(d.summary));
+        if (d.count != null) parts.push(formatPrice(d.count) + ' مورد');
+        else if (d.changed != null) parts.push(formatPrice(d.changed) + ' محصول');
+        if (d.restored != null) parts.push(formatPrice(d.restored) + ' برگشت');
+        return parts.join(' — ').slice(0, 120);
+      }
+      // R4-B: pagination (API already supports ?page=&limit=)
+      let LOG_PAGE = 1; const LOG_LIMIT = 50;
+      window.logsGo = (p) => { LOG_PAGE = Math.max(1, p); loadLogs(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
       async function loadLogs() {
-        const r = await axios.get('/api/admin/activity-logs');
+        let r;
+        try { r = await axios.get('/api/admin/activity-logs', { params: { page: LOG_PAGE, limit: LOG_LIMIT } }); }
+        catch (e) { document.getElementById('logs-list').innerHTML = '<p class="text-red-500 p-4">خطا در بارگذاری گزارش</p>'; return; }
         const items = r.data.data.items;
+        const pages = Math.max(1, Math.ceil((Number(r.data.data.total) || 0) / LOG_LIMIT));
+        if (LOG_PAGE > pages && pages >= 1 && items.length === 0 && LOG_PAGE !== 1) { LOG_PAGE = pages; return loadLogs(); }
+        const nav = pages > 1 ? '<div class="flex items-center justify-center gap-2 mt-4 text-sm">' +
+          '<button type="button" onclick="logsGo(' + (LOG_PAGE - 1) + ')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50"' + (LOG_PAGE <= 1 ? ' disabled' : '') + '><i class="fas fa-chevron-right ml-1"></i>جدیدتر</button>' +
+          '<span class="text-slate-500">صفحهٔ ' + formatPrice(LOG_PAGE) + ' از ' + formatPrice(pages) + ' <span class="text-xs">(' + formatPrice(r.data.data.total) + ' رویداد)</span></span>' +
+          '<button type="button" onclick="logsGo(' + (LOG_PAGE + 1) + ')" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50"' + (LOG_PAGE >= pages ? ' disabled' : '') + '>قدیمی‌تر<i class="fas fa-chevron-left mr-1"></i></button>' +
+          '</div>' : '';
         document.getElementById('logs-list').innerHTML = items.length ? \`<table class="w-full text-sm">
           <thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">کاربر</th><th class="px-3 py-3 text-right">عمل</th><th class="px-3 py-3 text-right">موجودیت</th><th class="px-3 py-3 text-right">شناسه</th><th class="px-3 py-3 text-right">IP</th><th class="px-3 py-3 text-right">تاریخ</th></tr></thead>
           <tbody>\${items.map(l => \`<tr class="border-t">
             <td class="px-3 py-2">\${escAdmin(l.user_name || 'سیستم')}</td>
-            <td class="px-3 py-2"><span class="badge badge-active">\${escAdmin(l.action)}</span></td>
-            <td class="px-3 py-2 text-xs">\${escAdmin(l.entity_type || '-')}</td>
+            <td class="px-3 py-2"><span class="badge \${ACT_CLS[l.action] || 'badge-active'}" title="\${escAdmin(l.action)}">\${escAdmin(ACT_FA[l.action] || l.action)}</span></td>
+            <td class="px-3 py-2 text-xs">\${escAdmin(ENT_FA[l.entity_type] || l.entity_type || '-')}\${logDetails(l) ? '<div class="text-[11px] text-slate-400 mt-0.5">' + escAdmin(logDetails(l)) + '</div>' : ''}</td>
             <td class="px-3 py-2 text-xs">\${l.entity_id || '-'}</td>
             <td class="px-3 py-2 text-xs">\${escAdmin(l.ip_address || '-')}</td>
             <td class="px-3 py-2 text-xs">\${formatDate(l.created_at)}</td>
-          </tr>\`).join('')}</tbody></table>\` : '<p class="text-center py-12 text-slate-400">لاگی نیست</p>';
+          </tr>\`).join('')}</tbody></table>\` + nav : '<p class="text-center py-12 text-slate-400">لاگی نیست</p>' + nav;
       }
       loadLogs();
     </script>
@@ -1171,7 +1518,7 @@ export function adminReportsPage() {
           } catch (e) { console.error('chart error', e); }
         });
 
-        const prods = await axios.get('/api/products', { params: { limit: 100 } });
+        const prods = await axios.get('/api/products/admin/list', { params: { status: 'active' } });
         const low = prods.data.data.items.filter(p => p.stock < 5).slice(0, 8);
         document.getElementById('low-stock').innerHTML = low.length ? low.map(p => \`<div class="flex justify-between border-b py-2 text-sm"><span>\${escAdmin(p.name)}</span><span class="\${p.stock === 0 ? 'text-red-600' : 'text-amber-600'}">موجودی: \${p.stock}</span></div>\`).join('') : '<p class="text-slate-400 text-center py-6">همه محصولات موجود</p>';
       }
@@ -1885,7 +2232,7 @@ export function adminPricingPage() {
               <option value="discount_price">فقط قیمت تخفیف</option>
             </select>
           </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700"><i class="fas fa-triangle-exclamation ml-1"></i>این عملیات قیمت همه محصولات هدف را تغییر می‌دهد و قابل بازگشت خودکار نیست. پیش از اعمال، از صحت مقدار مطمئن شوید.</div>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700"><i class="fas fa-triangle-exclamation ml-1"></i>این عملیات قیمت همه محصولات هدف را تغییر می‌دهد. پیش از اعمال، از صحت مقدار مطمئن شوید. در صورت اشتباه، «آخرین تغییر گروهی» از کادر پایین قابل بازگردانی است.</div>
           <div class="flex gap-2 pt-3 border-t">
             <button type="submit" class="btn-indigo text-white px-6 py-2.5 rounded-lg text-sm"><i class="fas fa-money-bill-trend-up ml-1"></i>اعمال تغییر قیمت</button>
           </div>
@@ -1893,6 +2240,7 @@ export function adminPricingPage() {
       </div>
       <div class="bg-white rounded-xl shadow-sm p-5">
         <h3 class="font-bold text-sm mb-2"><i class="fas fa-clock-rotate-left ml-1 text-slate-400"></i>آخرین تغییرات قیمت گروهی</h3>
+        <div id="pricing-undo" class="hidden mb-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm flex items-center justify-between gap-3 flex-wrap"></div>
         <div id="pricing-log" class="text-xs text-slate-500">در حال بارگذاری...</div>
       </div>
     </div>
@@ -1921,10 +2269,11 @@ export function adminPricingPage() {
         const box = document.getElementById('pricing-log');
         try {
           const r = await axios.get('/api/admin/activity-logs', { params: { limit: 50 } });
-          const items = ((r.data.data && r.data.data.items) || r.data.data || []).filter(l => l.action === 'bulk_price').slice(0, 8);
+          const items = ((r.data.data && r.data.data.items) || r.data.data || []).filter(l => l.action === 'bulk_price' || l.action === 'bulk_price_undo').slice(0, 8);
           if (!items.length) { box.innerHTML = 'هنوز تغییری ثبت نشده است.'; return; }
           box.innerHTML = '<ul class="space-y-1.5">' + items.map(l => {
             let d = {}; try { d = JSON.parse(l.details || '{}'); } catch (e) {}
+            if (l.action === 'bulk_price_undo') return '<li class="flex items-center gap-2"><i class="fas fa-rotate-left text-[10px] text-indigo-400"></i><span>' + escAdmin(l.user_name || '') + ' — بازگردانی «' + escAdmin(d.summary || '') + '» (' + (d.restored || 0) + ' محصول) — ' + formatDate(l.created_at) + '</span></li>';
             const what = d.mode === 'amount' ? (formatPrice(Math.abs(d.amount || 0)) + ' تومان') : (Math.abs(d.percent || 0) + '٪');
             const dir = ((d.mode === 'amount' ? d.amount : d.percent) || 0) >= 0 ? 'افزایش' : 'کاهش';
             return '<li class="flex items-center gap-2"><i class="fas fa-circle text-[5px] text-indigo-400"></i><span>' + escAdmin(l.user_name || '') + ' — ' + dir + ' ' + what + ' (' + (d.changed || 0) + ' محصول) — ' + formatDate(l.created_at) + '</span></li>';
@@ -1945,15 +2294,52 @@ export function adminPricingPage() {
         if (mode === 'percent') payload.percent = dir * val;
         else payload.amount = dir * Math.round(val);
         const what = mode === 'percent' ? val + '٪' : formatPrice(Math.round(val)) + ' تومان';
-        const ok = await confirmAction('قیمت محصولات هدف ' + what + ' ' + (dir > 0 ? 'افزایش' : 'کاهش') + ' یابد؟ این عمل قابل بازگشت نیست.');
+        // R5-B: tell the owner HOW MANY products will change before applying
+        // (same target rules as the server: category + descendants, AND brand).
+        let affected = null;
+        try {
+          const [pr, cr] = await Promise.all([axios.get('/api/products/admin/list'), axios.get('/api/admin/categories')]);
+          const cats = cr.data.data || [];
+          let ids = null;
+          if (payload.category_id) {
+            ids = new Set([payload.category_id]);
+            if (payload.include_children !== false) { let grew = true; while (grew) { grew = false; cats.forEach(c => { if (c.parent_id && ids.has(c.parent_id) && !ids.has(c.id)) { ids.add(c.id); grew = true; } }); } }
+          }
+          affected = (pr.data.data.items || []).filter(p => (!ids || ids.has(p.category_id)) && (!payload.brand_id || p.brand_id === payload.brand_id)).length;
+        } catch (e) { affected = null; }
+        if (affected === 0) { toast('هیچ محصولی در این دسته/برند وجود ندارد؛ تغییری لازم نیست', 'error'); return; }
+        const cnt = affected == null ? '' : ' «' + formatPrice(affected) + ' محصول»';
+        const ok = await confirmAction('قیمت' + cnt + ' ' + what + ' ' + (dir > 0 ? 'افزایش' : 'کاهش') + ' یابد؟ (در صورت اشتباه، از کادر «آخرین تغییرات» قابل بازگردانی است)');
         if (!ok) return;
         try {
           const r = await axios.post('/api/products/bulk-price', payload);
           toast(r.data.message, 'success');
-          loadPricingLog();
+          loadPricingLog(); loadPricingUndo();
         } catch (err) { toast(err.response?.data?.message || 'خطا', 'error'); }
       });
-      loadPricingRefs(); loadPricingLog();
+      // Round 2 (2026-11-03): undo the latest bulk price change
+      async function loadPricingUndo() {
+        const box = document.getElementById('pricing-undo');
+        try {
+          const r = await axios.get('/api/products/bulk-price/last');
+          const d = r.data.data;
+          if (!d) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+          box.innerHTML = '<div><i class="fas fa-rotate-left ml-1 text-indigo-600"></i><b>آخرین تغییر گروهی:</b> ' + escAdmin(d.summary || '') +
+            ' <span class="text-xs text-slate-500">— ' + escAdmin(d.user_name || '') + '، ' + formatDate(d.created_at) + '</span></div>' +
+            '<button type="button" id="pricing-undo-btn" class="bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-sm whitespace-nowrap"><i class="fas fa-rotate-left ml-1"></i>بازگردانی این تغییر</button>';
+          box.classList.remove('hidden');
+          document.getElementById('pricing-undo-btn').onclick = async () => {
+            const ok = await confirmAction('قیمت محصولاتِ این تغییر به حالت قبل برگردد؟ (محصولاتی که بعد از آن دستی ویرایش شده‌اند دست نمی‌خورند)');
+            if (!ok) return;
+            try {
+              const u = await axios.post('/api/products/bulk-price/undo', { id: d.id });
+              toast(u.data.message, 'success');
+            } catch (e) { toast(e.response?.data?.message || 'خطا در بازگردانی', 'error'); }
+            loadPricingUndo(); loadPricingLog();
+          };
+        } catch (e) { box.classList.add('hidden'); }
+      }
+      loadPricingRefs(); loadPricingLog(); loadPricingUndo();
     </script>
   `;
     return adminLayout({ title: 'سیستم قیمتی', currentPath: '/admin/pricing' }, content);
@@ -2079,7 +2465,7 @@ export function adminProductOrderPage() {
     <script>
       let dirtyOrder = false;
       async function loadCats() {
-        const r = await axios.get('/api/products/categories');
+        const r = await axios.get('/api/admin/categories');
         const cats = r.data.data || [];
         const sel = document.getElementById('ord-cat');
         sel.innerHTML = '<option value="">— انتخاب دسته‌بندی —</option>' + cats.map(c => \`<option value="\${escAdmin(c.slug)}">\${escAdmin(c.name)} (\${c.product_count || 0})</option>\`).join('');
@@ -2092,7 +2478,7 @@ export function adminProductOrderPage() {
         if (!slug) { list.innerHTML = '<li class="text-center py-10 text-slate-400 text-sm">ابتدا یک دسته‌بندی انتخاب کنید</li>'; return; }
         list.innerHTML = '<li class="text-center py-10"><span class="spinner"></span></li>';
         try {
-          const r = await axios.get('/api/products', { params: { category: slug, sort: 'manual', limit: 100 } });
+          const r = await axios.get('/api/products/admin/list', { params: { category: slug, sort: 'manual' } });
           const items = r.data.data.items || [];
           if (!items.length) { list.innerHTML = '<li class="text-center py-10 text-slate-400 text-sm">محصولی در این دسته نیست</li>'; return; }
           list.innerHTML = items.map(p => \`

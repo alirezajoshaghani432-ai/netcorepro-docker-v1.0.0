@@ -3,6 +3,7 @@ import { ncImg } from '../../utils/img.js';
 import { getBlocks, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
 import db from '../../db/index.js';
+import { hiddenCategoryIds, catVisSql } from '../../utils/catvis.js';
 
 /**
  * Self-hosted assets. NO external CDN.
@@ -11,7 +12,7 @@ import db from '../../db/index.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20261008b';
+export const ASSET_V = '20261103c';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -60,7 +61,8 @@ function getNavCategories() {
         // COALESCE keeps this backward-compatible.
         const all = db.prepare(`SELECT id, parent_id, name, slug, icon FROM categories
                                 WHERE COALESCE(show_in_menu, 1) = 1
-                                ORDER BY sort_order, name`).all();
+                                ORDER BY sort_order, name`).all()
+            .filter((h => c => !h.has(c.id))(hiddenCategoryIds())); // inactive categories never appear in the menu
         const roots = all.filter(c => !c.parent_id);
         const byParent = {};
         for (const c of all) {
@@ -71,7 +73,7 @@ function getNavCategories() {
         // V4 (owner voice note 2026-08-03): the mega menu must list CATEGORY names,
         // never individual product names. Each root column shows its sub-categories
         // (with active-product counts); products only appear on the listing pages.
-        const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM products WHERE status = 'active' AND category_id IN (SELECT id FROM categories WHERE id = ? OR parent_id = ?)`);
+        const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM products WHERE status = 'active'${catVisSql('category_id')} AND category_id IN (SELECT id FROM categories WHERE id = ? OR parent_id = ?)`);
         return roots.map(r => ({
             ...r,
             children: (byParent[r.id] || []).map(ch => ({ ...ch, count: countStmt.get(ch.id, ch.id).n })),

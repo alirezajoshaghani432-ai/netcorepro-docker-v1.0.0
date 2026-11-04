@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import db from '../db/index.js';
 import { authOptional, adminRequired } from '../middleware/auth.js';
-import { logActivity } from '../utils/helpers.js';
+import { logActivity, friendlyDbError } from '../utils/helpers.js';
+import { searchClause } from '../utils/search.js';
 const blog = new Hono();
 // Public posts list
 blog.get('/posts', (c) => {
@@ -18,9 +19,10 @@ blog.get('/posts', (c) => {
     if (q) {
         // Escape LIKE metacharacters (\ % _) so a literal % or _ in the query
         // is matched as text instead of acting as a wildcard.
-        const esc = q.replace(/[\\%_]/g, (ch) => '\\' + ch);
-        where += ` AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')`;
-        params.push(`%${esc}%`, `%${esc}%`);
+        // Persian-aware multi-word search (utils/search.js)
+        const sc = searchClause(q, ['title', 'content']);
+        where += sc.sql;
+        params.push(...sc.params);
     }
     const items = db.prepare(`SELECT id, title, slug, excerpt, cover_image, category, views, created_at FROM posts ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
     const total = db.prepare(`SELECT COUNT(*) AS t FROM posts ${where}`).get(...params).t;
@@ -42,9 +44,10 @@ blog.post('/posts/:id/comments', authOptional, async (c) => {
     const postId = parseInt(c.req.param('id') || '0');
     const body = await c.req.json().catch(() => ({}));
     const schema = z.object({
-        author_name: z.string().min(2, 'نام معتبر نیست'),
-        author_email: z.string().email('ایمیل معتبر نیست').optional().or(z.literal('')),
-        content: z.string().min(3, 'متن دیدگاه معتبر نیست')
+        // Round 9: same limits as product comments (long input used to crash on MySQL)
+        author_name: z.string().trim().min(2, 'نام معتبر نیست').max(100, 'نام بیش از حد طولانی است'),
+        author_email: z.string().trim().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست').optional().or(z.literal('')),
+        content: z.string().trim().min(3, 'متن دیدگاه معتبر نیست').max(2000, 'متن دیدگاه بیش از حد طولانی است (حداکثر ۲۰۰۰ کاراکتر)')
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success)
@@ -80,7 +83,7 @@ blog.post('/admin/posts', adminRequired, async (c) => {
         return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'مقاله ایجاد شد', code: 200 });
     }
     catch (e) {
-        return c.json({ success: false, message: 'خطا: ' + e.message, code: 400 }, 400);
+        return c.json({ success: false, message: friendlyDbError(e, 'خطا در ذخیرهٔ مقاله'), code: 400 }, 400);
     }
 });
 blog.put('/admin/posts/:id', adminRequired, async (c) => {

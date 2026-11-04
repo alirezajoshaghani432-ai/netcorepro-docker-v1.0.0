@@ -67,6 +67,11 @@ ensureColumn('products', 'key_features', 'TEXT');
 ensureColumn('products', 'guarantee', 'TEXT');
 // Empty SKUs collide on the UNIQUE index (only one '' allowed) -> normalize to NULL
 try { db.prepare(`UPDATE products SET sku = NULL WHERE sku = ''`).run(); } catch (e) { console.error('[db] sku normalize:', e.message); }
+// 2026-11-03 (owner voice note): «غیرفعال کردن دسته‌بندی کلاً پاکش می‌کند».
+// Categories get a real on/off switch. Inactive = hidden from the public site
+// (menu, listings, home, sitemap) together with its sub-categories & products,
+// but NOTHING is deleted and product status is never touched.
+ensureColumn('categories', 'is_active', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('categories', 'seo_title', 'TEXT');
 ensureColumn('categories', 'seo_description', 'TEXT');
 ensureColumn('categories', 'seo_keywords', 'TEXT');
@@ -163,6 +168,28 @@ try {
         )`);
     }
 } catch (e) { console.error('[db] sms_logs create error:', String(e.message).slice(0, 160)); }
+// ===== Round 2 (2026-11-03): undo for «تغییر گروهی قیمت» =====
+// Every bulk price change stores the before/after prices of the affected
+// products, so the LAST change can be reverted from the admin panel.
+try {
+    if (SELECTED_DB === 'mysql') {
+        db.exec(`CREATE TABLE IF NOT EXISTS bulk_price_snapshots (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_name VARCHAR(190),
+            summary VARCHAR(500),
+            data LONGTEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            undone_at DATETIME NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } else {
+        db.exec(`CREATE TABLE IF NOT EXISTS bulk_price_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_name TEXT, summary TEXT, data TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            undone_at TEXT
+        )`);
+    }
+} catch (e) { console.error('[db] bulk_price_snapshots create error:', String(e.message).slice(0, 160)); }
 
 // Back-fill: rows created by OTP auto-registration used a placeholder e-mail.
 try {

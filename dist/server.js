@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import nodeFs from 'node:fs';
 import nodePath from 'node:path';
 import { imgEntry, bestUrl } from './utils/img.js';
@@ -12,6 +13,7 @@ import { compress } from 'hono/compress';
 import { etag } from 'hono/etag';
 import db, { closeDatabase } from './db/index.js';
 import { rateLimit } from './middleware/rate-limit.js';
+import { knownDbError } from './utils/helpers.js';
 import authApi from './api/auth.js';
 import productsApi from './api/products.js';
 import ordersApi from './api/orders.js';
@@ -19,9 +21,11 @@ import ticketsApi from './api/tickets.js';
 import blogApi from './api/blog.js';
 import miscApi from './api/misc.js';
 import contentApi from './api/content.js';
+import productIoApi from './api/product-io.js'; // 2026-11-03: products export / import
 import { homeLandingPage, homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
 import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
 import { adminMenuBuilderPage } from './views/admin/menu-builder.js';
+import { catVisSql, visibleCats } from './utils/catvis.js';
 const app = new Hono();
 // ===== Global middleware =====
 const isProd = process.env.NODE_ENV === 'production';
@@ -57,7 +61,55 @@ app.use('/api/*', bodyLimit({
     onError: (c) => c.json({ success: false, message: `حجم درخواست از ${maxBodyMb}MB بیشتر است`, code: 413 }, 413)
 }));
 // Rate limit on /api/auth/*
-app.use('/api/auth/*', rateLimit({ windowMs: 60_000, max: 10 }));
+app.use('/api/auth/*', (c, next) => authLimiter(c, next));
+// Round 9 (2026-11-03): anti-spam for PUBLIC write endpoints (POST only — admin
+// GET lists such as GET /api/orders are never limited). One bucket per IP and
+// group (not per path), limits generous enough that real customers never hit them.
+// Round 10: spoof-resistant client IP.
+//  - socket address is PUBLIC  -> the site is exposed directly; proxy headers are
+//    client-controlled there, so they are IGNORED (a bot cannot fake its IP).
+//  - socket is loopback/private -> we sit behind a reverse proxy (nginx, docker):
+//    use X-Real-IP (set by the proxy), else the LAST X-Forwarded-For entry (the
+//    one the proxy appended itself; earlier entries can be forged by the client).
+//  - behind a proxy without any header -> '' (caller decides: fail-open).
+function isPrivateIp(ip) {
+    if (!ip) return true;
+    if (ip === '::1' || /^f[cd][0-9a-f]{2}:/i.test(ip) || /^fe80:/i.test(ip)) return true;
+    const m = ip.match(/^(\d+)\.(\d+)\./);
+    if (!m) return false;
+    const a = +m[1], b = +m[2];
+    return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+function clientIp(c) {
+    let sock = '';
+    try { sock = getConnInfo(c).remote.address || ''; } catch { sock = ''; }
+    sock = sock.replace(/^::ffff:/i, '');
+    if (sock && !isPrivateIp(sock)) return sock;
+    const real = (c.req.header('x-real-ip') || '').trim();
+    if (real) return real.replace(/^::ffff:/i, '');
+    const xff = (c.req.header('x-forwarded-for') || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (xff.length) return xff[xff.length - 1].replace(/^::ffff:/i, '');
+    return '';
+}
+function postLimit(group, windowMs, max) {
+    const lim = rateLimit({ windowMs, max, keyFn: (c) => `${clientIp(c)}:pub:${group}` });
+    return (c, next) => {
+        if (c.req.method !== 'POST') return next();
+        const ip = clientIp(c);
+        // Fail-open: unknown or loopback address = a reverse proxy that does not pass
+        // the visitor IP. Limiting then would put ALL customers in one bucket.
+        if (!ip) return next();
+        return lim(c, next);
+    };
+}
+// Round 10: auth limiter keyed by the spoof-resistant IP (same window/limit as before)
+const authLimiter = rateLimit({ windowMs: 60_000, max: 10, keyFn: (c) => `${clientIp(c) || 'unknown'}:${c.req.path}` });
+app.use('/api/messages', postLimit('messages', 10 * 60_000, 5));
+app.use('/api/products/:id/comments', postLimit('comments', 10 * 60_000, 10));
+app.use('/api/blog/posts/:id/comments', postLimit('comments', 10 * 60_000, 10));
+app.use('/api/newsletter/subscribe', postLimit('newsletter', 10 * 60_000, 10));
+app.use('/api/orders', postLimit('orders', 10 * 60_000, 20));
+app.use('/api/tickets', postLimit('tickets', 10 * 60_000, 10)); // Round 12: guest tickets (exact path; replies need login)
 // ===== F3: SPA (pjax) fragment responses =====
 // `site.js` navigates by fetching the next page with `X-NC-PJAX: 1`. Instead of
 // shipping the whole document (header + mega-menu + footer ≈ 60 % of the bytes)
@@ -254,6 +306,7 @@ app.route('/api/orders', ordersApi);
 app.route('/api/tickets', ticketsApi);
 app.route('/api/blog', blogApi);
 app.route('/api/content', contentApi);
+app.route('/api/product-io', productIoApi);
 app.route('/api', miscApi);
 // ===== Site Routes =====
 // ===== Backward-compat: old /site1 URLs permanently redirect to the new root paths =====
@@ -283,11 +336,14 @@ app.get('/products', (c) => {
 });
 app.get('/product/:slug', (c) => {
     const slug = c.req.param('slug') || '';
-    return c.html(cachedHtml('prod:' + slug, 20_000, () => productPage(slug)));
+    const html = cachedHtml('prod:' + slug, 20_000, () => productPage(slug));
+    // S4 (2026-11-03): a missing / inactive product must answer HTTP 404 (was a «soft 404» = 200,
+    // so Google kept deleted or deactivated products indexed).
+    return c.html(html, html.includes('class="nc-error-page') ? 404 : 200);
 });
 app.get('/categories', (c) => c.html(cachedHtml('cats', 30_000, () => categoriesPage())));
 app.get('/blog', (c) => c.html(cachedHtml('blog', 30_000, () => blogListPage())));
-app.get('/blog/:slug', (c) => c.html(blogPostPage(c.req.param('slug') || '')));
+app.get('/blog/:slug', (c) => { const html = blogPostPage(c.req.param('slug') || ''); return c.html(html, html.includes('class="nc-error-page') ? 404 : 200); });
 app.get('/cart', (c) => c.html(cartPage()));
 app.get('/checkout', (c) => c.html(checkoutPage()));
 app.get('/order-success/:orderNumber', (c) => c.html(orderSuccessPage(c.req.param('orderNumber') || '')));
@@ -325,9 +381,9 @@ app.get('/admin/pricing', (c) => c.html(adminPricingPage()));
 // ===== sitemap.xml =====
 app.get('/sitemap.xml', (c) => {
     const baseUrl = (c.req.header('host') ? `${c.req.header('x-forwarded-proto') || 'http'}://${c.req.header('host')}` : 'https://netcorepro.ir');
-    const products = db.prepare(`SELECT slug, updated_at FROM products WHERE status = 'active'`).all();
+    const products = db.prepare(`SELECT slug, updated_at FROM products WHERE status = 'active'${catVisSql('category_id')}`).all();
     const posts = db.prepare(`SELECT slug, updated_at FROM posts WHERE status = 'published'`).all();
-    const cats = db.prepare(`SELECT slug FROM categories`).all();
+    const cats = visibleCats(db.prepare(`SELECT id, slug FROM categories`).all());
     const staticUrls = ['/', '/products', '/categories', '/blog', '/about', '/contact'];
     const urls = [
         ...staticUrls.map(u => ({ loc: baseUrl + u, priority: u === '/' ? '1.0' : '0.8' })),
@@ -373,6 +429,11 @@ app.notFound((c) => {
 app.onError((err, c) => {
     console.error('[ERROR]', err);
     if (c.req.path.startsWith('/api/')) {
+        // Round 15: a recognised DB error (value too long / duplicate / bad number)
+        // is the user's input, not a server fault -> 400 with a Persian message.
+        const known = knownDbError(err);
+        if (known)
+            return c.json({ success: false, message: known, code: 400 }, 400);
         return c.json({ success: false, message: 'خطای داخلی سرور', code: 500 }, 500);
     }
     if (c.req.path.startsWith('/admin')) {

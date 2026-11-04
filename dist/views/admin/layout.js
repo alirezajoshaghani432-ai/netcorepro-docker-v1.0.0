@@ -5,6 +5,7 @@ const LOCAL_HEAD = `
 <link rel="stylesheet" href="/static/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/css/tailwind.min.css">
 <link rel="stylesheet" href="/static/css/app.css?v=20260708c">
+<link rel="stylesheet" href="/static/css/admin-utils.css?v=20261103d">
 <script>
 /* Early toast stub: guarantees window.toast exists before any inline page script runs
    (admin.js later replaces it with the full implementation). Prevents "toast is not defined"
@@ -139,7 +140,7 @@ ${opts.extraHead || ''}
   </nav>
 </aside>
 
-<div class="flex-1 md:mr-64 flex flex-col min-h-screen">
+<div class="flex-1 md:mr-64 flex flex-col min-h-screen min-w-0">
   <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
     <div class="flex items-center gap-3">
       <button id="sidebar-toggle" class="md:hidden text-slate-600" aria-label="باز/بسته کردن منو" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
@@ -150,7 +151,7 @@ ${opts.extraHead || ''}
       <div id="admin-user-info" class="flex items-center gap-2"></div>
     </div>
   </header>
-  <main id="main-content" class="p-4 md:p-6 flex-1" role="main" tabindex="-1">${content}</main>
+  <main id="main-content" class="p-4 md:p-6 flex-1 min-w-0" role="main" tabindex="-1">${content}</main>
 </div>
 
 </div>

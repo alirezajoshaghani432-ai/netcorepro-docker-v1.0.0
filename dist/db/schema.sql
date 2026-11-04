@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS categories (
   image TEXT,
   parent_id INTEGER,
   sort_order INTEGER DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
   seo_title TEXT,
   seo_description TEXT,
   seo_keywords TEXT,

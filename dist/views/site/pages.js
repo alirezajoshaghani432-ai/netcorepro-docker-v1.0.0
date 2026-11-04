@@ -3,7 +3,9 @@ import { siteLayout } from '../shared/layout.js';
 import { getAllSettings, formatPrice } from '../../utils/helpers.js';
 import { getBlocks, countBlocks, getPage, getHomePageBySlug, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
-import { ncImg, imgPreload, bestUrl } from '../../utils/img.js';
+import { ncImg, imgPreload, bestUrl, imgSize } from '../../utils/img.js';
+import { hiddenCategoryIds, catVisSql, visibleCats } from '../../utils/catvis.js';
+import { searchClause } from '../../utils/search.js';
 // F2f — `sizes` presets: tell the browser the real rendered width so it
 // never downloads a 1600px file for a 160px card.
 const SZ_PROD = '(max-width:520px) 150px, (max-width:980px) 200px, 240px';
@@ -113,9 +115,9 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
+          ${Number(price) > 0 ? `<span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>` : `<span class="nc-prod-new nc-price-ask">استعلام قیمت</span>`}
         </div>
-        <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
+        ${Number(price) > 0 ? `<button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>` : `<a class="nc-prod-cart" href="/product/${esc(p.slug)}" aria-label="استعلام قیمت" title="استعلام قیمت"><i class="fas fa-phone"></i></a>`}
       </div>
       <div class="nc-prod-stock ${stock > 0 ? '' : 'out'}">${stock > 0 ? 'موجود' : 'ناموجود'}</div>`;
     } else if (variant === 'offer') {
@@ -123,9 +125,9 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
+          ${Number(price) > 0 ? `<span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>` : `<span class="nc-prod-new nc-price-ask">استعلام قیمت</span>`}
         </div>
-        <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
+        ${Number(price) > 0 ? `<button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>` : `<a class="nc-prod-cart" href="/product/${esc(p.slug)}" aria-label="استعلام قیمت" title="استعلام قیمت"><i class="fas fa-phone"></i></a>`}
       </div>
       <div class="nc-prod-progress"><span style="width:${soldRatio}%"></span></div>
       <div class="nc-prod-sold">${formatPrice(sold)} فروخته شده از ${formatPrice(totalPool)}</div>`;
@@ -134,9 +136,9 @@ function productCard(p, opts = {}) {
       <div class="nc-prod-foot">
         <div class="nc-prod-price">
           ${hasDiscount ? `<span class="nc-prod-old">${formatPrice(p.price)}</span>` : ''}
-          <span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>
+          ${Number(price) > 0 ? `<span class="nc-prod-new">${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪</em>` : ''}${formatPrice(price)} <small>تومان</small></span>` : `<span class="nc-prod-new nc-price-ask">استعلام قیمت</span>`}
         </div>
-        <button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
+        ${Number(price) > 0 ? `<button class="nc-prod-cart" onclick="addToCartQuick(&#39;${esc(p.slug)}&#39;, event)" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>` : `<a class="nc-prod-cart" href="/product/${esc(p.slug)}" aria-label="استعلام قیمت" title="استعلام قیمت"><i class="fas fa-phone"></i></a>`}
       </div>
       <div class="nc-prod-stock ${stock > 0 ? '' : 'out'}">${stock > 0 ? 'موجود' : 'ناموجود'}</div>`;
     }
@@ -160,14 +162,15 @@ export function homePage() {
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     LEFT JOIN brands b ON p.brand_id = b.id
-    WHERE p.status = 'active'`;
+    WHERE p.status = 'active'${catVisSql('p.category_id')}`;
     const offers = db.prepare(`${sel} AND p.featured = 1 ORDER BY p.id LIMIT 8`).all();
     const weekly = db.prepare(`${sel} AND p.featured = 0 ORDER BY p.views DESC LIMIT 8`).all();
     const bestSellers = db.prepare(`${sel} ORDER BY p.views DESC LIMIT 10`).all();
     const discounted = db.prepare(`${sel} AND p.discount_price > 0 AND p.discount_price < p.price ORDER BY (1.0 - p.discount_price * 1.0 / p.price) DESC LIMIT 8`).all();
     const newest = db.prepare(`${sel} ORDER BY p.created_at DESC, p.id DESC LIMIT 8`).all();
-    const cats = db.prepare(`SELECT * FROM categories WHERE (parent_id IS NULL OR parent_id = 0) AND COALESCE(show_in_menu, 1) = 1 ORDER BY sort_order, name LIMIT 9`).all();
-    const brands = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id AND status = 'active') AS pc FROM brands b ORDER BY pc DESC, name LIMIT 12`).all();
+    // S3 (2026-11-03): LIMIT 9 silently dropped the 10th root category («روتر و مودم») from the home grid.
+    const cats = db.prepare(`SELECT * FROM categories WHERE (parent_id IS NULL OR parent_id = 0) AND COALESCE(show_in_menu, 1) = 1 AND COALESCE(is_active, 1) = 1 ORDER BY sort_order, name LIMIT 10`).all();
+    const brands = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id AND status = 'active'${catVisSql('category_id')}) AS pc FROM brands b ORDER BY pc DESC, name LIMIT 12`).all();
     const posts = db.prepare(`SELECT id, title, slug, excerpt, cover_image, category, created_at FROM posts WHERE status = 'published' ORDER BY created_at DESC LIMIT 3`).all();
 
     // Hero slides are editable from the admin dashboard (site_blocks page='home' section='hero').
@@ -238,20 +241,29 @@ export function homePage() {
     const articleIcons = { 'فیبر نوری': 'fa-circle-nodes', 'وایرلس': 'fa-wifi', 'امنیت شبکه': 'fa-shield-halved' };
     const faDate = (d) => { try { return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch (e) { return ''; } };
 
+    // R4 (2026-11-03): most hero images are square product photos on a WHITE
+    // background (e.g. 370x423). Stretched with object-fit:cover over a wide
+    // banner they looked blurry with a white haze. Such images are shown in
+    // "product mode": real proportions + mix-blend-mode:multiply so the white
+    // photo background melts into the banner colour. Real wide banners (>=1.6:1)
+    // stay full-bleed as before.
+    function isProductShot(src) {
+        const sz = imgSize(src);
+        return !!(sz && sz.w && sz.h && sz.w / sz.h < 1.6);
+    }
     const content = `
     <!-- Hero slider + side banners -->
     <section class="nc-container">
       <div class="nc-hero-grid">
         <div class="nc-slider" id="nc-slider">
           ${slides.map((s, i) => `
-            <div class="nc-slide${i === 0 ? ' active' : ''}">
+            <div class="nc-slide${i === 0 ? ' active' : ''}${isProductShot(s.img) ? ' nc-slide--product' : ''}">
               ${ncImg(s.img, { cls: 'nc-slide-bg', alt: s.title || '', sizes: SZ_HERO, lcp: i === 0, loading: i === 0 ? 'eager' : 'lazy', ratio: false })}
-              <div class="nc-slide-overlay"></div>
-              <div class="nc-slide-content">
-                <h2>${esc(s.title)}</h2>
-                <p>${esc(s.sub)}</p>
+              ${(s.title || s.sub) ? `<div class="nc-slide-content nc-slide-card">
+                ${s.title ? `<h2>${esc(s.title)}</h2>` : ''}
+                ${s.sub ? `<p>${esc(s.sub)}</p>` : ''}
                 <a href="${esc(s.href)}" class="nc-slide-btn">${esc(s.cta)} <i class="fas fa-arrow-left"></i></a>
-              </div>
+              </div>` : `<a href="${esc(s.href)}" class="nc-slide-link" aria-label="${esc(s.cta || 'مشاهده')}"></a>`}
             </div>
           `).join('')}
           <button class="nc-slider-arrow prev" id="nc-slider-prev" aria-label="قبلی"><i class="fas fa-chevron-right"></i></button>
@@ -262,9 +274,10 @@ export function homePage() {
         </div>
         <div class="nc-side-banners">
           ${sideBanners.map(s => `
-          <a href="${esc(s.href)}" class="nc-side-banner${s.alt ? ' alt' : ''}${s.img ? ' has-img' : ''}"${s.img ? ` style="background-image:linear-gradient(135deg,rgba(29,110,245,.78),rgba(44,26,138,.82)),url('${esc(bestUrl(s.img, 640))}')"` : ''}>
-            <div class="nc-side-banner-text"><span>${esc(s.title)}</span><small>${esc(s.sub)}</small></div>
-            <i class="fas ${esc(s.icon)}"></i>
+          <a href="${esc(s.href)}" class="nc-side-banner${s.alt ? ' alt' : ''}${s.img ? ' has-img nc-bn-clear' : ''}${(s.title || s.sub) ? '' : ' no-text'}">
+            ${s.img ? ncImg(s.img, { cls: 'nc-bn-img', alt: s.title || '', sizes: '(max-width:980px) 50vw, 300px', ratio: false }) : ''}
+            ${(s.title || s.sub) ? `<div class="nc-side-banner-text"><span>${esc(s.title)}</span>${s.sub ? `<small>${esc(s.sub)}</small>` : ''}</div>` : ''}
+            ${s.img ? '' : `<i class="fas ${esc(s.icon)}"></i>`}
           </a>
           `).join('')}
         </div>
@@ -338,8 +351,9 @@ export function homePage() {
     <section class="nc-container">
       <div class="nc-midbanners">
         ${midBanners.map(m => `
-        <a href="${esc(m.href)}" class="nc-midbanner${m.b ? ' b' : ''}${m.img ? ' has-img' : ''}"${m.img ? ` style="background-image:linear-gradient(120deg,rgba(58,42,158,.78),rgba(29,110,245,.80)),url('${esc(bestUrl(m.img, 960))}')"` : ''}>
-          <div class="nc-midbanner-text"><span>${esc(m.title)}</span><small>${esc(m.sub)}</small><em>${esc(m.cta)}</em></div>
+        <a href="${esc(m.href)}" class="nc-midbanner${m.b ? ' b' : ''}${m.img ? ' has-img nc-bn-clear' : ''}${(m.title || m.sub) ? '' : ' no-text'}">
+          ${m.img ? ncImg(m.img, { cls: 'nc-bn-img', alt: m.title || '', sizes: '(max-width:768px) 100vw, 50vw', ratio: false }) : ''}
+          ${(m.title || m.sub) ? `<div class="nc-midbanner-text"><span>${esc(m.title)}</span>${m.sub ? `<small>${esc(m.sub)}</small>` : ''}${m.cta ? `<em>${esc(m.cta)}</em>` : ''}</div>` : ''}
         </a>
         `).join('')}
       </div>
@@ -564,7 +578,7 @@ export function homePage() {
 export function productsPage(query) {
     // V4: hierarchical dropdown — roots first, then their children indented,
     // so the filter mirrors the mega-menu structure instead of a flat list.
-    const catsRaw = db.prepare(`SELECT * FROM categories ORDER BY sort_order, name`).all();
+    const catsRaw = visibleCats(db.prepare(`SELECT * FROM categories ORDER BY sort_order, name`).all());
     const cats = (() => {
         const roots = catsRaw.filter(c => !c.parent_id);
         const kids = pid => catsRaw.filter(c => c.parent_id === pid);
@@ -588,13 +602,12 @@ export function productsPage(query) {
     // The client script re-fetches only when filters change.
     let ssrItems = [];
     try {
-        const conds = [`p.status = 'active'`];
+        const conds = [`p.status = 'active'${catVisSql('p.category_id')}`];
         const params = [];
         if (query.q) {
-            // همانند API: جستجو در نام + توضیحات + SKU با escape کاراکترهای LIKE
-            const qEsc = String(query.q).replace(/[\\%_]/g, (ch) => '\\' + ch);
-            conds.push(`(p.name LIKE ? ESCAPE '\\\\' OR p.description LIKE ? ESCAPE '\\\\' OR p.sku LIKE ? ESCAPE '\\\\')`);
-            params.push(`%${qEsc}%`, `%${qEsc}%`, `%${qEsc}%`);
+            // همانند API: جستجوی هوشمند فارسی (ی/ي/ئ، ک/ك، آ/ا، نیم‌فاصله، اعداد فارسی) و چندکلمه‌ای
+            const sc = searchClause(String(query.q), ['p.name', 'p.sku', 'p.description']);
+            if (sc.sql) { conds.push(sc.sql.replace(/^ AND /, '')); params.push(...sc.params); }
         }
         if (query.category) {
             const cat = db.prepare(`SELECT id FROM categories WHERE slug = ?`).get(query.category);
@@ -727,9 +740,9 @@ export function productsPage(query) {
             <div class="nc-prod-foot">
               <div class="nc-prod-price">
                 \${has ? '<span class="nc-prod-old">' + formatPrice(p.price) + '</span>' : ''}
-                <span class="nc-prod-new">\${pct > 0 ? '<em class="nc-pct">' + formatPrice(pct) + '٪</em>' : ''}\${formatPrice(price)} <small>تومان</small></span>
+                \${Number(price) > 0 ? '<span class="nc-prod-new">' + (pct > 0 ? '<em class="nc-pct">' + formatPrice(pct) + '٪</em>' : '') + formatPrice(price) + ' <small>تومان</small></span>' : '<span class="nc-prod-new nc-price-ask">استعلام قیمت</span>'}
               </div>
-              <button class="nc-prod-cart" onclick='addCartFromList(\${ncpEsc(JSON.stringify(p))})' aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>
+              \${Number(price) > 0 ? '<button class="nc-prod-cart" onclick="addCartFromList(' + ncpEsc(JSON.stringify(p)) + ')" aria-label="افزودن به سبد"><i class="fas fa-cart-shopping"></i></button>' : '<a class="nc-prod-cart" href="/product/' + ncpEsc(p.slug) + '" aria-label="استعلام قیمت" title="استعلام قیمت"><i class="fas fa-phone"></i></a>'}
             </div>
             <div class="nc-prod-stock \${p.stock > 0 ? '' : 'out'}">\${p.stock > 0 ? 'موجود' : 'ناموجود'}</div>
           </div>
@@ -816,11 +829,11 @@ export function productsPage(query) {
 }
 // ===== Single Product =====
 export function productPage(slug) {
-    const p = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'`).get(slug);
+    const p = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'${catVisSql('p.category_id')}`).get(slug);
     if (!p)
         return notFoundPage('محصول');
     db.prepare(`UPDATE products SET views = views + 1 WHERE id = ?`).run(p.id);
-    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active' LIMIT 8`).all(p.category_id, p.id);
+    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 8`).all(p.category_id, p.id);
     const comments = db.prepare(`SELECT author_name, content, created_at FROM comments WHERE product_id = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 20`).all?.(p.id) || [];
     const price = p.discount_price || p.price;
     const has = p.discount_price && p.discount_price < p.price;
@@ -916,13 +929,15 @@ export function productPage(slug) {
             ${has ? `
             <div class="nc-buybox-row"><span>قیمت:</span><b class="nc-buybox-old">${formatPrice(p.price)} تومان</b></div>
             <div class="nc-buybox-row profit"><span>سود شما:</span><b>${formatPrice(profit)} تومان (${formatPrice(pct)}٪)</b></div>` : ''}
-            <div class="nc-buybox-row final"><span>قیمت نهایی:</span><b>${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪ تخفیف</em>` : ''}${formatPrice(price)} <small>تومان</small></b></div>
+            ${Number(price) > 0
+                ? `<div class="nc-buybox-row final"><span>قیمت نهایی:</span><b>${pct > 0 ? `<em class="nc-pct">${formatPrice(pct)}٪ تخفیف</em>` : ''}${formatPrice(price)} <small>تومان</small></b></div>`
+                : `<div class="nc-buybox-row final"><span>قیمت:</span><b class="nc-price-ask">استعلام قیمت</b></div>`}
           </div>
           <div class="nc-pdp-stock ${p.stock > 0 ? 'in' : 'out'}">
             <i class="fas ${p.stock > 0 ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
             ${p.stock > 0 ? `${formatPrice(p.stock)} عدد موجود در انبار` : 'ناموجود'}
           </div>
-          ${p.stock > 0 ? `
+          ${(p.stock > 0 && Number(price) > 0) ? `
           <div class="nc-buybox-qty">
             <div class="nc-qty">
               <button onclick="changeQty(-1)" aria-label="کاهش"><i class="fas fa-minus"></i></button>
@@ -930,7 +945,7 @@ export function productPage(slug) {
               <button onclick="changeQty(1)" aria-label="افزایش"><i class="fas fa-plus"></i></button>
             </div>
           </div>
-          <button onclick="addNow()" class="nc-btn-primary nc-buybox-add"><i class="fas fa-cart-plus ml-2"></i>افزودن به سبد خرید</button>` : '<div class="nc-pdp-unavailable">این محصول در حال حاضر موجود نیست</div>'}
+          <button onclick="addNow()" class="nc-btn-primary nc-buybox-add"><i class="fas fa-cart-plus ml-2"></i>افزودن به سبد خرید</button>` : (p.stock > 0 ? '<div class="nc-pdp-unavailable nc-price-ask-note"><i class="fas fa-circle-info ml-1"></i>قیمت این کالا متغیر است؛ برای استعلام قیمت و ثبت سفارش با کارشناسان تماس بگیرید.</div>' : '<div class="nc-pdp-unavailable">این محصول در حال حاضر موجود نیست</div>')}
           <a href="${esc(chatLink)}"${chatExternal ? ' target="_blank" rel="noopener"' : ''} class="nc-buybox-chat"><i class="fas fa-headset ml-2"></i>${esc(expertLabel)}</a>
           <a href="/cart" class="nc-buybox-invoice"><i class="fas fa-file-invoice ml-2"></i>دریافت پیش‌فاکتور</a>
           <div class="nc-pdp-trust">
@@ -1079,7 +1094,21 @@ export function productPage(slug) {
 }
 // ===== Categories Page =====
 export function categoriesPage() {
-    const cats = db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'active') AS product_count FROM categories c ORDER BY sort_order, name`).all();
+    // 2026-11-03: inactive categories (and their sub-categories) are hidden, and
+    // the count now includes products of sub-categories — a parent such as
+    // «سوییچ شبکه» used to show «0 محصول» although its children had products.
+    const cats = visibleCats(db.prepare(`SELECT c.* FROM categories c ORDER BY sort_order, name`).all());
+    const __direct = {};
+    for (const r of db.prepare(`SELECT category_id AS id, COUNT(*) AS n FROM products WHERE status = 'active' GROUP BY category_id`).all())
+        __direct[r.id] = Number(r.n);
+    const __kids = {};
+    cats.forEach(c => { if (c.parent_id) (__kids[c.parent_id] = __kids[c.parent_id] || []).push(c.id); });
+    const __total = (id, seen = new Set()) => {
+        if (seen.has(id)) return 0;
+        seen.add(id);
+        return (__direct[id] || 0) + (__kids[id] || []).reduce((s, k) => s + __total(k, seen), 0);
+    };
+    cats.forEach(c => { c.product_count = __total(c.id); });
     const content = `
     <div class="nc-container nc-page">
       <nav class="nc-breadcrumb"><a href="/">خانه</a> <i class="fas fa-angle-left"></i> <span>دسته‌بندی‌ها</span></nav>
@@ -1983,7 +2012,7 @@ export function aboutPage() {
     // Animated stat counters (count-up on scroll into view)
     let productCount = 0;
     try {
-        productCount = db.prepare(`SELECT COUNT(*) AS c FROM products WHERE status = 'active'`).get().c;
+        productCount = db.prepare(`SELECT COUNT(*) AS c FROM products WHERE status = 'active'${catVisSql('category_id')}`).get().c;
     }
     catch (e) { productCount = 0; }
     const stats = [
@@ -2203,7 +2232,7 @@ export function homeLandingPage(slug) {
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     LEFT JOIN brands b ON p.brand_id = b.id
-    WHERE p.status = 'active'`;
+    WHERE p.status = 'active'${catVisSql('p.category_id')}`;
     const conds = [];
     const args = [];
     if (catIds.length) { conds.push(`p.category_id IN (${catIds.map(() => '?').join(',')})`); args.push(...catIds); }
@@ -2213,7 +2242,7 @@ export function homeLandingPage(slug) {
     const latest = db.prepare(`${sel}${scope} ORDER BY p.id DESC LIMIT 10`).all(...args);
     const popular = db.prepare(`${sel}${scope} ORDER BY p.views DESC LIMIT 10`).all(...args);
     const cats = rootCatIds.length
-        ? db.prepare(`SELECT * FROM categories WHERE id IN (${rootCatIds.map(() => '?').join(',')}) ORDER BY sort_order ASC`).all(...rootCatIds)
+        ? db.prepare(`SELECT * FROM categories WHERE id IN (${rootCatIds.map(() => '?').join(',')}) ORDER BY sort_order ASC`).all(...rootCatIds).filter((h => c => !h.has(c.id))(hiddenCategoryIds()))
         : [];
     const brands = brandIds.length
         ? db.prepare(`SELECT * FROM brands WHERE id IN (${brandIds.map(() => '?').join(',')}) ORDER BY id ASC`).all(...brandIds)

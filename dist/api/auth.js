@@ -9,15 +9,16 @@ import { smsEnabled, sendOtp } from '../utils/sms.js';
 import { randomInt } from 'node:crypto';
 const auth = new Hono();
 const loginSchema = z.object({
-    email: z.string().email('ایمیل معتبر نیست'),
-    password: z.string().min(4, 'رمز عبور حداقل 4 کاراکتر')
+    email: z.string().trim().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست'),
+    password: z.string().min(4, 'رمز عبور حداقل 4 کاراکتر').max(128, 'رمز عبور بیش از حد طولانی است')
 });
+// Round 12: max lengths = DB column sizes (longer input used to crash with a 500)
 const registerSchema = z.object({
-    email: z.string().email('ایمیل معتبر نیست'),
-    password: z.string().min(6, 'رمز عبور حداقل 6 کاراکتر'),
-    full_name: z.string().min(2, 'نام معتبر نیست'),
+    email: z.string().trim().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست'),
+    password: z.string().min(6, 'رمز عبور حداقل 6 کاراکتر').max(128, 'رمز عبور بیش از حد طولانی است'),
+    full_name: z.string().trim().min(2, 'نام معتبر نیست').max(190, 'نام بیش از حد طولانی است'),
     phone: z.preprocess((v) => (v === undefined || v === null || v === '' ? undefined : normalizeIranPhone(v)), z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست (مثال: 09123456789)').optional()),
-    company: z.string().optional()
+    company: z.string().trim().max(190, 'نام شرکت بیش از حد طولانی است').optional()
 });
 // ===== Phone OTP login =====
 // SMS service enabled (admin → Settings → SMS service): a random 5-digit code is
@@ -96,8 +97,9 @@ auth.post('/otp/send', async (c) => {
 });
 const otpVerifySchema = z.object({
     phone: iranMobile,
-    code: z.string().trim().min(4, 'کد معتبر نیست'),
-    full_name: z.string().min(2).optional()
+    code: z.string().trim().min(4, 'کد معتبر نیست').max(10, 'کد معتبر نیست'),
+    // Round 13: 190 = users.full_name column (longer used to crash first-time phone signup)
+    full_name: z.string().trim().min(2, 'نام معتبر نیست').max(190, 'نام بیش از حد طولانی است').optional()
 });
 auth.post('/otp/verify', async (c) => {
     const body = await c.req.json().catch(() => ({}));
@@ -237,7 +239,7 @@ auth.post('/set-password', authRequired, async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => ({}));
     const schema = z.object({
-        new_password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد'),
+        new_password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد').max(128, 'رمز عبور بیش از حد طولانی است'),
         email: z.string().email('ایمیل معتبر نیست').optional()
     });
     const parsed = schema.safeParse(body);
@@ -264,12 +266,12 @@ auth.put('/profile', authRequired, async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => ({}));
     const schema = z.object({
-        full_name: z.string().min(2, 'نام و نام خانوادگی معتبر نیست'),
+        full_name: z.string().trim().min(2, 'نام و نام خانوادگی معتبر نیست').max(190, 'نام بیش از حد طولانی است'),
         phone: z.preprocess((v) => (v === undefined || v === null || v === '' ? undefined : normalizeIranPhone(v)), z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست (مثال: 09123456789)').optional()),
-        company: z.string().optional(),
-        address: z.string().optional(),
-        city: z.string().optional(),
-        postal_code: z.string().optional()
+        company: z.string().trim().max(190, 'نام شرکت بیش از حد طولانی است').optional(),
+        address: z.string().trim().max(1000, 'آدرس بیش از حد طولانی است').optional(),
+        city: z.string().trim().max(100, 'نام شهر بیش از حد طولانی است').optional(),
+        postal_code: z.string().trim().max(20, 'کد پستی معتبر نیست').optional()
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
@@ -283,7 +285,7 @@ auth.put('/profile', authRequired, async (c) => {
 auth.post('/change-password', authRequired, async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => ({}));
-    const schema = z.object({ old_password: z.string().min(1), new_password: z.string().min(6, 'رمز جدید حداقل 6 کاراکتر') });
+    const schema = z.object({ old_password: z.string().min(1), new_password: z.string().min(6, 'رمز جدید حداقل 6 کاراکتر').max(128, 'رمز عبور بیش از حد طولانی است') });
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);

@@ -80,6 +80,7 @@ export function adminMenuBuilderPage() {
       .mb-sublabel:hover{background:#f4f7ff;box-shadow:inset 0 0 0 1px #d7e3ff}
       .mb-sub li.mb-hidden .mb-sublabel{color:#a8afbe;text-decoration:line-through}
       .mb-count{flex:none;unicode-bidi:isolate;direction:rtl;font-size:11px;font-weight:600;color:#8b93a7;background:#f1f4f9;border-radius:20px;padding:1px 7px}
+      .mb-off{flex:none;font-size:10.5px;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:1px 7px;white-space:nowrap;cursor:help}
       .mb-addrow{margin-top:8px;padding-top:8px;border-top:1px dashed #e6e9f0}
       .mb-addrow input{width:100%;border:1px solid #dfe3ec;border-radius:9px;padding:6px 10px;font-size:12.5px;font-family:inherit}
       .mb-addrow input:focus{outline:none;border-color:var(--nc-primary,#2563eb)}
@@ -155,6 +156,13 @@ export function adminMenuBuilderPage() {
           }
         }
 
+        /* R2-C: category disabled on the site (is_active=0) — itself or via its parent */
+        function isOff(c, parent) { return c.is_active == 0 || (parent ? parent.is_active == 0 : false); }
+        function offBadge(c, parent) {
+          if (!isOff(c, parent)) return '';
+          var why = c.is_active == 0 ? 'این دسته در «دسته‌بندی‌ها» غیرفعال شده و در سایت نمایش داده نمی‌شود' : 'دستهٔ والد غیرفعال است؛ این زیرشاخه هم در سایت نمایش داده نمی‌شود';
+          return '<span class="mb-off" title="' + why + '"><i class="fas fa-eye-slash"></i> غیرفعال در سایت</span>';
+        }
         function isVisible(c) { return c.show_in_menu === undefined || c.show_in_menu === null || c.show_in_menu == 1; }
 
         function render() {
@@ -182,6 +190,7 @@ export function adminMenuBuilderPage() {
               return '<li class="mb-subitem' + sh + '" draggable="true" data-id="' + sc.id + '">' +
                        '<i class="fas fa-grip-vertical mb-grip"></i>' +
                        '<span class="mb-sublabel" data-id="' + sc.id + '" title="برای تغییر نام کلیک کنید">' + esc(sc.name) + '</span>' +
+                       offBadge(sc, c) +
                        (sc.product_count ? '<span class="mb-count">' + faNum(sc.product_count) + '</span>' : '') +
                        '<button class="mb-iconbtn mb-toggle" data-id="' + sc.id + '" title="' + (isVisible(sc) ? 'پنهان کردن از منو' : 'نمایش در منو') + '"><i class="fas ' + se + '"></i></button>' +
                      '</li>';
@@ -191,6 +200,7 @@ export function adminMenuBuilderPage() {
                      '<div class="mb-head">' +
                        '<i class="fas fa-grip-vertical mb-grip"></i>' +
                        '<span class="mb-title" data-id="' + c.id + '" title="برای تغییر نام کلیک کنید">' + esc(c.name) + '</span>' +
+                       offBadge(c, null) +
                        '<button class="mb-iconbtn mb-toggle" data-id="' + c.id + '" title="' + eyeTitle + '"><i class="fas ' + eye + '"></i></button>' +
                      '</div>' +
                      '<ul class="mb-sub" data-parent="' + c.id + '">' + subs + '</ul>' +

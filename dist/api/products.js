@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
-import { logActivity } from '../utils/helpers.js';
+import { logActivity, friendlyDbError } from '../utils/helpers.js';
+import { catVisSql, visibleCats } from '../utils/catvis.js';
+import { searchClause } from '../utils/search.js';
 const products = new Hono();
 // Collect a category id and all of its descendant ids (nested subcategories)
 export function categoryDescendantIds(rootId) {
@@ -34,14 +36,13 @@ products.get('/', (c) => {
     if (!Number.isFinite(limit) || limit < 1) limit = 12;
     if (limit > 100) limit = 100;
     const offset = (page - 1) * limit;
-    let where = `WHERE p.status = 'active'`;
+    let where = `WHERE p.status = 'active'${catVisSql('p.category_id')}`; // hidden categories -> hidden products
     const params = [];
     if (q) {
-        // Escape LIKE metacharacters (\ % _) so a literal % or _ in the query
-        // is matched as text instead of acting as a wildcard.
-        const esc = q.replace(/[\\%_]/g, (ch) => '\\' + ch);
-        where += ` AND (p.name LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\' OR p.sku LIKE ? ESCAPE '\\')`;
-        params.push(`%${esc}%`, `%${esc}%`, `%${esc}%`);
+        // Persian-aware, multi-word search (see utils/search.js)
+        const sc = searchClause(q, ['p.name', 'p.sku', 'p.description']);
+        where += sc.sql;
+        params.push(...sc.params);
     }
     if (category) {
         // include nested subcategories: products in the category OR any descendant
@@ -85,16 +86,127 @@ products.get('/', (c) => {
     return c.json({ success: true, data: { items, total, page, limit, pages: Math.ceil(total / limit) }, code: 200 });
 });
 products.get('/featured', (c) => {
-    const items = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.featured = 1 AND p.status = 'active' LIMIT 8`).all();
+    const items = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.featured = 1 AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 8`).all();
     return c.json({ success: true, data: items, code: 200 });
 });
 products.get('/categories', (c) => {
-    const cats = db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'active') AS product_count FROM categories c ORDER BY sort_order, name`).all();
+    const cats = visibleCats(db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'active') AS product_count FROM categories c ORDER BY sort_order, name`).all());
     return c.json({ success: true, data: cats, code: 200 });
 });
 products.get('/brands', (c) => {
-    const brands = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id AND status = 'active') AS product_count FROM brands b ORDER BY name`).all();
+    const brands = db.prepare(`SELECT b.*, (SELECT COUNT(*) FROM products WHERE brand_id = b.id AND status = 'active'${catVisSql('category_id')}) AS product_count FROM brands b ORDER BY name`).all();
     return c.json({ success: true, data: brands, code: 200 });
+});
+// =====================================================================
+//  Admin product list (2026-11-03, owner voice note):
+//  «محصول را غیرفعال می‌کنم کلاً پاک می‌شود». The admin list used the PUBLIC
+//  endpoint (only status='active', max 100 rows), so a deactivated product
+//  vanished from the panel and could never be re-activated. This endpoint
+//  returns EVERY product (active + inactive, no 100 cap) for the panel only.
+// =====================================================================
+products.get('/admin/list', adminRequired, (c) => {
+    const status = c.req.query('status') || '';
+    const where = [];
+    const params = [];
+    if (status === 'active' || status === 'inactive') { where.push('p.status = ?'); params.push(status); }
+    // optional ?category=<slug> (with sub-categories) + ?sort=manual — used by the
+    // drag&drop ordering page so inactive products / inactive categories still show.
+    const catSlug = c.req.query('category') || '';
+    if (catSlug) {
+        const cat = db.prepare(`SELECT id FROM categories WHERE slug = ?`).get(catSlug);
+        const ids = cat ? categoryDescendantIds(cat.id) : [0];
+        where.push(`p.category_id IN (${ids.map(() => '?').join(',')})`);
+        params.push(...ids);
+    }
+    const orderBy = c.req.query('sort') === 'manual' ? 'p.sort_order ASC, p.id ASC' : 'p.created_at DESC, p.id DESC';
+    const items = db.prepare(`SELECT p.id, p.name, p.slug, p.sku, p.category_id, p.brand_id, p.price, p.discount_price,
+               p.stock, p.image, p.status, p.featured, p.sort_order, p.created_at, p.updated_at,
+               c.name AS category_name, c.slug AS category_slug, COALESCE(c.is_active, 1) AS category_active,
+               b.name AS brand_name
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN brands b ON p.brand_id = b.id
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        ORDER BY ${orderBy}`).all(...params);
+    const counts = db.prepare(`SELECT status, COUNT(*) AS n FROM products GROUP BY status`).all();
+    const by = Object.fromEntries(counts.map(r => [r.status, Number(r.n)]));
+    c.header('Cache-Control', 'no-store');
+    return c.json({ success: true, data: { items, total: items.length, counts: { active: by.active || 0, inactive: by.inactive || 0 } }, code: 200 });
+});
+// Admin: one-click activate / deactivate. Deactivating NEVER deletes anything —
+// the product only disappears from the public site and can be re-activated.
+products.patch('/:id/status', adminRequired, async (c) => {
+    const user = c.get('user');
+    const id = parseInt(c.req.param('id') || '0');
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = z.object({ status: z.enum(['active', 'inactive']) }).safeParse(body);
+    if (!parsed.success)
+        return c.json({ success: false, message: 'وضعیت نامعتبر است', code: 400 }, 400);
+    const row = db.prepare(`SELECT id, name, status FROM products WHERE id = ?`).get(id);
+    if (!row)
+        return c.json({ success: false, message: 'محصول یافت نشد', code: 404 }, 404);
+    const st = parsed.data.status;
+    db.prepare(`UPDATE products SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(st, id);
+    logActivity({ user_id: user.id, user_name: user.full_name, action: st === 'active' ? 'activate' : 'deactivate', entity_type: 'product', entity_id: id, details: { name: row.name } });
+    return c.json({ success: true, data: { id, status: st }, message: st === 'active' ? 'محصول فعال شد و در سایت نمایش داده می‌شود' : 'محصول غیرفعال شد (حذف نشده — هر زمان بخواهید می‌توانید دوباره فعالش کنید)', code: 200 });
+});
+// Admin: bulk activate / deactivate selected products (never deletes anything).
+products.post('/admin/bulk-status', adminRequired, async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = z.object({
+        ids: z.array(z.coerce.number().int().positive()).min(1).max(2000),
+        status: z.enum(['active', 'inactive']),
+    }).safeParse(body);
+    if (!parsed.success)
+        return c.json({ success: false, message: 'ورودی نامعتبر است (حداقل ۱ و حداکثر ۲۰۰۰ محصول)', code: 400 }, 400);
+    const ids = [...new Set(parsed.data.ids)];
+    const st = parsed.data.status;
+    let changed = 0;
+    const tx = db.transaction(() => {
+        const upd = db.prepare(`UPDATE products SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status != ?`);
+        for (const id of ids) {
+            const r = upd.run(st, id, st);
+            changed += Number(r && r.changes) || 0;
+        }
+    });
+    tx();
+    logActivity({ user_id: user.id, user_name: user.full_name, action: st === 'active' ? 'bulk_activate' : 'bulk_deactivate', entity_type: 'product', entity_id: null, details: { count: changed, requested: ids.length } });
+    return c.json({ success: true, data: { changed, requested: ids.length, status: st }, message: changed === 0 ? `محصولات انتخاب‌شده از قبل ${st === 'active' ? 'فعال' : 'غیرفعال'} بودند؛ تغییری لازم نبود` : `${changed.toLocaleString('fa-IR')} محصول ${st === 'active' ? 'فعال شد و در سایت نمایش داده می‌شود' : 'غیرفعال شد (حذف نشده — هر زمان بخواهید دوباره فعالش کنید)'}`, code: 200 });
+});
+// Round 4 (2026-11-03): duplicate a product as an INACTIVE draft (fast way to add
+// a similar product). Columns are taken from the row itself, so columns added by
+// later migrations are copied too. slug gets a unique «-copy» suffix, SKU is
+// cleared (it must be unique), views reset. Nothing else is touched.
+products.post('/:id/duplicate', adminRequired, async (c) => {
+    const user = c.get('user');
+    const id = parseInt(c.req.param('id') || '0');
+    const src = db.prepare(`SELECT * FROM products WHERE id = ?`).get(id);
+    if (!src)
+        return c.json({ success: false, message: 'محصول یافت نشد', code: 404 }, 404);
+    const SKIP = new Set(['id', 'created_at', 'updated_at', 'views']);
+    const row = {};
+    for (const k of Object.keys(src)) {
+        if (!SKIP.has(k) && /^[a-z_][a-z0-9_]*$/i.test(k)) row[k] = src[k];
+    }
+    const baseSlug = String(src.slug || 'product').replace(/-copy(-\d+)?$/, '') + '-copy';
+    let slug = baseSlug, n = 2;
+    while (db.prepare(`SELECT id FROM products WHERE slug = ?`).get(slug)) slug = `${baseSlug}-${n++}`;
+    row.slug = slug;
+    row.sku = null;
+    row.status = 'inactive';
+    row.name = String(src.name || '').replace(/\s*\(کپی\)$/, '') + ' (کپی)';
+    if ('featured' in row) row.featured = 0;
+    const cols = Object.keys(row);
+    try {
+        const r = db.prepare(`INSERT INTO products (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...cols.map(k => row[k]));
+        const newId = Number(r.lastInsertRowid);
+        logActivity({ user_id: user.id, user_name: user.full_name, action: 'duplicate', entity_type: 'product', entity_id: newId, details: { name: row.name, from_id: id } });
+        return c.json({ success: true, data: { id: newId, slug }, message: 'کپی محصول ساخته شد (غیرفعال) — کد محصول (SKU) را وارد کنید و پس از ویرایش فعالش کنید', code: 200 });
+    }
+    catch (e) {
+        return c.json({ success: false, message: friendlyDbError(e, 'خطا در کپی محصول'), code: 400 }, 400);
+    }
 });
 // Admin: fetch one product by id (always fresh from DB — used by the edit modal
 // so it never shows stale data from the previously rendered list row)
@@ -108,11 +220,11 @@ products.get('/id/:id', adminRequired, (c) => {
 });
 products.get('/:slug', (c) => {
     const slug = c.req.param('slug');
-    const product = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'`).get(slug);
+    const product = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'${catVisSql('p.category_id')}`).get(slug);
     if (!product)
         return c.json({ success: false, message: 'محصول یافت نشد', code: 404 }, 404);
     db.prepare(`UPDATE products SET views = views + 1 WHERE slug = ?`).run(slug);
-    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active' LIMIT 4`).all(product.category_id, product.id);
+    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 4`).all(product.category_id, product.id);
     return c.json({ success: true, data: { product, related }, code: 200 });
 });
 // Admin CRUD
@@ -171,6 +283,8 @@ products.post('/:id/comments', async (c) => {
         return c.json({ success: false, message: 'نام و متن دیدگاه الزامی است', code: 400 }, 400);
     if (name.length > 100 || content.length > 2000)
         return c.json({ success: false, message: 'متن دیدگاه بیش از حد طولانی است', code: 400 }, 400);
+    if (email && email.length > 190)
+        return c.json({ success: false, message: 'ایمیل بیش از حد طولانی است', code: 400 }, 400);
     db.prepare(`INSERT INTO comments (product_id, author_name, author_email, content, status) VALUES (?, ?, ?, ?, 'pending')`).run(id, name, email, content);
     return c.json({ success: true, message: 'دیدگاه شما ثبت شد و پس از تایید نمایش داده می‌شود', code: 200 });
 });
@@ -204,7 +318,7 @@ products.post('/', adminRequired, async (c) => {
         return c.json({ success: true, data: { id: r.lastInsertRowid }, message: 'محصول ایجاد شد', code: 200 });
     }
     catch (e) {
-        const msg = /UNIQUE/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : 'خطا: ' + (e.message || '');
+        const msg = /UNIQUE|Duplicate/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : friendlyDbError(e, 'خطا در ایجاد محصول');
         return c.json({ success: false, message: msg, code: 400 }, 400);
     }
 });
@@ -232,8 +346,17 @@ products.put('/:id', adminRequired, async (c) => {
             return c.json({ success: false, message: `نامک (slug) تکراری است — قبلاً برای «${dupSlug.name}» ثبت شده`, code: 400 }, 400);
     }
     // Clearing the discount (empty / 0 / not below the price) must really reset it to NULL.
-    if ('discount_price' in d && (!d.discount_price || (d.price !== undefined && d.discount_price >= d.price)))
-        d.discount_price = null;
+    if ('discount_price' in d) {
+        // Round 6: when only the discount is sent, compare with the CURRENT price
+        // (previously a discount >= price slipped through on discount-only updates).
+        let refPrice = d.price;
+        if (refPrice === undefined) {
+            const cur = db.prepare(`SELECT price FROM products WHERE id = ?`).get(id);
+            refPrice = cur ? Number(cur.price) : undefined;
+        }
+        if (!d.discount_price || (refPrice !== undefined && d.discount_price >= refPrice))
+            d.discount_price = null;
+    }
     if ('gallery' in d)
         d.gallery = validJsonOrNull(d.gallery);
     if ('specs' in d)
@@ -255,7 +378,7 @@ products.put('/:id', adminRequired, async (c) => {
     catch (e) {
         // UNIQUE slug/sku conflict etc. -> clear 400 instead of a 500 crash
         console.error('[products.update] id=' + id + ':', e?.message);
-        const msg = /UNIQUE|Duplicate/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : 'خطا در به‌روزرسانی محصول: ' + (e?.message || '');
+        const msg = /UNIQUE|Duplicate/i.test(e?.message || '') ? 'نامک (slug) یا کد محصول (SKU) تکراری است' : friendlyDbError(e, 'خطا در به‌روزرسانی محصول');
         return c.json({ success: false, message: msg, code: 400 }, 400);
     }
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'product', entity_id: id });
@@ -314,36 +437,102 @@ products.post('/bulk-price', adminRequired, async (c) => {
         targetWhere = (targetWhere ? targetWhere + ' AND ' : '') + 'brand_id = ?';
         targetParams.push(d2.brand_id);
     }
+    // NOTE (2026-11-03): the previous SQL used SQLite-only syntax — 2-arg MAX(0, x)
+    // and CAST(.. AS INTEGER). Production runs on MySQL/MariaDB where both are a
+    // syntax error (ER_PARSE_ERROR -> «خطای داخلی سرور» when pressing «اعمال»).
+    // Only portable SQL is used now (CASE/ROUND work on SQLite *and* MySQL).
     let changed = 0;
+    let snapshotRows = [];
     const tx = db.transaction(() => {
+        // Round 2: remember the prices BEFORE the change (for «بازگردانی»)
+        const before = db.prepare(`SELECT id, price, discount_price FROM products WHERE ${targetWhere}`).all(...targetParams);
         if (mode === 'percent') {
-            const factor = 1 + d2.percent / 100;
+            const factor = 1 + d2.percent / 100; // percent >= -90  ->  factor >= 0.1 (never negative)
             if (applyTo === 'price' || applyTo === 'both') {
-                const r = db.prepare(`UPDATE products SET price = MAX(0, CAST(ROUND(price * ?) AS INTEGER)), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere}`).run(factor, ...targetParams);
+                const r = db.prepare(`UPDATE products SET price = ROUND(price * ?), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere}`).run(factor, ...targetParams);
                 changed += r.changes;
             }
             if (applyTo === 'discount_price' || applyTo === 'both') {
-                const r = db.prepare(`UPDATE products SET discount_price = MAX(0, CAST(ROUND(discount_price * ?) AS INTEGER)), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere} AND discount_price IS NOT NULL`).run(factor, ...targetParams);
+                const r = db.prepare(`UPDATE products SET discount_price = ROUND(discount_price * ?), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere} AND discount_price IS NOT NULL`).run(factor, ...targetParams);
                 if (applyTo === 'discount_price') changed += r.changes;
             }
         }
         else {
             const amt = d2.amount;
             if (applyTo === 'price' || applyTo === 'both') {
-                const r = db.prepare(`UPDATE products SET price = MAX(0, price + ?), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere}`).run(amt, ...targetParams);
+                const r = db.prepare(`UPDATE products SET price = CASE WHEN price + ? < 0 THEN 0 ELSE price + ? END, updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere}`).run(amt, amt, ...targetParams);
                 changed += r.changes;
             }
             if (applyTo === 'discount_price' || applyTo === 'both') {
-                const r = db.prepare(`UPDATE products SET discount_price = MAX(0, discount_price + ?), updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere} AND discount_price IS NOT NULL`).run(amt, ...targetParams);
+                const r = db.prepare(`UPDATE products SET discount_price = CASE WHEN discount_price + ? < 0 THEN 0 ELSE discount_price + ? END, updated_at = CURRENT_TIMESTAMP WHERE ${targetWhere} AND discount_price IS NOT NULL`).run(amt, amt, ...targetParams);
                 if (applyTo === 'discount_price') changed += r.changes;
             }
         }
+        // A discount that is no longer below the price (or became 0) is not a real
+        // discount anymore -> reset to NULL (same rule as the product edit form).
+        db.prepare(`UPDATE products SET discount_price = NULL WHERE ${targetWhere} AND discount_price IS NOT NULL AND (discount_price <= 0 OR discount_price >= price)`).run(...targetParams);
+        const after = new Map(db.prepare(`SELECT id, price, discount_price FROM products WHERE ${targetWhere}`).all(...targetParams).map(r => [r.id, r]));
+        snapshotRows = before.map(b => {
+            const a = after.get(b.id) || b;
+            return [b.id, Number(b.price), b.discount_price == null ? null : Number(b.discount_price), Number(a.price), a.discount_price == null ? null : Number(a.discount_price)];
+        }).filter(r => r[1] !== r[3] || r[2] !== r[4]);
     });
     tx();
     const magnitude = mode === 'percent' ? Math.abs(d2.percent) + '٪' : new Intl.NumberFormat('fa-IR').format(Math.abs(d2.amount)) + ' تومان';
     const dir = (mode === 'percent' ? d2.percent : d2.amount) >= 0 ? 'افزایش' : 'کاهش';
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'bulk_price', entity_type: 'product', entity_id: d2.category_id || d2.brand_id || 0, details: { mode, percent: d2.percent, amount: d2.amount, applyTo, changed } });
-    return c.json({ success: true, message: `قیمت ${changed} محصول ${dir} یافت (${magnitude})`, data: { changed }, code: 200 });
+    let snapshotId = null;
+    if (snapshotRows.length) {
+        try {
+            const summary = `${dir} ${magnitude} — ${snapshotRows.length} محصول`;
+            snapshotId = Number(db.prepare(`INSERT INTO bulk_price_snapshots (user_name, summary, data) VALUES (?, ?, ?)`).run(user.full_name || '', summary, JSON.stringify(snapshotRows)).lastInsertRowid);
+            // keep only the latest 20 snapshots
+            const keep = db.prepare(`SELECT id FROM bulk_price_snapshots ORDER BY id DESC LIMIT 1 OFFSET 19`).get();
+            if (keep) db.prepare(`DELETE FROM bulk_price_snapshots WHERE id < ?`).run(keep.id);
+        } catch (e) { console.error('[bulk-price] snapshot:', e?.message); }
+    }
+    return c.json({ success: true, message: `قیمت ${changed} محصول ${dir} یافت (${magnitude})`, data: { changed, snapshot_id: snapshotId }, code: 200 });
+});
+// Round 2 (2026-11-03): show / undo the latest bulk price change
+function latestSnapshot() {
+    return db.prepare(`SELECT id, user_name, summary, data, created_at FROM bulk_price_snapshots WHERE undone_at IS NULL ORDER BY id DESC LIMIT 1`).get();
+}
+products.get('/bulk-price/last', adminRequired, (c) => {
+    const s = latestSnapshot();
+    c.header('Cache-Control', 'no-store');
+    if (!s) return c.json({ success: true, data: null, code: 200 });
+    let n = 0; try { n = JSON.parse(s.data).length; } catch { }
+    return c.json({ success: true, data: { id: s.id, user_name: s.user_name, summary: s.summary, created_at: s.created_at, count: n }, code: 200 });
+});
+products.post('/bulk-price/undo', adminRequired, async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => ({}));
+    const s = latestSnapshot();
+    if (!s) return c.json({ success: false, message: 'تغییر گروهی قابل بازگشتی وجود ندارد', code: 400 }, 400);
+    // the client tells us which snapshot it showed -> never undo a different one by accident
+    if (body.id && Number(body.id) !== Number(s.id))
+        return c.json({ success: false, message: 'در این فاصله تغییر گروهی دیگری ثبت شده؛ صفحه را تازه کنید', code: 409 }, 409);
+    let rows = [];
+    try { rows = JSON.parse(s.data) || []; } catch { }
+    let restored = 0, skipped = 0;
+    const tx = db.transaction(() => {
+        const get = db.prepare(`SELECT price, discount_price FROM products WHERE id = ?`);
+        const upd = db.prepare(`UPDATE products SET price = ?, discount_price = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
+        for (const [id, oldP, oldD, newP, newD] of rows) {
+            const cur = get.get(id);
+            if (!cur) { skipped++; continue; }
+            const curD = cur.discount_price == null ? null : Number(cur.discount_price);
+            // only restore products that still have exactly the price this change set —
+            // a product edited by hand afterwards is never overwritten
+            if (Number(cur.price) !== newP || curD !== newD) { skipped++; continue; }
+            upd.run(oldP, oldD, id);
+            restored++;
+        }
+        db.prepare(`UPDATE bulk_price_snapshots SET undone_at = CURRENT_TIMESTAMP WHERE id = ?`).run(s.id);
+    });
+    tx();
+    logActivity({ user_id: user.id, user_name: user.full_name, action: 'bulk_price_undo', entity_type: 'product', entity_id: s.id, details: { restored, skipped, summary: s.summary } });
+    return c.json({ success: true, data: { restored, skipped }, message: `قیمت ${restored} محصول به حالت قبل برگشت` + (skipped ? ` (${skipped} محصول که بعد از آن دستی ویرایش شده بود دست‌نخورده ماند)` : ''), code: 200 });
 });
 products.delete('/:id', adminRequired, (c) => {
     const user = c.get('user');
@@ -359,10 +548,10 @@ products.delete('/:id', adminRequired, (c) => {
     if (referenced) {
         db.prepare(`UPDATE products SET status = 'inactive', featured = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(id);
         logActivity({ user_id: user.id, user_name: user.full_name, action: 'archive', entity_type: 'product', entity_id: id, details: { reason: 'referenced_by_orders' } });
-        return c.json({ success: true, message: 'این محصول در سفارش‌ها استفاده شده و بایگانی (غیرفعال) شد', code: 200 });
+        return c.json({ success: true, data: { archived: true }, message: 'این محصول در سفارش‌ها استفاده شده، پس حذف نشد و فقط غیرفعال شد (از لیست «غیرفعال‌ها» قابل فعال‌سازی است)', code: 200 });
     }
     db.prepare(`DELETE FROM products WHERE id = ?`).run(id);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'delete', entity_type: 'product', entity_id: id });
-    return c.json({ success: true, message: 'محصول حذف شد', code: 200 });
+    return c.json({ success: true, data: { archived: false }, message: 'محصول برای همیشه حذف شد', code: 200 });
 });
 export default products;

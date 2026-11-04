@@ -4,12 +4,14 @@ import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
 import { generateTicketNumber, logActivity } from '../utils/helpers.js';
 const tickets = new Hono();
+// Round 12 (2026-11-03): max lengths = DB column sizes (longer input used to crash
+// with MySQL «Data too long» -> «خطای داخلی سرور»).
 const ticketSchema = z.object({
-    subject: z.string().min(3, 'موضوع حداقل 3 کاراکتر'),
-    message: z.string().min(5, 'پیام حداقل 5 کاراکتر'),
-    guest_name: z.string().optional(),
-    guest_email: z.string().email().optional().or(z.literal('')),
-    guest_phone: z.string().optional(),
+    subject: z.string().trim().min(3, 'موضوع حداقل 3 کاراکتر').max(255, 'موضوع بیش از حد طولانی است'),
+    message: z.string().trim().min(5, 'پیام حداقل 5 کاراکتر').max(5000, 'پیام بیش از حد طولانی است (حداکثر ۵۰۰۰ کاراکتر)'),
+    guest_name: z.string().trim().max(190, 'نام بیش از حد طولانی است').optional(),
+    guest_email: z.string().trim().max(190, 'ایمیل بیش از حد طولانی است').email('ایمیل معتبر نیست').optional().or(z.literal('')),
+    guest_phone: z.string().trim().max(32, 'شماره تماس معتبر نیست').optional(),
     priority: z.enum(['low', 'normal', 'high']).optional()
 });
 // Create ticket (logged-in or guest)
@@ -63,7 +65,7 @@ tickets.post('/:id/replies', authRequired, async (c) => {
         return c.json({ success: false, message: 'دسترسی غیرمجاز', code: 403 }, 403);
     }
     const body = await c.req.json().catch(() => ({}));
-    const schema = z.object({ message: z.string().min(2, 'پیام معتبر نیست') });
+    const schema = z.object({ message: z.string().trim().min(2, 'پیام معتبر نیست').max(5000, 'پیام بیش از حد طولانی است (حداکثر ۵۰۰۰ کاراکتر)') });
     const parsed = schema.safeParse(body);
     if (!parsed.success)
         return c.json({ success: false, message: parsed.error.issues[0].message, code: 400 }, 400);

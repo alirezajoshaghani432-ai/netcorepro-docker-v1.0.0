@@ -1366,3 +1366,52 @@ section.nc-container:first-of-type{margin-top:18px}
   .nc-catpage-card p{display:none}
   .nc-catpage-count{font-size:11.5px}
 }
+
+/* ===== 2026-11-03 R4 (owner voice note): «بنرها کنارش هالهٔ سفید دارد و واضح نیست» =====
+   - hero: the full-width white gradient (.nc-slide-overlay, 95%->0 white) washed the
+     photo out -> removed; the text now sits on a compact glass card only.
+   - side / mid banners: the 78-82% blue tint + white decorative circle covered the
+     photo, and it was a 640px CSS background -> now a real <img srcset> (sharp on
+     retina) with a light shade ONLY under the text. No text = no shade at all. */
+.nc-slide-overlay{display:none!important}
+.nc-slide-link{position:absolute;inset:0;z-index:2}
+.nc-slide-content.nc-slide-card{margin:0 46px;padding:20px 24px;max-width:46%;background:rgba(15,23,42,.58);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+.nc-slide-card h2{color:#fff!important;font-size:30px;margin-bottom:8px}
+.nc-slide-card p{color:rgba(255,255,255,.9)!important;font-size:16px;margin-bottom:16px}
+.nc-bn-clear{background:#eef0f7!important;padding:0!important;justify-content:flex-end!important;align-items:stretch!important}
+.nc-bn-clear::before{display:none!important}
+.nc-bn-clear .nc-bn-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.nc-bn-clear:hover .nc-bn-img{transform:scale(1.03)}
+.nc-bn-clear::after{content:"";position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(15,23,42,.72),rgba(15,23,42,0));pointer-events:none}
+.nc-bn-clear.no-text::after{display:none}
+.nc-bn-clear .nc-side-banner-text,.nc-bn-clear .nc-midbanner-text{position:relative;z-index:1;padding:14px 16px;text-align:right;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.nc-bn-clear .nc-side-banner-text span{font-size:18px;font-weight:800}
+.nc-bn-clear .nc-midbanner-text{padding:22px 24px}
+.nc-midbanner.nc-bn-clear{min-height:190px;display:flex;flex-direction:column}
+@media (max-width:768px){
+  .nc-slide-content.nc-slide-card{margin:0 12px;padding:10px 12px;max-width:66%;border-radius:12px}
+  .nc-slide-card h2{font-size:16px;margin-bottom:4px}
+  .nc-slide-card p{font-size:11.5px;margin-bottom:8px}
+  .nc-bn-clear .nc-side-banner-text{padding:8px 10px}
+  .nc-bn-clear .nc-side-banner-text span{font-size:13px}
+  .nc-midbanner.nc-bn-clear{min-height:150px}
+}
+
+/* R4 b: hero "product mode" + mid-banner text layout */
+.nc-slide--product{background:linear-gradient(120deg,#eef2ff 0%,#f8fafc 55%,#e0e7ff 100%)}
+.nc-slide--product .nc-slide-bg{object-fit:contain;width:52%;height:88%;inset:auto;left:3%;top:6%;mix-blend-mode:multiply}
+.nc-slide--product .nc-slide-content.nc-slide-card{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;max-width:44%}
+.nc-slide--product .nc-slide-card h2{color:var(--nc-primary,#1d4ed8)!important}
+.nc-slide--product .nc-slide-card p{color:#3a4060!important}
+.nc-bn-clear .nc-midbanner-text span{display:block;font-size:22px;font-weight:900}
+.nc-bn-clear .nc-midbanner-text small{display:block;font-size:13px;opacity:.92;margin:4px 0 12px}
+.nc-bn-clear .nc-midbanner-text em{display:inline-block;font-style:normal;background:#fff;color:#1e293b;padding:6px 18px;border-radius:999px;font-weight:700;font-size:13px;text-shadow:none}
+@media (max-width:768px){
+  .nc-slide--product .nc-slide-bg{width:46%;left:2%}
+  .nc-slide--product .nc-slide-content.nc-slide-card{max-width:54%;padding:6px 10px}
+  .nc-bn-clear .nc-midbanner-text span{font-size:17px}
+}
+
+/* S2 (2026-11-03): price-on-request products */
+.nc-price-ask{color:#d97706!important;font-weight:800;font-size:14px}
+.nc-price-ask-note{background:#fffbeb!important;color:#92400e!important;border:1px solid #fde68a;line-height:1.9}

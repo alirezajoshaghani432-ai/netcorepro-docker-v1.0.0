@@ -1553,6 +1553,14 @@ export function adminSettingsPage() {
         <button type="submit" class="btn-indigo text-white px-6 py-2.5 rounded-lg"><i class="fas fa-save ml-2"></i>ذخیره تنظیمات</button>
       </form>
     </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 mt-5 border border-emerald-100" id="torob-tools">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <h2 class="font-bold text-slate-800"><i class="fas fa-tags ml-1 text-emerald-600"></i>بررسی سلامت اتصال به ترب (Torob Diagnostics)</h2>
+        <button type="button" id="torob-check-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-stethoscope ml-1"></i>اجرای تست سلامت ترب</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-3 leading-6">وضعیت متاتگ‌های <code>product_id</code>، قیمت‌ها، موجودی، سلامت فایل تصاویر محصولات و آدرس وب‌سرویس <code>Product API v3</code> را در لحظه بررسی می‌کند.</p>
+      <div id="torob-diag-out" class="text-xs leading-6 text-slate-600"></div>
+    </div>
     <div class=\"bg-white rounded-xl shadow-sm p-5 mt-5\" id=\"sms-tools\">
       <h2 class=\"font-bold mb-1\"><i class=\"fas fa-sms ml-1 text-indigo-600\"></i>ابزارهای سرویس پیامک</h2>
       <p class=\"text-xs text-slate-500 mb-4 leading-6\">ابتدا تنظیمات بالا را ذخیره کنید، سپس اتصال را آزمایش کنید.</p>
@@ -1572,6 +1580,7 @@ export function adminSettingsPage() {
         { k:'logo_height_mobile', l:'ارتفاع لوگو در موبایل (پیکسل، پیش‌فرض ۴۴)', ph:'44' },
         { k:'logo_offset_y', l:'جابه‌جایی عمودی لوگو (پیکسل؛ منفی = بالاتر، پیش‌فرض ۰)', ph:'0' },
         { k:'site_name', l:'نام سایت' },
+        { k:'site_url', l:'آدرس عمومی دامنه سایت (الزامی برای ترب و سئو — بدون / انتهایی)', ph:'https://radys.ir' },
         { k:'site_tagline', l:'شعار سایت (زیر لوگو)' },
         { k:'site_description', l:'توضیح سایت', textarea: true },
         { k:'phone', l:'تلفن ثابت' },
@@ -1588,6 +1597,8 @@ export function adminSettingsPage() {
         { k:'chan_expert_note', l:'یادداشت زیر دکمه‌های تماس (اختیاری)', textarea:true, ph:'مثلاً: پاسخگویی شنبه تا چهارشنبه ۹ تا ۱۷' },
         { sec:'نماد اعتماد الکترونیکی (اینماد)', icon:'fa-shield-halved', help:'لینک صفحهٔ نماد خود را از پنل اینماد کپی و اینجا بگذارید. نشان اینماد در فوتر سایت نمایش داده می‌شود و با کلیک روی آن، بازدیدکننده به همین لینک (صفحهٔ تأیید اینماد) می‌رود. اگر فیلد را خالی کنید، نشان از فوتر حذف می‌شود.' },
         { k:'enamad_url', l:'لینک اینماد', ph:'https://trustseal.enamad.ir/?id=...&Code=...' },
+        { sec:'اتصال به ترب (Torob) و موتورهای مقایسه قیمت', icon:'fa-tags', help:'متاتگ‌های رسمی ترب (product_id، product_name، product_price، product_old_price، availability، guarantee و og:image مطلق) به‌صورت خودکار در تمام صفحات محصول درج می‌شوند. همچنین وب‌سرویس رسمی Product API v3 ترب در آدرس /torob_api/v3/products آماده است.' },
+        { k:'torob_require_jwt', l:'بررسی امنیتی توکن رسمی ترب (X-Torob-Token) روی API نسخه ۳', select:['فعال','غیرفعال'] },
         { sec:'سرویس پیامک (کاوه‌نگار)', icon:'fa-sms', help:'پس از خرید سرویس از کاوه‌نگار، کلید API را از پنل کاوه‌نگار (بخش «تنظیمات حساب ← API») کپی و اینجا وارد کنید. تا وقتی «غیرفعال» باشد، ورود با موبایل در حالت آزمایشی (کد ثابت) کار می‌کند و پیامکی ارسال نمی‌شود. اگر نام قالب (Template) را وارد کنید پیام با متد «تایید/Lookup» و در غیر این صورت به‌صورت متن ساده از شماره خط ارسال می‌شود.' },
         { k:'sms_enabled', l:'سرویس پیامک فعال باشد؟', select:['فعال','غیرفعال'] },
         { k:'sms_api_key', l:'کلید API کاوه‌نگار', ph:'API Key' },
@@ -1699,6 +1710,47 @@ export function adminSettingsPage() {
         finally { btn.disabled = false; btn.innerHTML = orig; }
       });
       loadSettings();
+      (function () {
+        const box = document.getElementById('torob-diag-out');
+        const btn = document.getElementById('torob-check-btn');
+        if (!box || !btn) return;
+        async function runDiag() {
+          box.innerHTML = '<span class="text-slate-400">در حال بررسی محصولات و متاتگ‌های ترب...</span>';
+          try {
+            const r = await axios.get('/api/torob/v3/admin/diagnostics');
+            const d = r.data.data;
+            let html = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">'
+              + '<div class="p-3 rounded-lg bg-slate-50 border"><div class="text-slate-400">کل محصولات فعال</div><b class="text-base text-slate-800">' + formatPrice(d.totalActive) + '</b></div>'
+              + '<div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200"><div class="text-emerald-700">آماده و موجود در ترب</div><b class="text-base text-emerald-700">' + formatPrice(d.readyInStock) + '</b></div>'
+              + '<div class="p-3 rounded-lg bg-amber-50 border border-amber-200"><div class="text-amber-700">ناموجود / استعلامی</div><b class="text-base text-amber-700">' + formatPrice(d.outOfStock) + '</b></div>'
+              + '<div class="p-3 rounded-lg bg-indigo-50 border border-indigo-200"><div class="text-indigo-700">تصویر جایگزین خودکار</div><b class="text-base text-indigo-700">' + formatPrice(d.missingImageFallbackUsed) + '</b></div>'
+              + '</div>';
+            html += '<div class="p-3 rounded-lg bg-slate-50 border mb-3 space-y-1"><div><b>دامنه کانونیکال فعلی:</b> <code dir="ltr" class="text-indigo-700">' + escAdmin(d.baseUrl) + '</code></div>'
+              + '<div><b>آدرس API نسخه ۳ ترب:</b> <code dir="ltr" class="text-emerald-700 select-all">' + escAdmin(d.torobApiEndpoint) + '</code></div></div>';
+            if (d.sampleProduct) {
+              const sp = d.sampleProduct;
+              html += '<div class="p-3 rounded-lg bg-slate-900 text-emerald-300 font-mono text-[11px] overflow-x-auto mb-3" dir="ltr">'
+                + escAdmin('<meta name="product_id" content="' + sp.productId + '">') + '<br>'
+                + escAdmin('<meta name="product_name" content="' + sp.name + '">') + '<br>'
+                + escAdmin('<meta name="product_price" content="' + sp.currentPriceToman + '">') + '<br>'
+                + escAdmin('<meta name="product_old_price" content="' + sp.oldPriceToman + '">') + '<br>'
+                + escAdmin('<meta name="availability" content="' + sp.availabilityMeta + '">') + '<br>'
+                + escAdmin('<meta property="og:image" content="' + sp.mainImageAbs + '">')
+                + '</div>';
+            }
+            if (d.issues && d.issues.length) {
+              html += '<details class="border rounded-lg p-2.5 bg-amber-50/50"><summary class="cursor-pointer font-bold text-amber-800">مشاهده هشدارهای داده محصولات (' + formatPrice(d.issues.length) + ' مورد — نیاز به آپلود مجدد عکس یا اصلاح قیمت)</summary><ul class="mt-2 space-y-1 max-h-56 overflow-y-auto pr-3 list-disc">'
+                + d.issues.map(it => '<li><b>#' + it.id + ' ' + escAdmin(it.name) + ':</b> ' + escAdmin(it.msg) + ' <a href="/product/' + encodeURIComponent(it.slug) + '" target="_blank" class="text-indigo-600 underline">[مشاهده صفحه]</a></li>').join('')
+                + '</ul></details>';
+            }
+            box.innerHTML = html;
+          } catch (e) {
+            box.innerHTML = '<span class="text-rose-600">خطا در دریافت وضعیت سلامت ترب</span>';
+          }
+        }
+        btn.addEventListener('click', runDiag);
+        runDiag();
+      })();
       (function () {
         const out = document.getElementById('sms-out');
         function show(msg, ok) { out.className = 'text-sm leading-7 ' + (ok ? 'text-emerald-700' : 'text-rose-600'); out.textContent = msg; }
@@ -1912,7 +1964,7 @@ export function adminSiteContentPage() {
             </div>
           </div>
           <div><label class="block text-xs text-slate-500 mb-1">icon (FA مثل fa-shipping-fast یا متن دکمه اسلایدر)</label><input name="icon" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>
-          <div><label class="block text-xs text-slate-500 mb-1">عنوان *</label><input name="title" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-slate-500 mb-1">عنوان (برای بنر تمام‌تصویری خالی بگذارید)</label><input name="title" placeholder="اختیاری در صورت انتخاب تصویر" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>
           <div class="col-span-2"><label class="block text-xs text-slate-500 mb-1">توضیح</label><textarea name="description" rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea></div>
           <div><label class="block text-xs text-slate-500 mb-1">href (پیوند)</label><input name="href" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-slate-500 mb-1">ترتیب</label><input name="sort_order" type="number" value="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>

@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_cost BIGINT DEFAULT 0,
   total BIGINT NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  torob_clid VARCHAR(190) NULL,
   payment_status VARCHAR(20) DEFAULT 'unpaid',
   payment_method VARCHAR(20) DEFAULT 'cod',
   payment_ref VARCHAR(190),

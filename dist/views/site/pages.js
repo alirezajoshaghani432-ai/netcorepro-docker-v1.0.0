@@ -6,6 +6,7 @@ import { getChannels, primaryChannel } from '../../utils/contact.js';
 import { ncImg, imgPreload, bestUrl, imgSize } from '../../utils/img.js';
 import { hiddenCategoryIds, catVisSql, visibleCats } from '../../utils/catvis.js';
 import { searchClause } from '../../utils/search.js';
+import { computeTorobProductData, renderTorobMetaTags, findActiveProductBySlug, isValidRasterImageUrl } from '../../utils/torob.js';
 // F2f — `sizes` presets: tell the browser the real rendered width so it
 // never downloads a 1600px file for a 160px card.
 const SZ_PROD = '(max-width:520px) 150px, (max-width:980px) 200px, 240px';
@@ -147,7 +148,7 @@ function productCard(p, opts = {}) {
   <div class="nc-prod">
     ${badge}
     <a href="/product/${esc(p.slug)}" class="nc-prod-img">
-      ${ncImg(p.image || '/static/images/p1.svg', { alt: p.name, sizes: SZ_PROD, ratio: false })}
+      ${ncImg((p.image && isValidRasterImageUrl(p.image)) ? p.image : (computeTorobProductData(p).mainImageRel || '/static/images/p1.svg'), { alt: p.name, sizes: SZ_PROD, ratio: false })}
     </a>
     <div class="nc-prod-body">
       ${p.brand_name ? `<div class="nc-prod-brand">${esc(p.brand_name)}</div>` : '<div class="nc-prod-brand">&nbsp;</div>'}
@@ -157,7 +158,7 @@ function productCard(p, opts = {}) {
   </div>`;
 }
 // ===== Home =====
-export function homePage() {
+export function homePage(reqOrigin = '') {
     const sel = `SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
@@ -195,11 +196,11 @@ export function homePage() {
     ];
     const slides = (heroBlocks && heroBlocks.length)
         ? heroBlocks.map((b, i) => ({
-            img: b.image || defaultSlides[i % defaultSlides.length].img,
-            title: b.title || '',
-            sub: b.description || '',
-            cta: b.icon || 'مشاهده',   // 'icon' field reused as CTA label for hero blocks
-            href: b.href || '/products',
+            img: String(b.image || '').trim() || defaultSlides[i % defaultSlides.length].img,
+            title: String(b.title || '').trim(),
+            sub: String(b.description || '').trim(),
+            cta: String(b.icon || '').trim() || 'مشاهده',   // 'icon' field reused as CTA label for hero blocks
+            href: String(b.href || '').trim() || '/products',
         }))
         : defaultSlides;
 
@@ -212,11 +213,11 @@ export function homePage() {
     ];
     const sideBanners = (sideBlocks && sideBlocks.length)
         ? sideBlocks.map((b, i) => ({
-            title: b.title || '',
-            sub: b.description || '',
-            icon: b.icon || 'fa-bolt',
-            href: b.href || '/products',
-            img: b.image || (defaultSideBanners[i % defaultSideBanners.length] || {}).img || '',
+            title: String(b.title || '').trim(),
+            sub: String(b.description || '').trim(),
+            icon: String(b.icon || '').trim() || 'fa-bolt',
+            href: String(b.href || '').trim() || '/products',
+            img: String(b.image || '').trim() || (defaultSideBanners[i % defaultSideBanners.length] || {}).img || '',
             alt: i % 2 === 1,
         }))
         : defaultSideBanners;
@@ -229,11 +230,11 @@ export function homePage() {
     ];
     const midBanners = (midBlocks && midBlocks.length)
         ? midBlocks.map((b, i) => ({
-            title: b.title || '',
-            sub: b.description || '',
-            cta: b.icon || 'خرید',
-            href: b.href || '/products',
-            img: b.image || (defaultMidBanners[i % defaultMidBanners.length] || {}).img || '',
+            title: String(b.title || '').trim(),
+            sub: String(b.description || '').trim(),
+            cta: String(b.icon || '').trim() || 'خرید',
+            href: String(b.href || '').trim() || '/products',
+            img: String(b.image || '').trim() || (defaultMidBanners[i % defaultMidBanners.length] || {}).img || '',
             b: i % 2 === 1,
         }))
         : defaultMidBanners;
@@ -251,14 +252,15 @@ export function homePage() {
         const sz = imgSize(src);
         return !!(sz && sz.w && sz.h && sz.w / sz.h < 1.6);
     }
+    const allGraphicSlides = slides.length > 0 && slides.every(s => !s.title && !s.sub && !isProductShot(s.img));
     const content = `
     <!-- Hero slider + side banners -->
-    <section class="nc-container">
+    <section class="nc-container nc-hero-section">
       <div class="nc-hero-grid">
-        <div class="nc-slider" id="nc-slider">
+        <div class="nc-slider${allGraphicSlides ? ' nc-slider--graphic' : ''}" id="nc-slider">
           ${slides.map((s, i) => `
-            <div class="nc-slide${i === 0 ? ' active' : ''}${isProductShot(s.img) ? ' nc-slide--product' : ''}">
-              ${ncImg(s.img, { cls: 'nc-slide-bg', alt: s.title || '', sizes: SZ_HERO, lcp: i === 0, loading: i === 0 ? 'eager' : 'lazy', ratio: false })}
+            <div class="nc-slide${i === 0 ? ' active' : ''}${isProductShot(s.img) ? ' nc-slide--product' : ''}${(!s.title && !s.sub && !isProductShot(s.img)) ? ' nc-slide--graphic' : ''}">
+              ${ncImg(s.img, { cls: 'nc-slide-bg', alt: s.title || 'بنر فروشگاه رادیس', sizes: SZ_HERO, lcp: i === 0, loading: i === 0 ? 'eager' : 'lazy', ratio: false })}
               ${(s.title || s.sub) ? `<div class="nc-slide-content nc-slide-card">
                 ${s.title ? `<h2>${esc(s.title)}</h2>` : ''}
                 ${s.sub ? `<p>${esc(s.sub)}</p>` : ''}
@@ -423,9 +425,12 @@ export function homePage() {
       </div>
 
       <div class="nc-articles">
-        ${posts.map(p => `
+        ${posts.map(p => {
+            const cImg = String(p.cover_image || '').trim() || '/static/images/blog1.svg';
+            return `
           <a href="/blog/${esc(p.slug)}" class="nc-article">
-            <div class="nc-article-img" style="background-image:url('${esc(p.cover_image || '/static/images/blog1.svg')}')">
+            <div class="nc-article-img">
+              ${ncImg(cImg, { cls: 'nc-article-cover-el', alt: p.title || 'مقاله', sizes: '(max-width:768px) 94vw, 390px', ratio: false })}
               <span class="nc-article-cat"><i class="fas ${articleIcons[p.category] || 'fa-newspaper'}"></i> ${esc(p.category || 'مقاله')}</span>
             </div>
             <div class="nc-article-body">
@@ -433,8 +438,8 @@ export function homePage() {
               <p class="line-clamp-2">${esc(p.excerpt || '')}</p>
               <div class="nc-article-meta"><i class="far fa-calendar"></i> ${faDate(p.created_at)}</div>
             </div>
-          </a>
-        `).join('')}
+          </a>`;
+        }).join('')}
       </div>
     </section>
 
@@ -569,13 +574,13 @@ export function homePage() {
     </script>
   `;
     return siteLayout({
-        title: 'صفحه اصلی', currentPath: '/',
+        title: 'صفحه اصلی', currentPath: '/', reqOrigin,
         // F2f: start the LCP download during HTML parsing, not after CSS/JS.
         extraHead: slides.length ? imgPreload(slides[0].img, SZ_HERO) : ''
     }, content);
 }
 // ===== Products List =====
-export function productsPage(query) {
+export function productsPage(query, reqOrigin = '') {
     // V4: hierarchical dropdown — roots first, then their children indented,
     // so the filter mirrors the mega-menu structure instead of a flat list.
     const catsRaw = visibleCats(db.prepare(`SELECT * FROM categories ORDER BY sort_order, name`).all());
@@ -732,7 +737,7 @@ export function productsPage(query) {
         return \`<div class="nc-prod">
           \${pct > 0 ? '<span class="nc-prod-badge">' + formatPrice(pct) + '٪</span>' : ''}
           <a href="/product/\${ncpEsc(p.slug)}" class="nc-prod-img">
-            <img loading="lazy" decoding="async" src="\${ncpEsc(p.image || '/static/images/p1.svg')}" alt="\${ncpEsc(p.name)}">
+            <img loading="lazy" decoding="async" src="\${ncpEsc(p.image || '/static/images/p1.svg')}" alt="\${ncpEsc(p.name)}" onerror="this.onerror=null;this.src='/static/images/p1.svg'">
           </a>
           <div class="nc-prod-body">
             <div class="nc-prod-brand">\${ncpEsc(p.brand_name || '\u00a0')}</div>
@@ -824,16 +829,19 @@ export function productsPage(query) {
         description: seoCat ? (seoCat.seo_description || `خرید ${seoCat.name} با گارانتی اصالت و بهترین قیمت`) : '',
         keywords: seoCat ? (seoCat.seo_keywords || '') : '',
         ogImage: seoCat && seoCat.image ? seoCat.image : '',
-        currentPath: '/products'
+        currentPath: '/products',
+        reqOrigin
     }, content);
 }
 // ===== Single Product =====
-export function productPage(slug) {
-    const p = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'${catVisSql('p.category_id')}`).get(slug);
+export function productPage(slug, reqOrigin = '') {
+    const p = findActiveProductBySlug(slug, catVisSql('p.category_id'));
     if (!p)
         return notFoundPage('محصول');
     db.prepare(`UPDATE products SET views = views + 1 WHERE id = ?`).run(p.id);
-    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 8`).all(p.category_id, p.id);
+    // Filter related products to in-stock purchasable items only so Torob/Emalls DOM crawlers
+    // never confuse an «ناموجود» badge in the related carousel with the main product's availability!
+    const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active' AND p.stock > 0 AND p.price >= 1000${catVisSql('p.category_id')} ORDER BY p.sort_order ASC, p.id DESC LIMIT 8`).all(p.category_id, p.id);
     const comments = db.prepare(`SELECT author_name, content, created_at FROM comments WHERE product_id = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 20`).all?.(p.id) || [];
     const price = p.discount_price || p.price;
     const has = p.discount_price && p.discount_price < p.price;
@@ -855,8 +863,11 @@ export function productPage(slug) {
         bucket.rows.push(s);
     });
     const hasGroups = specGroups.some(g => g.name);
-    const allImages = [p.image || '/static/images/p1.svg', ...gallery.filter(g => g && g !== p.image)];
     const settings = getAllSettings();
+    const torob = computeTorobProductData(p, { settings, reqOrigin });
+    const displayMainImg = (p.image && isValidRasterImageUrl(p.image)) ? p.image : (torob.mainImageRel || '/static/images/p1.svg');
+    const validGallery = gallery.filter(g => g && g !== displayMainImg && isValidRasterImageUrl(g));
+    const allImages = [displayMainImg, ...validGallery];
     // F1: all contact buttons on this page come from the admin-managed
     // channel list (utils/contact.js) — labels, links and visibility included.
     const channels = getChannels(settings);
@@ -923,8 +934,8 @@ export function productPage(slug) {
         </div>
 
         <!-- buy box (side) -->
-        <aside class="nc-buybox">
-          <div class="nc-buybox-guarantee"><i class="fas fa-shield-halved"></i> ${esc(p.guarantee || 'گارانتی اصالت و سلامت فیزیکی کالا')}</div>
+        <aside class="nc-buybox" data-product-id="${esc(torob.productId)}">
+          <div class="nc-buybox-guarantee"><i class="fas fa-shield-halved"></i> ${esc(torob.guarantee)}</div>
           <div class="nc-buybox-rows">
             ${has ? `
             <div class="nc-buybox-row"><span>قیمت:</span><b class="nc-buybox-old">${formatPrice(p.price)} تومان</b></div>
@@ -1072,28 +1083,37 @@ export function productPage(slug) {
         title: p.seo_title || p.name,
         description: p.seo_description || p.short_description || '',
         keywords: p.seo_keywords || '',
-        ogImage: p.image || '',
+        ogImage: torob.mainImageAbs,
+        ogType: 'product',
+        canonicalUrl: torob.canonicalUrl,
+        reqOrigin,
         currentPath: '/product/' + p.slug,
-        // SEO: schema.org Product structured data for rich results
+        torobHead: renderTorobMetaTags(torob),
+        // SEO: schema.org Product structured data for rich results (and secondary crawler signal)
         jsonLd: {
             '@context': 'https://schema.org',
             '@type': 'Product',
+            productID: torob.productId,
+            sku: p.sku || torob.productId,
+            mpn: p.sku || undefined,
             name: p.name,
-            sku: p.sku || undefined,
-            image: p.image || undefined,
-            description: p.short_description || p.seo_description || undefined,
+            image: torob.imageLinksAbs.length > 1 ? torob.imageLinksAbs : torob.mainImageAbs,
+            description: torob.shortDesc || undefined,
+            category: torob.categoryName || undefined,
             brand: p.brand_name ? { '@type': 'Brand', name: p.brand_name } : undefined,
             offers: {
                 '@type': 'Offer',
+                url: torob.canonicalUrl,
                 priceCurrency: 'IRR',
-                price: (p.discount_price || p.price) * 10,
-                availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                price: torob.currentPriceToman * 10,
+                availability: torob.isAvailable ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                itemCondition: 'https://schema.org/NewCondition',
             },
         }
     }, content);
 }
 // ===== Categories Page =====
-export function categoriesPage() {
+export function categoriesPage(reqOrigin = '') {
     // 2026-11-03: inactive categories (and their sub-categories) are hidden, and
     // the count now includes products of sub-categories — a parent such as
     // «سوییچ شبکه» used to show «0 محصول» although its children had products.
@@ -1125,10 +1145,44 @@ export function categoriesPage() {
       </div>
     </div>
   `;
-    return siteLayout({ title: 'دسته‌بندی‌ها', currentPath: '/categories' }, content);
+    return siteLayout({ title: 'دسته‌بندی‌ها', currentPath: '/categories', reqOrigin }, content);
 }
 // ===== Blog =====
-export function blogListPage() {
+function normalizeHeadingText(s) {
+    return String(s || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\u200c/g, ' ')
+        .replace(/[ي]/g, 'ی')
+        .replace(/[ك]/g, 'ک')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+function stripDuplicateLeadingH1(html, postTitle) {
+    if (!html) return '';
+    const m = html.match(/^\s*<h1\b[^>]*>([\s\S]*?)<\/h1>\s*/i);
+    if (!m) return html;
+    const h1Text = normalizeHeadingText(m[1]);
+    const titleNorm = normalizeHeadingText(postTitle);
+    if (!h1Text || h1Text === titleNorm || (titleNorm && (h1Text.includes(titleNorm) || titleNorm.includes(h1Text)))) {
+        return html.slice(m[0].length);
+    }
+    return html.replace(/^\s*<h1(\b[^>]*)>([\s\S]*?)<\/h1>/i, '<h2$1>$2</h2>');
+}
+function findPublishedPostBySlug(rawSlug) {
+    if (!rawSlug) return null;
+    let decoded = String(rawSlug).trim();
+    try { decoded = decodeURIComponent(decoded).trim(); } catch {}
+    let post = db.prepare(`SELECT * FROM posts WHERE slug = ? AND status = 'published'`).get(decoded);
+    if (post) return post;
+    const alt = decoded.replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+    if (alt !== decoded) {
+        post = db.prepare(`SELECT * FROM posts WHERE slug = ? AND status = 'published'`).get(alt);
+        if (post) return post;
+    }
+    return db.prepare(`SELECT * FROM posts WHERE LOWER(slug) = LOWER(?) AND status = 'published'`).get(decoded) || null;
+}
+export function blogListPage(reqOrigin = '') {
     const posts = db.prepare(`SELECT id, title, slug, excerpt, cover_image, category, views, created_at FROM posts WHERE status = 'published' ORDER BY created_at DESC`).all();
     const content = `
     <div class="nc-container nc-page">
@@ -1136,9 +1190,12 @@ export function blogListPage() {
       <h1 class="nc-page-title">مقالات و راهنماها</h1>
       ${posts.length ? `
       <div class="nc-articles">
-        ${posts.map(p => `
+        ${posts.map(p => {
+            const cImg = String(p.cover_image || '').trim() || '/static/images/blog1.svg';
+            return `
           <a href="/blog/${esc(p.slug)}" class="nc-article">
-            <div class="nc-article-img" style="background-image:url('${esc(p.cover_image || '/static/images/blog1.svg')}')">
+            <div class="nc-article-img">
+              ${ncImg(cImg, { cls: 'nc-article-cover-el', alt: p.title || 'مقاله', sizes: '(max-width:768px) 94vw, 390px', ratio: false })}
               <span class="nc-article-cat"><i class="fas fa-newspaper"></i> ${esc(p.category || 'مقاله')}</span>
             </div>
             <div class="nc-article-body">
@@ -1146,19 +1203,22 @@ export function blogListPage() {
               <p class="line-clamp-2">${esc(p.excerpt || '')}</p>
               <div class="nc-article-meta"><i class="far fa-eye"></i> ${formatPrice(p.views || 0)} بازدید</div>
             </div>
-          </a>
-        `).join('')}
+          </a>`;
+        }).join('')}
       </div>` : '<div class="nc-empty">هنوز مقاله‌ای منتشر نشده است.</div>'}
     </div>
   `;
-    return siteLayout({ title: 'مقالات', currentPath: '/blog' }, content);
+    return siteLayout({ title: 'مقالات', currentPath: '/blog', reqOrigin }, content);
 }
-export function blogPostPage(slug) {
-    const post = db.prepare(`SELECT * FROM posts WHERE slug = ? AND status = 'published'`).get(slug);
+export function blogPostPage(slug, reqOrigin = '') {
+    const post = findPublishedPostBySlug(slug);
     if (!post)
         return notFoundPage('مقاله');
     db.prepare(`UPDATE posts SET views = views + 1 WHERE id = ?`).run(post.id);
     const comments = db.prepare(`SELECT id, author_name, content, created_at FROM comments WHERE post_id = ? AND status = 'approved' ORDER BY created_at DESC`).all(post.id);
+    const coverImg = String(post.cover_image || '').trim() || '/static/images/blog1.svg';
+    const cleanBodyHtml = stripDuplicateLeadingH1(sanitizeHtml(post.content), post.title);
+    const ogImg = isValidRasterImageUrl(coverImg) ? coverImg : '';
     const content = `
     <article class="nc-container nc-page nc-blogpost">
       <nav class="nc-breadcrumb">
@@ -1166,14 +1226,17 @@ export function blogPostPage(slug) {
         <a href="/blog">مقالات</a> <i class="fas fa-angle-left"></i>
         <span>${esc(post.title)}</span>
       </nav>
-      <div class="nc-blogpost-cover" style="background-image:url('${esc(post.cover_image || '/static/images/blog1.svg')}')"></div>
-      <span class="nc-blogpost-cat">${esc(post.category || '')}</span>
+      <figure class="nc-blogpost-cover">
+        ${ncImg(coverImg, { cls: 'nc-blogpost-cover-backdrop', alt: '', sizes: '(max-width:860px) 95vw, 820px', loading: 'eager', ratio: false, attrs: 'aria-hidden="true"' })}
+        ${ncImg(coverImg, { cls: 'nc-blogpost-cover-img', alt: post.title || 'تصویر مقاله', sizes: '(max-width:860px) 95vw, 820px', lcp: true, loading: 'eager', ratio: false })}
+      </figure>
+      ${String(post.category || '').trim() ? `<span class="nc-blogpost-cat">${esc(post.category)}</span>` : ''}
       <h1 class="nc-blogpost-title">${esc(post.title)}</h1>
       <div class="nc-blogpost-meta">
         <span><i class="far fa-calendar ml-1"></i>${new Date(post.created_at).toLocaleDateString('fa-IR')}</span>
         <span><i class="far fa-eye ml-1"></i>${formatPrice(post.views)} بازدید</span>
       </div>
-      <div class="prose-rtl">${sanitizeHtml(post.content)}</div>
+      <div class="prose-rtl">${cleanBodyHtml}</div>
 
       <div class="nc-comments">
         <h2><i class="far fa-comments ml-2"></i>دیدگاه‌ها (${formatPrice(comments.length)})</h2>
@@ -1219,7 +1282,19 @@ export function blogPostPage(slug) {
       });
     </script>
   `;
-    return siteLayout({ title: post.title, description: post.excerpt || '', currentPath: '/blog' }, content);
+    const blogJsonLd = `<script type="application/ld+json">${safeJson({
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: post.title,
+        description: post.excerpt || stripTags(cleanBodyHtml).slice(0, 180),
+        image: ogImg ? (reqOrigin ? reqOrigin.replace(/\/$/, '') + ogImg : 'https://radys.ir' + ogImg) : 'https://radys.ir/static/images/og-logo.png',
+        datePublished: post.created_at || undefined,
+        dateModified: post.updated_at || post.created_at || undefined,
+        author: { '@type': 'Organization', name: 'رادیس' },
+        publisher: { '@type': 'Organization', name: 'رادیس' },
+        mainEntityOfPage: { '@type': 'WebPage', '@id': 'https://radys.ir/blog/' + encodeURIComponent(post.slug) },
+    })}</script>`;
+    return siteLayout({ title: post.title, description: post.excerpt || '', ogImage: ogImg, ogType: 'article', currentPath: '/blog/' + post.slug, reqOrigin, extraHead: blogJsonLd }, content);
 }
 // ===== Cart =====
 export function cartPage() {
@@ -1392,6 +1467,7 @@ export function checkoutPage() {
         const fd = new FormData(e.target);
         const data = Object.fromEntries(fd.entries());
         data.items = window.NCPCart.get().map(i => ({ product_id: i.product_id, quantity: i.quantity }));
+        if (window.ncpGetTorobClid) { const tc = window.ncpGetTorobClid(); if (tc) data.torob_clid = tc; }
         if (data.customer_phone && window.ncpNormalizePhone) data.customer_phone = window.ncpNormalizePhone(data.customer_phone);
         const btn = e.target.querySelector('button[type=submit]');
         btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<span class="spinner"></span> در حال ثبت...';
@@ -2214,7 +2290,7 @@ export function notFoundPage(label = 'صفحه', code = 404) {
 // ===== Multiple home/landing pages (voice n9) — /h/:slug =====
 // Each page is a mini-home for one product family: its own hero, the
 // categories/brands the admin picked, and auto-sliding product rails.
-export function homeLandingPage(slug) {
+export function homeLandingPage(slug, reqOrigin = '') {
     const hp = getHomePageBySlug(slug);
     if (!hp)
         return null;
@@ -2300,7 +2376,7 @@ export function homeLandingPage(slug) {
       ncpReady(function(){
         document.querySelectorAll('.nc-carousel[data-auto]').forEach(function(el){
           var iv = setInterval(function(){
-            var card = el.querySelector('.nc-prod-card');
+            var card = el.querySelector('.nc-prod, .nc-prod-card');
             if (!card) return;
             var step = card.offsetWidth + 14;
             var maxScroll = el.scrollWidth - el.clientWidth;
@@ -2314,7 +2390,7 @@ export function homeLandingPage(slug) {
           btn.addEventListener('click', function(){
             var el = document.getElementById(btn.dataset.target);
             if (!el) return;
-            var card = el.querySelector('.nc-prod-card');
+            var card = el.querySelector('.nc-prod, .nc-prod-card');
             var step = card ? card.offsetWidth + 14 : 260;
             el.scrollBy({ left: step * parseInt(btn.dataset.dir || '1'), behavior: 'smooth' });
           });
@@ -2326,5 +2402,6 @@ export function homeLandingPage(slug) {
         title: hp.seo_title || hp.title,
         description: hp.seo_description || hp.tagline || '',
         currentPath: '/h/' + hp.slug,
+        reqOrigin,
     }, content);
 }

@@ -29,9 +29,45 @@ if (SELECTED_DB === 'mysql') {
     }
 }
 else {
-    const { default: Database } = await import('better-sqlite3');
     const dbPath = process.env.DB_PATH || join(__dirname, '../../data/netcorepro.db');
-    _db = new Database(dbPath);
+    try {
+        const { default: Database } = await import('better-sqlite3');
+        _db = new Database(dbPath);
+    }
+    catch (nativeErr) {
+        // Node 22+ fallback using built-in `node:sqlite` DatabaseSync when better-sqlite3 ABI differs
+        const { DatabaseSync } = await import('node:sqlite');
+        const raw = new DatabaseSync(dbPath);
+        _db = {
+            open: true,
+            exec: (sql) => raw.exec(sql),
+            pragma: (p) => raw.exec(`PRAGMA ${p}`),
+            close: () => { try { raw.close(); } catch { } },
+            prepare: (sql) => {
+                const st = raw.prepare(sql);
+                return {
+                    get: (...args) => st.get(...args),
+                    all: (...args) => st.all(...args),
+                    run: (...args) => {
+                        const r = st.run(...args);
+                        return { changes: Number(r.changes || 0), lastInsertRowid: Number(r.lastInsertRowid || 0) };
+                    },
+                };
+            },
+            transaction: (fn) => (...args) => {
+                raw.exec('BEGIN');
+                try {
+                    const out = fn(...args);
+                    raw.exec('COMMIT');
+                    return out;
+                }
+                catch (err) {
+                    try { raw.exec('ROLLBACK'); } catch { }
+                    throw err;
+                }
+            },
+        };
+    }
     _db.pragma('journal_mode = WAL');
     _db.pragma('foreign_keys = ON');
     const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
@@ -100,6 +136,7 @@ ensureColumn('orders', 'paid_at', 'TEXT');
 // page / gateway can show the final amount. Products may override the global
 // percent (tax_percent NULL = use the global setting).
 ensureColumn('orders', 'tax', 'INTEGER DEFAULT 0');
+ensureColumn('orders', 'torob_clid', 'TEXT');
 ensureColumn('products', 'tax_percent', 'REAL');
 // A: multiple configurable home/landing pages (e.g. one per product family),
 // fully managed from the admin dashboard.
@@ -284,6 +321,17 @@ ensureImagesByMatch(`UPDATE site_blocks SET image = ? WHERE section = 'hero' AND
     { key: 'رک و متعلقات آماد سیستم', image: '/static/images/hero-3-rack.jpg' },
     { key: 'سوییچ و روتر شبکه', image: '/static/images/hero-2-cabling.jpg' },
 ]);
+
+// ===== 2026-11-17: Torob & SEO auto-fix for raw IP site_url =====
+// Previously settings.site_url had `http://185.250.249.187:8090`, which broke canonical URLs
+// and caused Torob crawler to reject product URLs as cross-domain! Auto-upgrade raw IP to https://radys.ir.
+try {
+    const curUrl = db.prepare(`SELECT value FROM settings WHERE key = 'site_url'`).get();
+    if (curUrl && curUrl.value && /^https?:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?/i.test(String(curUrl.value).trim())) {
+        db.prepare(`UPDATE settings SET value = 'https://radys.ir' WHERE key = 'site_url'`).run();
+        console.log('[db] migrated settings.site_url from raw IP to https://radys.ir');
+    }
+} catch (e) { console.error('[db] site_url migration warning:', e.message); }
 
 // Graceful close (called on SIGINT/SIGTERM from server.ts)
 export function closeDatabase() {

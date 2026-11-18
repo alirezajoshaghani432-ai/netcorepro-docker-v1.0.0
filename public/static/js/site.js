@@ -5,6 +5,25 @@
 (function () {
   'use strict';
 
+  // -------------------- Torob click attribution (torob_clid) --------------------
+  (function () {
+    try {
+      var sp = new URLSearchParams(window.location.search || '');
+      var clid = (sp.get('torob_clid') || '').trim();
+      if (clid && /^[A-Za-z0-9_.-]{4,180}$/.test(clid)) {
+        localStorage.setItem('ncp_torob_clid', JSON.stringify({ v: clid, exp: Date.now() + 7 * 86400 * 1000 }));
+        document.cookie = 'torob_clid=' + encodeURIComponent(clid) + '; path=/; max-age=' + (7 * 86400) + '; SameSite=Lax';
+      }
+    } catch (e) {}
+  })();
+  window.ncpGetTorobClid = function () {
+    try {
+      var raw = JSON.parse(localStorage.getItem('ncp_torob_clid') || 'null');
+      if (raw && raw.v && raw.exp > Date.now()) return String(raw.v);
+    } catch (e) {}
+    return '';
+  };
+
   // -------------------- html escape (DOM-XSS guard) --------------------
   // Escapes user/content-controlled strings before they are injected via innerHTML.
   window.ncpEsc = function (s) {

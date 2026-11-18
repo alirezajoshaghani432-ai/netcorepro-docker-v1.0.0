@@ -19,6 +19,7 @@ const orderSchema = z.object({
     shipping_postal: z.string().trim().max(20, 'کد پستی معتبر نیست').optional(),
     notes: z.string().trim().max(2000, 'توضیحات بیش از حد طولانی است (حداکثر ۲۰۰۰ کاراکتر)').optional(),
     payment_method: z.enum(['card', 'gateway', 'cod']).optional(),
+    torob_clid: z.string().trim().max(190).optional(),
     items: z.array(z.object({
         product_id: z.number().int().positive(),
         quantity: z.number().int().positive().max(10000, 'تعداد سفارش بیش از حد مجاز است')
@@ -88,7 +89,7 @@ orders.post('/', authOptional, async (c) => {
     allowed.push('cod');
     const payMethod = allowed.includes(d.payment_method) ? d.payment_method : allowed[0];
     const tx = db.transaction(() => {
-        const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, tax, total, status, payment_method, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending')`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, taxTotal, total, payMethod);
+        const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, tax, total, status, payment_method, payment_status, torob_clid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', ?)`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, taxTotal, total, payMethod, d.torob_clid || null);
         const orderId = result.lastInsertRowid;
         const itemStmt = db.prepare(`INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)`);
         const stockStmt = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?`);

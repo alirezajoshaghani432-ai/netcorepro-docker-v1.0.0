@@ -21,9 +21,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dns from 'node:dns';
 import net from 'node:net';
+import { fileURLToPath } from 'node:url';
+const __PROJ_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
-import { logActivity, friendlyDbError } from '../utils/helpers.js';
+import { logActivity, friendlyDbError, resolveSiteBaseUrl, requestOriginFromHono } from '../utils/helpers.js';
 import { generateVariantsFor } from '../utils/imggen.js';
 
 const io = new Hono();
@@ -196,9 +198,7 @@ function absUrl(base, u) {
 }
 io.get('/export', adminRequired, (c) => {
     const format = (c.req.query('format') || 'json').toLowerCase();
-    const proto = c.req.header('x-forwarded-proto') || 'http';
-    const host = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost';
-    const base = `${proto}://${host}`;
+    const base = resolveSiteBaseUrl(null, requestOriginFromHono(c));
     const paths = categoryPathMap();
     const rows = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON b.id = p.brand_id ORDER BY p.id`).all();
     const items = rows.map(p => {
@@ -237,7 +237,7 @@ io.get('/export', adminRequired, (c) => {
 });
 
 // ---------------------------------------------------------------- image download (SSRF-guarded)
-const UPLOAD_DIR = path.resolve(process.cwd(), 'public/static/uploads');
+const UPLOAD_DIR = path.resolve(__PROJ_ROOT, 'public/static/uploads');
 const MAX_IMG = 5 * 1024 * 1024;
 function isPrivateIp(ip) {
     if (net.isIPv4(ip)) {
@@ -284,6 +284,11 @@ async function downloadImage(url) {
         fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         const fname = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         fs.writeFileSync(path.join(UPLOAD_DIR, fname), buf);
+        try {
+            const pDir = path.resolve(__PROJ_ROOT, 'uploads');
+            fs.mkdirSync(pDir, { recursive: true });
+            fs.writeFileSync(path.join(pDir, fname), buf);
+        } catch { /* ignore */ }
         const local = `/static/uploads/${fname}`;
         generateVariantsFor(local).catch(() => { });
         return local;

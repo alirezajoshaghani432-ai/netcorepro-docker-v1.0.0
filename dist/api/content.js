@@ -57,11 +57,13 @@ const blockSchema = z.object({
     section: z.string().min(1, 'section الزامی است').max(50, 'نام بخش حداکثر ۵۰ کاراکتر'),
     icon: z.string().max(190, 'آیکون حداکثر ۱۹۰ کاراکتر').optional().nullable(),
     image: z.string().max(500, 'آدرس تصویر حداکثر ۵۰۰ کاراکتر').optional().nullable(),
-    title: z.string().min(1, 'عنوان الزامی است').max(255, 'عنوان حداکثر ۲۵۵ کاراکتر'),
+    title: z.string().max(255, 'عنوان حداکثر ۲۵۵ کاراکتر').optional().default(''),
     description: z.string().max(60000, 'توضیحات بیش از حد طولانی است').optional().nullable(),
     href: z.string().max(500, 'لینک حداکثر ۵۰۰ کاراکتر').optional().nullable(),
     sort_order: z.coerce.number().int().min(-1000000, 'ترتیب نامعتبر').max(1000000, 'ترتیب نامعتبر').optional().default(0),
     is_active: z.coerce.number().int().min(0).max(1).optional().default(1)
+}).refine((d) => Boolean((d.title && d.title.trim()) || (d.image && d.image.trim())), {
+    message: 'حداقل عنوان یا تصویر بنر باید وارد شود'
 });
 
 content.post('/admin/blocks', adminRequired, async (c) => {

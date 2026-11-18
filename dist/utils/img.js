@@ -18,7 +18,89 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MANIFEST_FILE = path.resolve(HERE, '../../public/static/rimg/manifest.json');
+const ROOT_DIR = path.resolve(HERE, '../..');
+const MANIFEST_FILE = path.resolve(ROOT_DIR, 'public/static/rimg/manifest.json');
+
+const CATEGORY_FALLBACK_IMAGES = {
+    'routers': '/static/images/prod-router4g.jpg',
+    'switches': '/static/images/prod-switch8.jpg',
+    'amad-racks': '/static/images/prod-rack.jpg',
+    'wall-racks': '/static/images/prod-rack.jpg',
+    'standing-racks': '/static/images/prod-rack.jpg',
+    'rack-accessories': '/static/images/prod-patchpanel.jpg',
+    'passive': '/static/images/prod-cat6.jpg',
+    'ebox': '/static/images/prod-cambox.jpg',
+    'adapters': '/static/images/prod-adapter.jpg',
+};
+
+/**
+ * Verify whether a local /static/* or /uploads/* raster image actually exists on disk
+ * (checks public/, persistent uploads/ volume, and responsive rimg variants).
+ */
+export function localImageExists(src) {
+    const clean = normalize(src);
+    if (!clean)
+        return false;
+    if (/^https?:\/\//i.test(clean))
+        return true;
+    if (/\.svg$/i.test(clean))
+        return false; // crawlers like Torob require raster (JPG/PNG/WebP), not SVG
+    if (clean.startsWith('/static/uploads/')) {
+        const fname = path.basename(clean);
+        if (fs.existsSync(path.join(ROOT_DIR, 'public/static/uploads', fname)))
+            return true;
+        if (fs.existsSync(path.join(ROOT_DIR, 'uploads', fname)))
+            return true;
+    }
+    else if (clean.startsWith('/uploads/')) {
+        const fname = path.basename(clean);
+        if (fs.existsSync(path.join(ROOT_DIR, 'uploads', fname)))
+            return true;
+        if (fs.existsSync(path.join(ROOT_DIR, 'public/static/uploads', fname)))
+            return true;
+    }
+    else if (clean.startsWith('/static/')) {
+        if (fs.existsSync(path.join(ROOT_DIR, 'public', clean.replace(/^\//, ''))))
+            return true;
+    }
+    // Also check if a pre-built responsive WebP variant exists on disk
+    const e = imgEntry(clean);
+    if (e) {
+        const best = bestUrl(clean, 1600);
+        if (best && fs.existsSync(path.join(ROOT_DIR, 'public', best.replace(/^\//, ''))))
+            return true;
+    }
+    return false;
+}
+
+/**
+ * Resolve a guaranteed-existing raster image path for a product (for Torob / OG / JSON-LD).
+ * Priority: main image -> gallery images -> category image -> high-res category/brand fallback -> og-logo.png.
+ */
+export function resolveProductImage(product, galleryList = []) {
+    const candidates = [];
+    if (product && product.image)
+        candidates.push(product.image);
+    if (Array.isArray(galleryList)) {
+        for (const g of galleryList) {
+            if (g)
+                candidates.push(g);
+        }
+    }
+    for (const c of candidates) {
+        if (localImageExists(c))
+            return normalize(c);
+    }
+    if (product && product.category_slug && CATEGORY_FALLBACK_IMAGES[product.category_slug]) {
+        const cf = CATEGORY_FALLBACK_IMAGES[product.category_slug];
+        if (localImageExists(cf))
+            return cf;
+    }
+    if (product && product.category_image && localImageExists(product.category_image)) {
+        return normalize(product.category_image);
+    }
+    return '/static/images/og-logo.png';
+}
 
 let MANIFEST = {};
 let MANIFEST_OK = false;
@@ -154,4 +236,4 @@ export function imgPreload(src, sizes = '100vw') {
         + ` imagesrcset="${attrEsc(srcsetOf(e))}" imagesizes="${attrEsc(sizes)}" fetchpriority="high">`;
 }
 
-export default { ncImg, imgPreload, bestUrl, imgEntry, imgSize, srcsetOf, loadImageManifest };
+export default { ncImg, imgPreload, bestUrl, imgEntry, imgSize, srcsetOf, loadImageManifest, localImageExists, resolveProductImage };

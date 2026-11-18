@@ -5,6 +5,7 @@ import { adminRequired } from '../middleware/auth.js';
 import { logActivity, friendlyDbError } from '../utils/helpers.js';
 import { catVisSql, visibleCats } from '../utils/catvis.js';
 import { searchClause } from '../utils/search.js';
+import { findActiveProductBySlug } from '../utils/torob.js';
 const products = new Hono();
 // Collect a category id and all of its descendant ids (nested subcategories)
 export function categoryDescendantIds(rootId) {
@@ -220,10 +221,10 @@ products.get('/id/:id', adminRequired, (c) => {
 });
 products.get('/:slug', (c) => {
     const slug = c.req.param('slug');
-    const product = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.slug = ? AND p.status = 'active'${catVisSql('p.category_id')}`).get(slug);
+    const product = findActiveProductBySlug(slug, catVisSql('p.category_id'));
     if (!product)
         return c.json({ success: false, message: 'محصول یافت نشد', code: 404 }, 404);
-    db.prepare(`UPDATE products SET views = views + 1 WHERE slug = ?`).run(slug);
+    db.prepare(`UPDATE products SET views = views + 1 WHERE id = ?`).run(product.id);
     const related = db.prepare(`SELECT p.*, b.name AS brand_name FROM products p LEFT JOIN brands b ON p.brand_id = b.id WHERE p.category_id = ? AND p.id != ? AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 4`).all(product.category_id, product.id);
     return c.json({ success: true, data: { product, related }, code: 200 });
 });

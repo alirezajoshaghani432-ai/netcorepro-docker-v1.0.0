@@ -54,6 +54,7 @@ RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund
 COPY dist            ./dist
 COPY public          ./public
 COPY scripts         ./scripts
+COPY REPORT_V3.html  ./REPORT_V3.html
 
 # اطمینان از وجود پوشه‌های runtime
 RUN mkdir -p /app/data /app/uploads
@@ -77,6 +78,7 @@ COPY --from=builder --chown=app:app /app/dist         ./dist
 COPY --from=builder --chown=app:app /app/public       ./public
 COPY --from=builder --chown=app:app /app/scripts      ./scripts
 COPY --from=builder --chown=app:app /app/package.json ./
+COPY --from=builder --chown=app:app /app/REPORT_V3.html ./REPORT_V3.html
 
 # پوشه‌های runtime (data و uploads باید volume باشند)
 RUN mkdir -p /app/data /app/uploads && chown -R app:app /app/data /app/uploads

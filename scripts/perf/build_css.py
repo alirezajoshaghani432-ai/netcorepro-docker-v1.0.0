@@ -11,7 +11,7 @@ Run:  python3 scripts/perf/build_css.py
 """
 import json, os, re, subprocess, sys
 
-ROOT = '/home/root/webapp/netcorepro'
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 CSS = os.path.join(ROOT, 'public/static/css')
 PERF = os.path.join(ROOT, 'scripts/perf')
 R = json.load(open(os.path.join(PERF, 'ranges.json')))
@@ -201,10 +201,22 @@ def build_fa_css(v):
 # ───────────────────────────────────────────── 3. Tailwind (storefront scope)
 def build_tailwind():
     out = '/tmp/nc-tw-site.css'
-    subprocess.run(['npx', 'tailwindcss', '-c', 'scripts/perf/tailwind.site.cjs',
-                    '-i', 'tailwind.input.css', '-o', out, '--minify'],
-                   cwd=ROOT, check=True, capture_output=True)
-    return open(out, encoding='utf-8').read()
+    local_bin = os.path.join(ROOT, 'node_modules/.bin/tailwindcss')
+    if os.path.exists(local_bin):
+        subprocess.run([local_bin, '-c', 'scripts/perf/tailwind.site.cjs',
+                        '-i', 'tailwind.input.css', '-o', out, '--minify'],
+                       cwd=ROOT, check=True, capture_output=True)
+        return open(out, encoding='utf-8').read()
+    # Offline fallback: preserve the exact purged storefront Tailwind slice from existing nc-site.min.css
+    existing_min = os.path.join(CSS, 'nc-site.min.css')
+    if os.path.exists(existing_min):
+        prev = open(existing_min, encoding='utf-8').read()
+        tw_s = prev.find('*,:after,:before{--tw-border-spacing-x')
+        app_s = prev.find(':root{--nc-primary:')
+        if tw_s != -1 and app_s != -1 and app_s > tw_s:
+            print(f'  Tailwind: reused offline purged storefront slice ({app_s - tw_s:,} B)')
+            return prev[tw_s:app_s]
+    return open(os.path.join(CSS, 'tailwind.min.css'), encoding='utf-8').read()
 
 
 # ─────────────────────────────────────────────────────────────── main

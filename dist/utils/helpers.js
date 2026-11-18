@@ -23,6 +23,57 @@ export function setSetting(key, value) {
     db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`).run(key, value);
 }
+
+const RAW_IP_HOST_RE = /^https?:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:\/|$)/i;
+const LOCAL_HOST_RE = /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i;
+
+/**
+ * Clean public site base URL (e.g. "https://radys.ir").
+ * Ignores raw IP addresses (like http://185.250.249.187:8090) or localhost in `settings.site_url`
+ * when a real domain is available from the incoming request Host header or PUBLIC_SITE_URL env.
+ */
+export function resolveSiteBaseUrl(settings = null, reqOrigin = '') {
+    const envUrl = String(process.env.PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
+    if (envUrl && /^https?:\/\//i.test(envUrl))
+        return envUrl;
+    const s = settings || getAllSettings();
+    const cfgUrl = String((s && s.site_url) || '').trim().replace(/\/+$/, '');
+    const cleanReq = String(reqOrigin || '').trim().replace(/\/+$/, '');
+    const cfgIsIpOrLocal = !cfgUrl || RAW_IP_HOST_RE.test(cfgUrl) || LOCAL_HOST_RE.test(cfgUrl);
+    const reqIsRealDomain = cleanReq && /^https?:\/\//i.test(cleanReq) && !RAW_IP_HOST_RE.test(cleanReq) && !LOCAL_HOST_RE.test(cleanReq);
+    if (!cfgIsIpOrLocal && /^https?:\/\//i.test(cfgUrl))
+        return cfgUrl;
+    if (reqIsRealDomain)
+        return cleanReq;
+    if (cleanReq && /^https?:\/\//i.test(cleanReq))
+        return cleanReq;
+    if (cfgUrl && /^https?:\/\//i.test(cfgUrl))
+        return cfgUrl;
+    return 'https://radys.ir';
+}
+
+export function requestOriginFromHono(c) {
+    if (!c || !c.req)
+        return '';
+    const xfHost = String(c.req.header('x-forwarded-host') || '').split(',')[0].trim();
+    const host = xfHost || String(c.req.header('host') || '').trim();
+    if (!host)
+        return '';
+    const xfProto = String(c.req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+    const isLocalOrIp = /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?$/i.test(host);
+    const proto = xfProto || (isLocalOrIp ? 'http' : 'https');
+    return `${proto}://${host}`;
+}
+
+export function toAbsoluteUrl(urlOrPath, baseUrl) {
+    const raw = String(urlOrPath || '').trim();
+    if (!raw)
+        return '';
+    if (/^https?:\/\//i.test(raw))
+        return raw;
+    const base = String(baseUrl || 'https://radys.ir').replace(/\/+$/, '');
+    return base + (raw.startsWith('/') ? raw : '/' + raw);
+}
 export function formatPrice(n) {
     if (!n)
         return '0';

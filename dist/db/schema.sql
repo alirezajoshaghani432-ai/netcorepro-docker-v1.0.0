@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_cost INTEGER DEFAULT 0,
   total INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending', -- pending | confirmed | shipping | delivered | cancelled
+  torob_clid TEXT,
   payment_status TEXT DEFAULT 'unpaid', -- unpaid | paid
   payment_method TEXT DEFAULT 'cod',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

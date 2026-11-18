@@ -22,10 +22,15 @@ import blogApi from './api/blog.js';
 import miscApi from './api/misc.js';
 import contentApi from './api/content.js';
 import productIoApi from './api/product-io.js'; // 2026-11-03: products export / import
+import torobApi from './api/torob.js'; // 2026-11-17: Torob Product API v3 + diagnostics
+import { resolveSiteBaseUrl, requestOriginFromHono } from './utils/helpers.js';
+import { syncPersistentUploads, localImageFilePath } from './utils/torob.js';
 import { homeLandingPage, homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
 import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
 import { adminMenuBuilderPage } from './views/admin/menu-builder.js';
 import { catVisSql, visibleCats } from './utils/catvis.js';
+// Sync persistent ./uploads volume with ./public/static/uploads on boot so Docker rebuilds never 404 product images
+syncPersistentUploads();
 const app = new Hono();
 // ===== Global middleware =====
 const isProd = process.env.NODE_ENV === 'production';
@@ -40,7 +45,7 @@ app.use('*', etag());
 // Security headers (helmet-like)
 app.use('*', secureHeaders({
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: 'same-site'
+    crossOriginResourcePolicy: 'cross-origin'
 }));
 // CORS - configurable per env
 const corsOrigins = (process.env.CORS_ORIGINS || '*').split(',').map(s => s.trim());
@@ -223,6 +228,26 @@ app.use('/static/*', async (c, next) => {
         return;
     }
 });
+// Fallback for /static/uploads/* -> ./uploads/* if file only exists on persistent volume
+// (Must run BEFORE serveStatic('./public') because serveStatic stops calling next() on missing files!)
+app.use('/static/uploads/*', async (c, next) => {
+    if (c.req.method === 'GET' || c.req.method === 'HEAD') {
+        try {
+            const pathname = decodeURIComponent(new URL(c.req.url).pathname);
+            const primaryFile = nodePath.join(process.cwd(), 'public', pathname.replace(/^\//, ''));
+            if (!nodeFs.existsSync(primaryFile)) {
+                const fp = localImageFilePath(pathname);
+                if (fp && nodeFs.existsSync(fp)) {
+                    const buf = await nodeFs.promises.readFile(fp);
+                    const ext = nodePath.extname(fp).toLowerCase();
+                    const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+                    return c.body(buf, 200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=86400' });
+                }
+            }
+        } catch { /* fall through */ }
+    }
+    return next();
+});
 app.use('/static/*', serveStatic({ root: './public' }));
 app.use('/uploads/*', async (c, next) => {
     await next();
@@ -307,6 +332,8 @@ app.route('/api/tickets', ticketsApi);
 app.route('/api/blog', blogApi);
 app.route('/api/content', contentApi);
 app.route('/api/product-io', productIoApi);
+app.route('/torob_api/v3', torobApi);
+app.route('/api/torob/v3', torobApi);
 app.route('/api', miscApi);
 // ===== Site Routes =====
 // ===== Backward-compat: old /site1 URLs permanently redirect to the new root paths =====
@@ -319,31 +346,53 @@ app.get('/site1/*', (c) => {
     const q = new URL(c.req.url).search || '';
     return c.redirect(p + q, 301);
 });
-app.get('/', (c) => c.html(cachedHtml('home', 30_000, () => homePage())));
+app.get('/', (c) => {
+    const reqOrigin = requestOriginFromHono(c);
+    return c.html(cachedHtml('home:' + reqOrigin, 30_000, () => homePage(reqOrigin)));
+});
 // Multiple home/landing pages (voice n9): admin-defined mini-homes per product family
 app.get('/h/:slug', (c) => {
     const slug = c.req.param('slug') || '';
-    const html = cachedHtml('hl:' + slug, 30_000, () => homeLandingPage(slug));
+    const reqOrigin = requestOriginFromHono(c);
+    const html = cachedHtml('hl:' + reqOrigin + ':' + slug, 30_000, () => homeLandingPage(slug, reqOrigin));
     if (!html)
         return c.html(notFoundPage('صفحه'), 404);
     return c.html(html);
 });
 app.get('/products', (c) => {
     const q = c.req.query();
+    const reqOrigin = requestOriginFromHono(c);
     // Only cache the parameterized listing briefly (filters vary a lot)
-    const key = 'plist:' + JSON.stringify(q);
-    return c.html(cachedHtml(key, 20_000, () => productsPage(q)));
+    const key = 'plist:' + reqOrigin + ':' + JSON.stringify(q);
+    return c.html(cachedHtml(key, 20_000, () => productsPage(q, reqOrigin)));
+});
+// Short permanent product link by numeric ID (`/p/123` -> 301 redirect to `/product/:slug`)
+// Ensures even if a product slug is edited later, ID-based links never 404!
+app.get('/p/:id', (c) => {
+    const id = parseInt(c.req.param('id') || '0', 10);
+    if (!Number.isFinite(id) || id < 1) return c.html(notFoundPage('محصول'), 404);
+    const row = db.prepare(`SELECT slug FROM products WHERE id = ? AND status = 'active'${catVisSql('category_id')}`).get(id);
+    if (!row || !row.slug) return c.html(notFoundPage('محصول'), 404);
+    const q = new URL(c.req.url).search || '';
+    return c.redirect('/product/' + encodeURIComponent(row.slug) + q, 301);
 });
 app.get('/product/:slug', (c) => {
     const slug = c.req.param('slug') || '';
-    const html = cachedHtml('prod:' + slug, 20_000, () => productPage(slug));
+    const reqOrigin = requestOriginFromHono(c);
+    const html = cachedHtml('prod:' + reqOrigin + ':' + slug, 20_000, () => productPage(slug, reqOrigin));
     // S4 (2026-11-03): a missing / inactive product must answer HTTP 404 (was a «soft 404» = 200,
     // so Google kept deleted or deactivated products indexed).
     return c.html(html, html.includes('class="nc-error-page') ? 404 : 200);
 });
-app.get('/categories', (c) => c.html(cachedHtml('cats', 30_000, () => categoriesPage())));
-app.get('/blog', (c) => c.html(cachedHtml('blog', 30_000, () => blogListPage())));
-app.get('/blog/:slug', (c) => { const html = blogPostPage(c.req.param('slug') || ''); return c.html(html, html.includes('class="nc-error-page') ? 404 : 200); });
+app.get('/categories', (c) => {
+    const reqOrigin = requestOriginFromHono(c);
+    return c.html(cachedHtml('cats:' + reqOrigin, 30_000, () => categoriesPage(reqOrigin)));
+});
+app.get('/blog', (c) => {
+    const reqOrigin = requestOriginFromHono(c);
+    return c.html(cachedHtml('blog:' + reqOrigin, 30_000, () => blogListPage(reqOrigin)));
+});
+app.get('/blog/:slug', (c) => { const html = blogPostPage(c.req.param('slug') || '', requestOriginFromHono(c)); return c.html(html, html.includes('class="nc-error-page') ? 404 : 200); });
 app.get('/cart', (c) => c.html(cartPage()));
 app.get('/checkout', (c) => c.html(checkoutPage()));
 app.get('/order-success/:orderNumber', (c) => c.html(orderSuccessPage(c.req.param('orderNumber') || '')));
@@ -380,22 +429,25 @@ app.get('/admin/product-order', (c) => c.html(adminProductOrderPage()));
 app.get('/admin/pricing', (c) => c.html(adminPricingPage()));
 // ===== sitemap.xml =====
 app.get('/sitemap.xml', (c) => {
-    const baseUrl = (c.req.header('host') ? `${c.req.header('x-forwarded-proto') || 'http'}://${c.req.header('host')}` : 'https://netcorepro.ir');
+    const baseUrl = resolveSiteBaseUrl(null, requestOriginFromHono(c));
     const products = db.prepare(`SELECT slug, updated_at FROM products WHERE status = 'active'${catVisSql('category_id')}`).all();
     const posts = db.prepare(`SELECT slug, updated_at FROM posts WHERE status = 'published'`).all();
     const cats = visibleCats(db.prepare(`SELECT id, slug FROM categories`).all());
     const staticUrls = ['/', '/products', '/categories', '/blog', '/about', '/contact'];
+    const xmlEsc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    const encSeg = (v) => encodeURIComponent(String(v || ''));
+    const safeIsoDate = (d) => { try { const x = new Date(d); return Number.isNaN(x.getTime()) ? '' : x.toISOString().split('T')[0]; } catch { return ''; } };
     const urls = [
         ...staticUrls.map(u => ({ loc: baseUrl + u, priority: u === '/' ? '1.0' : '0.8' })),
-        ...cats.map(c => ({ loc: `${baseUrl}/products?category=${c.slug}`, priority: '0.7' })),
-        ...products.map(p => ({ loc: `${baseUrl}/product/${p.slug}`, lastmod: p.updated_at, priority: '0.9' })),
-        ...posts.map(p => ({ loc: `${baseUrl}/blog/${p.slug}`, lastmod: p.updated_at, priority: '0.6' }))
+        ...cats.map(c => ({ loc: `${baseUrl}/products?category=${encSeg(c.slug)}`, priority: '0.7' })),
+        ...products.map(p => ({ loc: `${baseUrl}/product/${encSeg(p.slug)}`, lastmod: safeIsoDate(p.updated_at), priority: '0.9' })),
+        ...posts.map(p => ({ loc: `${baseUrl}/blog/${encSeg(p.slug)}`, lastmod: safeIsoDate(p.updated_at), priority: '0.6' }))
     ];
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(u => `  <url>
-    <loc>${u.loc}</loc>
-    ${u.lastmod ? `<lastmod>${new Date(u.lastmod).toISOString().split('T')[0]}</lastmod>` : ''}
+    <loc>${xmlEsc(u.loc)}</loc>
+    ${u.lastmod ? `<lastmod>${xmlEsc(u.lastmod)}</lastmod>` : ''}
     <priority>${u.priority || '0.5'}</priority>
   </url>`).join('\n')}
 </urlset>`;
@@ -403,9 +455,13 @@ ${urls.map(u => `  <url>
 });
 // ===== robots.txt =====
 app.get('/robots.txt', (c) => {
-    const baseUrl = (c.req.header('host') ? `${c.req.header('x-forwarded-proto') || 'http'}://${c.req.header('host')}` : 'https://netcorepro.ir');
+    const baseUrl = resolveSiteBaseUrl(null, requestOriginFromHono(c));
     const txt = `User-agent: *
 Allow: /
+Allow: /product/
+Allow: /products
+Allow: /static/
+Allow: /torob_api/
 Disallow: /admin/
 Disallow: /api/
 Disallow: /checkout

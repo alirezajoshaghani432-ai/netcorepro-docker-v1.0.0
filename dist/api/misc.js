@@ -3,6 +3,8 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+const __PROJ_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
 import { getAllSettings, setSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
@@ -248,7 +250,7 @@ function imageContentHash(webPath) {
     if (!webPath.startsWith('/static/'))
         return null;
     try {
-        const abs = path.join(process.cwd(), 'public', webPath.replace(/^\/+/, ''));
+        const abs = path.join(__PROJ_ROOT, 'public', webPath.replace(/^\/+/, ''));
         const st = fs.statSync(abs);
         const key = webPath + ':' + st.size + ':' + st.mtimeMs;
         if (__imgHashCache.has(key))
@@ -546,7 +548,7 @@ misc.get('/admin/activity-logs', adminRequired, (c) => {
 });
 // === Admin: Image Upload ===
 // Accepts either multipart/form-data (field "file") OR JSON { data: "data:image/...;base64,...", filename }
-const UPLOAD_DIR = path.resolve(process.cwd(), 'public/static/uploads');
+const UPLOAD_DIR = path.resolve(__PROJ_ROOT, 'public/static/uploads');
 // NOTE: SVG is intentionally excluded — SVG files can embed <script> and would
 // execute as stored XSS when opened directly from /static/uploads/. Raster only.
 const ALLOWED_EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -593,6 +595,11 @@ misc.post('/admin/upload', adminRequired, async (c) => {
             return c.json({ success: false, message: 'حجم تصویر بیش از ۵ مگابایت است', code: 400 }, 400);
         const fname = safeName(ext);
         fs.writeFileSync(path.join(UPLOAD_DIR, fname), buffer);
+        try {
+            const pDir = path.resolve(__PROJ_ROOT, 'uploads');
+            fs.mkdirSync(pDir, { recursive: true });
+            fs.writeFileSync(path.join(pDir, fname), buffer);
+        } catch { /* ignore */ }
         const url = `/static/uploads/${fname}`;
         // F2f: build the responsive WebP ladder for this new photo in the
         // background so images added from the admin panel stay as fast as the
@@ -609,14 +616,20 @@ misc.post('/admin/upload', adminRequired, async (c) => {
 // list uploaded images (media library)
 misc.get('/admin/uploads', adminRequired, (c) => {
     ensureUploadDir();
-    let files = [];
-    try {
-        files = fs.readdirSync(UPLOAD_DIR)
-            .filter(f => /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(f))
-            .map(f => ({ url: `/static/uploads/${f}`, name: f, mtime: fs.statSync(path.join(UPLOAD_DIR, f)).mtimeMs }))
-            .sort((a, b) => b.mtime - a.mtime);
-    }
-    catch { /* ignore */ }
+    const byName = new Map();
+    const scanDir = (dir) => {
+        try {
+            if (!fs.existsSync(dir)) return;
+            for (const f of fs.readdirSync(dir)) {
+                if (!/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(f) || byName.has(f)) continue;
+                const st = fs.statSync(path.join(dir, f));
+                if (st.size > 200) byName.set(f, { url: `/static/uploads/${f}`, name: f, mtime: st.mtimeMs });
+            }
+        } catch { /* ignore */ }
+    };
+    scanDir(UPLOAD_DIR);
+    scanDir(path.resolve(__PROJ_ROOT, 'uploads'));
+    const files = [...byName.values()].sort((a, b) => b.mtime - a.mtime);
     return c.json({ success: true, data: files, code: 200 });
 });
 export default misc;

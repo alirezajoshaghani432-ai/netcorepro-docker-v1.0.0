@@ -1,4 +1,4 @@
-import { getAllSettings } from '../../utils/helpers.js';
+import { getAllSettings, resolveSiteBaseUrl, toAbsoluteUrl } from '../../utils/helpers.js';
 import { ncImg } from '../../utils/img.js';
 import { getBlocks, getHomePages } from '../../api/content.js';
 import { getChannels, primaryChannel } from '../../utils/contact.js';
@@ -12,7 +12,7 @@ import { hiddenCategoryIds, catVisSql } from '../../utils/catvis.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20261103c';
+export const ASSET_V = '20261118c';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -116,15 +116,21 @@ export function siteLayout(opts, content) {
     const isActive = (p) => path === p || (p !== '/' && p !== '/' && path.startsWith(p));
     const topNav = (href, label, icon) => `<a href="${href}" class="nc-topnav-link ${isActive(href) ? 'is-active' : ''}"><i class="fas ${icon} ml-1.5 text-[13px]"></i>${label}</a>`;
 
-    const ogTitle = `${opts.title} | ${siteName}`;
-    const ogDesc = desc || 'فروشگاه آنلاین تخصصی تجهیزات شبکه، فیبر نوری و برق';
-    const ogImage = opts.ogImage || settings.og_image || '/static/images/og-logo.png';
+    const baseUrl = resolveSiteBaseUrl(settings, opts.reqOrigin || '');
+    const cleanSiteSuffix = ` | ${siteName}`;
+    const rawTitle = String(opts.title || '').trim();
+    const fullTitle = rawTitle.endsWith(cleanSiteSuffix) ? rawTitle : `${rawTitle}${cleanSiteSuffix}`;
+    const ogTitle = fullTitle;
+    const ogDesc = (desc || 'فروشگاه آنلاین تخصصی تجهیزات شبکه، فیبر نوری و برق').replace(/\s+/g, ' ').trim();
+    const rawOgImage = opts.ogImage || settings.og_image || '/static/images/og-logo.png';
+    const safeOgImageRel = /\.svg(\?|$)/i.test(String(rawOgImage)) ? '/static/images/og-logo.png' : rawOgImage;
+    const ogImageAbs = toAbsoluteUrl(safeOgImageRel, baseUrl);
+    const ogType = opts.ogType || 'website';
     const metaKeywords = opts.keywords ? `<meta name="keywords" content="${escapeAttr(opts.keywords)}">` : '';
-    // SEO: canonical URL (path only — the host is prepended by search engines from the fetch URL,
-    // and settings.site_url lets the admin pin an absolute canonical domain)
-    const siteUrl = String(settings.site_url || '').replace(/\/+$/, '');
-    const canonicalHref = siteUrl ? siteUrl + path : path;
+    // SEO & Torob: clean canonical URL using public domain (never raw IP:port)
+    const canonicalHref = opts.canonicalUrl || (baseUrl ? baseUrl + path : path);
     const canonicalTag = `<link rel="canonical" href="${escapeAttr(canonicalHref)}">`;
+    const ogUrlTag = `<meta property="og:url" content="${escapeAttr(canonicalHref)}">`;
     // SEO: JSON-LD structured data (page-specific blocks can be passed via opts.jsonLd)
     // Security: escape <, >, & as \u003c etc. so user-controlled strings (e.g. a product
     // name containing "</script>") cannot break out of the JSON-LD <script> block (XSS).
@@ -137,20 +143,22 @@ export function siteLayout(opts, content) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1d6ef5">
-<title>${escapeHtml(opts.title)} | ${escapeHtml(siteName)}</title>
+<title>${escapeHtml(fullTitle)}</title>
 <meta name="description" content="${escapeHtml(ogDesc)}">
 <meta name="robots" content="index, follow">${metaKeywords}
 <meta name="format-detection" content="telephone=no">
-<meta property="og:type" content="website">
+${opts.torobHead || ''}
+<meta property="og:type" content="${escapeAttr(ogType)}">
 <meta property="og:site_name" content="${escapeHtml(siteName)}">
 <meta property="og:title" content="${escapeHtml(ogTitle)}">
 <meta property="og:description" content="${escapeHtml(ogDesc)}">
-<meta property="og:image" content="${escapeAttr(ogImage)}">
+<meta property="og:image" content="${escapeAttr(ogImageAbs)}">
+${ogUrlTag}
 <meta property="og:locale" content="fa_IR">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
 <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
-<meta name="twitter:image" content="${escapeAttr(ogImage)}">
+<meta name="twitter:image" content="${escapeAttr(ogImageAbs)}">
 ${canonicalTag}${jsonLdTag}
 <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/static/images/favicon-192.png">

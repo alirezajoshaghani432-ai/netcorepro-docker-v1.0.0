@@ -307,7 +307,93 @@
     }
   }
 
-  // -------------------- Image upload helpers --------------------
+  // -------------------- Image upload helpers (with automatic client-side optimization) --------------------
+  // Automatically compresses & resizes large images (>650KB or >1600px) in browser Canvas to WebP/JPEG (<700KB).
+  // Why? Host Nginx defaults to `client_max_body_size 1m` (413 Request Entity Too Large on >1MB camera photos).
+  // Optimizing in browser keeps visual quality crisp while guaranteeing <700KB fast uploads even behind 1MB proxies!
+  window.ncpOptimizeImageFile = function (file) {
+    return new Promise(function (resolve) {
+      try {
+        if (!file || typeof file !== 'object' || !file.type || file.type === 'image/gif') {
+          return resolve(file);
+        }
+        // Small WebP/JPEG/PNG under 650KB can go directly unless huge dimensions
+        if (file.size <= 650 * 1024 && /^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) {
+          return resolve(file);
+        }
+        var reader = new FileReader();
+        reader.onerror = function () { resolve(file); };
+        reader.onload = function (ev) {
+          var img = new Image();
+          img.onerror = function () { resolve(file); };
+          img.onload = function () {
+            try {
+              var maxDim = 1600;
+              var w = img.naturalWidth || img.width || 800;
+              var h = img.naturalHeight || img.height || 800;
+              if (w > maxDim || h > maxDim) {
+                if (w >= h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                else { w = Math.round((w * maxDim) / h); h = maxDim; }
+              }
+              var canvas = document.createElement('canvas');
+              canvas.width = w;
+              canvas.height = h;
+              var ctx = canvas.getContext('2d');
+              // Preserve transparency with WebP; if falling back to JPEG fill white background
+              ctx.drawImage(img, 0, 0, w, h);
+              var tryExport = function (mime, quality, next) {
+                canvas.toBlob(function (blob) {
+                  if (blob && blob.size > 0 && blob.size < 820 * 1024) {
+                    var ext = mime === 'image/webp' ? 'webp' : 'jpg';
+                    var base = String(file.name || 'image').replace(/\.[^.]+$/, '');
+                    resolve(new File([blob], base + '.' + ext, { type: mime }));
+                  } else if (next) {
+                    next();
+                  } else if (blob && blob.size > 0 && blob.size < file.size) {
+                    resolve(new File([blob], 'upload.jpg', { type: mime }));
+                  } else {
+                    resolve(file);
+                  }
+                }, mime, quality);
+              };
+              tryExport('image/webp', 0.85, function () {
+                tryExport('image/webp', 0.72, function () {
+                  // Fill white background before JPEG fallback
+                  var c2 = document.createElement('canvas');
+                  c2.width = w; c2.height = h;
+                  var ctx2 = c2.getContext('2d');
+                  ctx2.fillStyle = '#ffffff';
+                  ctx2.fillRect(0, 0, w, h);
+                  ctx2.drawImage(img, 0, 0, w, h);
+                  c2.toBlob(function (b2) {
+                    if (b2 && b2.size > 0) resolve(new File([b2], 'upload.jpg', { type: 'image/jpeg' }));
+                    else resolve(file);
+                  }, 'image/jpeg', 0.80);
+                });
+              });
+            } catch (err) {
+              resolve(file);
+            }
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } catch (e) {
+        resolve(file);
+      }
+    });
+  };
+
+  window.ncpFormatUploadError = function (e) {
+    if (!e) return 'خطا در آپلود تصویر';
+    var st = e.response && e.response.status;
+    var msg = e.response && e.response.data && e.response.data.message;
+    if (msg) return msg;
+    if (st === 413) return 'حجم فایل بیش از سقف وب‌سرور (Nginx) است — لطفاً تصویر کم‌حجم‌تری انتخاب کنید';
+    if (st === 401 || st === 403) return 'نشست مدیریتی منقضی شده است — لطفاً دوباره وارد پنل شوید';
+    return e.message || 'خطا در آپلود تصویر';
+  };
+
   // Upload a File object (or data URL string) to the server, returns the public URL.
   window.uploadImage = async function (fileOrDataUrl) {
     if (!window.axios) throw new Error('axios missing');
@@ -315,9 +401,10 @@
       var r = await window.axios.post('/api/admin/upload', { data: fileOrDataUrl });
       return r.data.data.url;
     }
+    var optimized = await window.ncpOptimizeImageFile(fileOrDataUrl);
     var form = new FormData();
-    form.append('file', fileOrDataUrl);
-    var r2 = await window.axios.post('/api/admin/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    form.append('file', optimized);
+    var r2 = await window.axios.post('/api/admin/upload', form);
     return r2.data.data.url;
   };
 
@@ -331,12 +418,12 @@
       '<div class="nc-imgfield" data-imgfield="' + id + '">' +
         '<label class="block text-sm mb-1">' + label + '</label>' +
         '<div class="flex items-center gap-3">' +
-          '<img id="' + id + '-preview" src="' + (value || '/static/images/p1.svg') + '" alt="preview" class="w-16 h-16 rounded-lg object-cover border bg-white flex-shrink-0" onerror="this.src=\'/static/images/p1.svg\'">' +
+          '<img id="' + id + '-preview" src="' + (value || '/static/images/p1.svg') + '" alt="preview" class="w-16 h-16 rounded-lg object-cover border bg-white flex-shrink-0" onerror="this.onerror=null;this.src=\'/static/images/p1.svg\'">' +
           '<div class="flex-1">' +
-            '<input id="' + id + '-url" name="' + name + '" value="' + value.replace(/"/g, '&quot;') + '" placeholder="/static/images/... یا آپلود کنید" class="w-full border rounded-lg px-3 py-2 text-sm mb-2">' +
-            '<div class="flex items-center gap-2">' +
+            '<input id="' + id + '-url" name="' + name + '" value="' + value.replace(/"/g, '&quot;') + '" placeholder="/static/uploads/... یا دکمه آپلود تصویر را بزنید" class="w-full border rounded-lg px-3 py-2 text-sm mb-2">' +
+            '<div class="flex items-center gap-2 flex-wrap">' +
               '<button type="button" class="btn-indigo text-white px-3 py-1.5 rounded-lg text-xs" onclick="document.getElementById(\'' + id + '-file\').click()"><i class="fas fa-upload ml-1"></i>آپلود تصویر</button>' +
-              '<input type="file" id="' + id + '-file" accept="image/*" class="hidden">' +
+              '<input type="file" id="' + id + '-file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">' +
               '<span id="' + id + '-status" class="text-xs text-slate-500"></span>' +
             '</div>' +
           '</div>' +
@@ -361,18 +448,20 @@
       fileInput.addEventListener('change', async function () {
         var file = fileInput.files && fileInput.files[0];
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) { window.toast('حجم تصویر بیش از ۵ مگابایت است', 'error'); return; }
-        if (status) status.textContent = 'در حال آپلود...';
+        if (file.size > 15 * 1024 * 1024) { window.toast('حجم تصویر اصلی بیش از ۱۵ مگابایت است', 'error'); fileInput.value = ''; return; }
+        if (status) status.textContent = 'در حال بهینه‌سازی و آپلود...';
         try {
           var url = await window.uploadImage(file);
           if (urlInput) urlInput.value = url;
           if (preview) preview.src = url;
-          if (status) status.textContent = '✓ آپلود شد';
-          window.toast('تصویر آپلود شد', 'success');
+          if (status) status.textContent = '✓ آپلود و آماده ذخیره شد';
+          window.toast('تصویر آپلود شد — دکمه «ذخیره» پایین فرم را بزنید', 'success');
+          if (window.ncMarkDirty) window.ncMarkDirty();
         } catch (e) {
-          if (status) status.textContent = '';
-          window.toast((e.response && e.response.data && e.response.data.message) || 'خطا در آپلود', 'error');
+          if (status) status.textContent = '✗ خطا در آپلود';
+          window.toast(window.ncpFormatUploadError(e), 'error');
         }
+        fileInput.value = '';
       });
     });
   };

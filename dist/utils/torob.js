@@ -64,6 +64,84 @@ export function localImageFilePath(urlOrPath) {
     return null;
 }
 
+/**
+ * Check whether an uploaded filename exists in the persistent `uploaded_files` DB table
+ * (protects against root-owned Docker bind mounts where disk writes fail with EACCES,
+ *  and protects against container rebuilds without upload volumes).
+ */
+export function dbUploadExists(urlOrName) {
+    const clean = String(urlOrName || '').trim().split('?')[0].split('#')[0];
+    if (!clean) return false;
+    let fname = clean;
+    if (clean.startsWith('/static/uploads/') || clean.startsWith('/uploads/')) {
+        fname = path.basename(clean);
+    } else if (clean.includes('/')) {
+        return false;
+    }
+    try {
+        const row = db.prepare('SELECT size FROM uploaded_files WHERE fname = ?').get(fname);
+        return !!(row && Number(row.size) > 200);
+    } catch {
+        return false;
+    }
+}
+
+export function readUploadedImageFromDb(urlOrName) {
+    const clean = String(urlOrName || '').trim().split('?')[0].split('#')[0];
+    if (!clean) return null;
+    const fname = path.basename(clean);
+    if (!fname || !/\.(jpe?g|png|webp|gif)$/i.test(fname)) return null;
+    try {
+        const row = db.prepare('SELECT mime, size, data FROM uploaded_files WHERE fname = ?').get(fname);
+        if (!row || !row.data) return null;
+        const buf = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
+        if (buf.length <= 200) return null;
+        // Opportunistically warm disk cache if writable (never throws)
+        try {
+            fs.mkdirSync(PUBLIC_STATIC_UPLOADS, { recursive: true });
+            const p1 = path.join(PUBLIC_STATIC_UPLOADS, fname);
+            if (!fs.existsSync(p1)) fs.writeFileSync(p1, buf);
+        } catch { /* read-only or root-owned bind mount — ignore */ }
+        return { buffer: buf, mime: row.mime || 'image/jpeg' };
+    } catch {
+        return null;
+    }
+}
+
+export function saveUploadedImageHybrid(fname, mime, buffer) {
+    let savedDb = false;
+    let savedDisk = false;
+    // 1) Save in MariaDB / SQLite `uploaded_files` table
+    try {
+        db.prepare(`INSERT INTO uploaded_files (fname, mime, size, data) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(fname) DO UPDATE SET mime = excluded.mime, size = excluded.size, data = excluded.data`)
+          .run(fname, mime || 'image/jpeg', buffer.length, buffer);
+        savedDb = true;
+    } catch (e) {
+        console.error('[upload-db] warning:', e && e.message ? e.message.slice(0, 160) : e);
+    }
+    // 2) Save to public/static/uploads (wrapped in try/catch so Docker EACCES never crashes upload!)
+    try {
+        fs.mkdirSync(PUBLIC_STATIC_UPLOADS, { recursive: true });
+        fs.writeFileSync(path.join(PUBLIC_STATIC_UPLOADS, fname), buffer);
+        savedDisk = true;
+    } catch (e) {
+        console.error('[upload-disk:static] EACCES/warn (DB fallback active):', e && e.message ? e.message.slice(0, 140) : e);
+    }
+    // 3) Save to ./uploads persistent volume
+    try {
+        fs.mkdirSync(PERSISTENT_UPLOADS, { recursive: true });
+        fs.writeFileSync(path.join(PERSISTENT_UPLOADS, fname), buffer);
+        savedDisk = true;
+    } catch (e) {
+        console.error('[upload-disk:uploads] EACCES/warn (DB fallback active):', e && e.message ? e.message.slice(0, 140) : e);
+    }
+    if (!savedDb && !savedDisk) {
+        throw new Error('ذخیره تصویر نه در دیسک و نه در دیتابیس ممکن نشد');
+    }
+    return { savedDb, savedDisk };
+}
+
 export function isValidRasterImageUrl(urlOrPath) {
     const raw = String(urlOrPath || '').trim();
     if (!raw)
@@ -74,16 +152,19 @@ export function isValidRasterImageUrl(urlOrPath) {
     if (/^https?:\/\//i.test(clean))
         return true;
     const fp = localImageFilePath(clean);
-    if (!fp)
-        return false;
-    try {
-        const st = fs.statSync(fp);
-        // Reject tiny 70-byte placeholder files left over from early dev seeds
-        return st.isFile() && st.size > 200;
+    if (fp) {
+        try {
+            const st = fs.statSync(fp);
+            // Reject tiny 70-byte placeholder files left over from early dev seeds
+            if (st.isFile() && st.size > 200)
+                return true;
+        }
+        catch { /* fall through to DB check */ }
     }
-    catch {
-        return false;
+    if (clean.startsWith('/static/uploads/') || clean.startsWith('/uploads/')) {
+        return dbUploadExists(clean);
     }
+    return false;
 }
 
 /**
@@ -116,8 +197,46 @@ export function syncPersistentUploads() {
                 backedUpToPersistent++;
             }
         }
-        if (restoredToStatic > 0 || backedUpToPersistent > 0) {
-            console.log(`[uploads-sync] restored=${restoredToStatic} to /static/uploads, backedUp=${backedUpToPersistent} to ./uploads`);
+        // Also sync with DB `uploaded_files` table in both directions!
+        let restoredFromDb = 0;
+        let backedUpToDb = 0;
+        try {
+            const dbRows = db.prepare('SELECT fname, data FROM uploaded_files').all();
+            for (const r of dbRows) {
+                if (!r || !r.fname || !r.data) continue;
+                const buf = Buffer.isBuffer(r.data) ? r.data : Buffer.from(r.data);
+                if (buf.length <= 200) continue;
+                for (const dir of [PUBLIC_STATIC_UPLOADS, PERSISTENT_UPLOADS]) {
+                    try {
+                        const target = path.join(dir, path.basename(r.fname));
+                        if (!fs.existsSync(target)) {
+                            fs.writeFileSync(target, buf);
+                            restoredFromDb++;
+                        }
+                    } catch { /* ignore EACCES on read-only host bind mount */ }
+                }
+            }
+            // Back up existing disk uploads into DB so future container moves never lose them
+            const existingDbNames = new Set(dbRows.map(r => r.fname));
+            for (const dir of [PUBLIC_STATIC_UPLOADS, PERSISTENT_UPLOADS]) {
+                let list = [];
+                try { list = fs.readdirSync(dir); } catch { list = []; }
+                for (const f of list) {
+                    if (!/\.(jpe?g|png|webp|gif)$/i.test(f) || existingDbNames.has(f)) continue;
+                    try {
+                        const buf = fs.readFileSync(path.join(dir, f));
+                        if (buf.length <= 200 || buf.length > 10 * 1024 * 1024) continue;
+                        const ext = path.extname(f).toLowerCase();
+                        const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+                        db.prepare('INSERT INTO uploaded_files (fname, mime, size, data) VALUES (?, ?, ?, ?) ON CONFLICT(fname) DO UPDATE SET size = excluded.size').run(f, mime, buf.length, buf);
+                        existingDbNames.add(f);
+                        backedUpToDb++;
+                    } catch { /* ignore */ }
+                }
+            }
+        } catch { /* ignore if DB table not ready yet */ }
+        if (restoredToStatic > 0 || backedUpToPersistent > 0 || restoredFromDb > 0 || backedUpToDb > 0) {
+            console.log(`[uploads-sync] static=${restoredToStatic}, persistent=${backedUpToPersistent}, fromDb=${restoredFromDb}, toDb=${backedUpToDb}`);
         }
     }
     catch (e) {
@@ -321,8 +440,10 @@ export function renderTorobMetaTags(torobData) {
         .replace(/'/g, '&#39;');
 
     const lines = [
-        `<!-- Torob & Price Comparison Product Meta Tags -->`,
+        `<!-- Torob Official Product Meta Tags -->`,
         `<meta name="product_id" content="${esc(torobData.productId)}">`,
+        `<meta property="product_id" content="${esc(torobData.productId)}">`,
+        `<meta name="torob:product_id" content="${esc(torobData.productId)}">`,
         `<meta name="product_name" content="${esc(torobData.name)}">`,
         `<meta name="product_price" content="${esc(torobData.currentPriceToman)}">`,
         `<meta name="product_old_price" content="${esc(torobData.oldPriceToman)}">`,
@@ -392,6 +513,62 @@ export function findActiveProductBySlug(rawSlug, catVisClause = '') {
             LEFT JOIN categories c ON p.category_id = c.id
             LEFT JOIN brands b ON p.brand_id = b.id
             WHERE p.id = ?`).get(matched.id) || null;
+    }
+    return null;
+}
+
+/**
+ * Find an inactive / category-hidden product by slug so previously-indexed URLs
+ * still emit their valid `<meta name="product_id">` with `availability="outofstock"`
+ * instead of failing Torob's `product_id` validator!
+ */
+export function findInactiveProductBySlug(rawSlug) {
+    let decoded = String(rawSlug || '').trim();
+    try { decoded = decodeURIComponent(decoded); } catch { /* keep raw */ }
+    decoded = decoded.replace(/^\/+|\/+$/g, '');
+    if (!decoded) return null;
+
+    const baseSql = `SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN brands b ON p.brand_id = b.id
+        WHERE p.slug = ?`;
+
+    let row = db.prepare(baseSql).get(decoded);
+    if (row) return row;
+
+    const nfc = decoded.normalize ? decoded.normalize('NFC') : decoded;
+    if (nfc !== decoded) {
+        row = db.prepare(baseSql).get(nfc);
+        if (row) return row;
+    }
+
+    const normSlug = (s) => String(s || '')
+        .replace(/ي/g, 'ی').replace(/ئ/g, 'ی').replace(/ك/g, 'ک')
+        .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .toLowerCase();
+
+    const targetNorm = normSlug(nfc);
+    const allSlugs = db.prepare(`SELECT id, slug FROM products`).all();
+    const matched = allSlugs.find(r => normSlug(r.slug) === targetNorm);
+    if (matched) {
+        return db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN brands b ON p.brand_id = b.id
+            WHERE p.id = ?`).get(matched.id) || null;
+    }
+    // Numeric ID passed as slug (e.g. `/product/14` from legacy links)
+    if (/^\d+$/.test(decoded)) {
+        const numId = parseInt(decoded, 10);
+        if (numId > 0) {
+            return db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN brands b ON p.brand_id = b.id
+                WHERE p.id = ?`).get(numId) || null;
+        }
     }
     return null;
 }

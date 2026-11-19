@@ -12,7 +12,7 @@ import { hiddenCategoryIds, catVisSql } from '../../utils/catvis.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20261118c';
+export const ASSET_V = '20261119b';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -142,12 +142,11 @@ export function siteLayout(opts, content) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#1d6ef5">
+${opts.torobHead ? opts.torobHead + '\n' : ''}<meta name="theme-color" content="#1d6ef5">
 <title>${escapeHtml(fullTitle)}</title>
 <meta name="description" content="${escapeHtml(ogDesc)}">
 <meta name="robots" content="index, follow">${metaKeywords}
 <meta name="format-detection" content="telephone=no">
-${opts.torobHead || ''}
 <meta property="og:type" content="${escapeAttr(ogType)}">
 <meta property="og:site_name" content="${escapeHtml(siteName)}">
 <meta property="og:title" content="${escapeHtml(ogTitle)}">

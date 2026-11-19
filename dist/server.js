@@ -22,9 +22,9 @@ import blogApi from './api/blog.js';
 import miscApi from './api/misc.js';
 import contentApi from './api/content.js';
 import productIoApi from './api/product-io.js'; // 2026-11-03: products export / import
-import torobApi from './api/torob.js'; // 2026-11-17: Torob Product API v3 + diagnostics
+import torobApi, { wcpeApi, recordTorobLog } from './api/torob.js'; // Torob Product API v3 + WooCommerce wcpe/v1 + diagnostics
 import { resolveSiteBaseUrl, requestOriginFromHono } from './utils/helpers.js';
-import { syncPersistentUploads, localImageFilePath } from './utils/torob.js';
+import { syncPersistentUploads, localImageFilePath, readUploadedImageFromDb } from './utils/torob.js';
 import { homeLandingPage, homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
 import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
 import { adminMenuBuilderPage } from './views/admin/menu-builder.js';
@@ -241,7 +241,11 @@ app.use('/static/uploads/*', async (c, next) => {
                     const buf = await nodeFs.promises.readFile(fp);
                     const ext = nodePath.extname(fp).toLowerCase();
                     const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
-                    return c.body(buf, 200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=86400' });
+                    return c.body(c.req.method === 'HEAD' ? null : buf, 200, { 'Content-Type': mime, 'Content-Length': String(buf.length), 'Cache-Control': 'public, max-age=31536000, immutable' });
+                }
+                const dbHit = readUploadedImageFromDb(pathname);
+                if (dbHit && dbHit.buffer) {
+                    return c.body(c.req.method === 'HEAD' ? null : dbHit.buffer, 200, { 'Content-Type': dbHit.mime, 'Content-Length': String(dbHit.buffer.length), 'Cache-Control': 'public, max-age=31536000, immutable' });
                 }
             }
         } catch { /* fall through */ }
@@ -250,6 +254,18 @@ app.use('/static/uploads/*', async (c, next) => {
 });
 app.use('/static/*', serveStatic({ root: './public' }));
 app.use('/uploads/*', async (c, next) => {
+    if (c.req.method === 'GET' || c.req.method === 'HEAD') {
+        try {
+            const pathname = decodeURIComponent(new URL(c.req.url).pathname);
+            const fp = localImageFilePath(pathname);
+            if (!fp || !nodeFs.existsSync(fp)) {
+                const dbHit = readUploadedImageFromDb(pathname);
+                if (dbHit && dbHit.buffer) {
+                    return c.body(c.req.method === 'HEAD' ? null : dbHit.buffer, 200, { 'Content-Type': dbHit.mime, 'Content-Length': String(dbHit.buffer.length), 'Cache-Control': 'public, max-age=31536000, immutable' });
+                }
+            }
+        } catch { /* fall through */ }
+    }
     await next();
     c.header('Cache-Control', 'public, max-age=86400');
 });
@@ -334,7 +350,36 @@ app.route('/api/content', contentApi);
 app.route('/api/product-io', productIoApi);
 app.route('/torob_api/v3', torobApi);
 app.route('/api/torob/v3', torobApi);
+app.route('/wp-json/wcpe/v1', wcpeApi);
+app.route('/index.php/wp-json/wcpe/v1', wcpeApi);
 app.route('/api', miscApi);
+
+// ===== Trailing-slash & legacy WordPress/WooCommerce URL normalization =====
+// Ensures `/product/slug/`, `/products/slug`, `/?p=123`, `/blog/slug/`, `/categories/`, etc.
+// NEVER return HTTP 404 to Torob's crawler, Googlebot, or customers!
+app.use('*', async (c, next) => {
+    if (c.req.method === 'GET' || c.req.method === 'HEAD') {
+        const p = c.req.path || '/';
+        // 1) Legacy WordPress `/?p=123` or `/?post_type=product&p=123`
+        if (p === '/') {
+            const wpId = parseInt(c.req.query('p') || c.req.query('product_id') || '0', 10);
+            if (Number.isFinite(wpId) && wpId > 0) {
+                const row = db.prepare(`SELECT slug FROM products WHERE id = ?`).get(wpId);
+                if (row && row.slug) {
+                    return c.redirect('/product/' + encodeURIComponent(row.slug), 301);
+                }
+            }
+        }
+        // 2) Trailing slash on any non-root storefront/API path (except /static/ and /uploads/)
+        if (p.length > 1 && p.endsWith('/') && !p.startsWith('/static/') && !p.startsWith('/uploads/')) {
+            const trimmed = p.replace(/\/+$/, '') || '/';
+            // For product pages, serve directly or 301 redirect cleanly while preserving query string
+            const q = new URL(c.req.url).search || '';
+            return c.redirect(trimmed + q, 301);
+        }
+    }
+    return next();
+});
 // ===== Site Routes =====
 // ===== Backward-compat: old /site1 URLs permanently redirect to the new root paths =====
 app.get('/site1', (c) => {
@@ -367,22 +412,31 @@ app.get('/products', (c) => {
     return c.html(cachedHtml(key, 20_000, () => productsPage(q, reqOrigin)));
 });
 // Short permanent product link by numeric ID (`/p/123` -> 301 redirect to `/product/:slug`)
-// Ensures even if a product slug is edited later, ID-based links never 404!
+// Ensures even if a product slug is edited or product is deactivated later, ID-based links never 404!
 app.get('/p/:id', (c) => {
     const id = parseInt(c.req.param('id') || '0', 10);
     if (!Number.isFinite(id) || id < 1) return c.html(notFoundPage('محصول'), 404);
-    const row = db.prepare(`SELECT slug FROM products WHERE id = ? AND status = 'active'${catVisSql('category_id')}`).get(id);
+    const row = db.prepare(`SELECT slug FROM products WHERE id = ?`).get(id);
     if (!row || !row.slug) return c.html(notFoundPage('محصول'), 404);
     const q = new URL(c.req.url).search || '';
     return c.redirect('/product/' + encodeURIComponent(row.slug) + q, 301);
 });
+app.get('/products/:slug', (c) => {
+    const slug = c.req.param('slug') || '';
+    const q = new URL(c.req.url).search || '';
+    return c.redirect('/product/' + encodeURIComponent(slug) + q, 301);
+});
 app.get('/product/:slug', (c) => {
     const slug = c.req.param('slug') || '';
     const reqOrigin = requestOriginFromHono(c);
-    const html = cachedHtml('prod:' + reqOrigin + ':' + slug, 20_000, () => productPage(slug, reqOrigin));
-    // S4 (2026-11-03): a missing / inactive product must answer HTTP 404 (was a «soft 404» = 200,
-    // so Google kept deleted or deactivated products indexed).
-    return c.html(html, html.includes('class="nc-error-page') ? 404 : 200);
+    const ua = c.req.header('user-agent') || '';
+    const isBot = /torob|emalls|bot|crawler|spider|python-requests|go-http-client|slurp|bingpreview/i.test(ua);
+    const html = cachedHtml('prod:' + reqOrigin + ':' + slug, 20_000, () => productPage(slug, reqOrigin, { skipViewIncrement: isBot }));
+    const status = html.includes('class="nc-error-page') ? 404 : 200;
+    if (isBot) {
+        recordTorobLog({ mode: 'html_crawl', slug, status, ua: ua.slice(0, 90) });
+    }
+    return c.html(html, status);
 });
 app.get('/categories', (c) => {
     const reqOrigin = requestOriginFromHono(c);
@@ -392,9 +446,14 @@ app.get('/blog', (c) => {
     const reqOrigin = requestOriginFromHono(c);
     return c.html(cachedHtml('blog:' + reqOrigin, 30_000, () => blogListPage(reqOrigin)));
 });
-app.get('/blog/:slug', (c) => { const html = blogPostPage(c.req.param('slug') || '', requestOriginFromHono(c)); return c.html(html, html.includes('class="nc-error-page') ? 404 : 200); });
-app.get('/cart', (c) => c.html(cartPage()));
-app.get('/checkout', (c) => c.html(checkoutPage()));
+app.get('/blog/:slug', (c) => {
+    const ua = c.req.header('user-agent') || '';
+    const isBot = /torob|emalls|bot|crawler|spider|python-requests|go-http-client|slurp|bingpreview/i.test(ua);
+    const html = blogPostPage(c.req.param('slug') || '', requestOriginFromHono(c), { skipViewIncrement: isBot });
+    return c.html(html, html.includes('class="nc-error-page') ? 404 : 200);
+});
+app.get('/cart', (c) => c.html(cartPage(requestOriginFromHono(c))));
+app.get('/checkout', (c) => c.html(checkoutPage(requestOriginFromHono(c))));
 app.get('/order-success/:orderNumber', (c) => c.html(orderSuccessPage(c.req.param('orderNumber') || '')));
 app.get('/login', (c) => c.html(loginPage()));
 app.get('/register', (c) => c.html(registerPage()));

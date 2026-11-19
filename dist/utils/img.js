@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import db from '../db/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(HERE, '../..');
@@ -45,19 +46,17 @@ export function localImageExists(src) {
         return true;
     if (/\.svg$/i.test(clean))
         return false; // crawlers like Torob require raster (JPG/PNG/WebP), not SVG
-    if (clean.startsWith('/static/uploads/')) {
+    if (clean.startsWith('/static/uploads/') || clean.startsWith('/uploads/')) {
         const fname = path.basename(clean);
         if (fs.existsSync(path.join(ROOT_DIR, 'public/static/uploads', fname)))
             return true;
         if (fs.existsSync(path.join(ROOT_DIR, 'uploads', fname)))
             return true;
-    }
-    else if (clean.startsWith('/uploads/')) {
-        const fname = path.basename(clean);
-        if (fs.existsSync(path.join(ROOT_DIR, 'uploads', fname)))
-            return true;
-        if (fs.existsSync(path.join(ROOT_DIR, 'public/static/uploads', fname)))
-            return true;
+        try {
+            const row = db.prepare('SELECT size FROM uploaded_files WHERE fname = ?').get(fname);
+            if (row && Number(row.size) > 200)
+                return true;
+        } catch { /* ignore */ }
     }
     else if (clean.startsWith('/static/')) {
         if (fs.existsSync(path.join(ROOT_DIR, 'public', clean.replace(/^\//, ''))))
@@ -207,7 +206,7 @@ export function ncImg(src, opts = {}) {
     if (id) out += ` id="${attrEsc(id)}"`;
     if (cls) out += ` class="${attrEsc(cls)}"`;
     out += ` src="${attrEsc(url)}"`;
-    if (e) {
+    if (e && localImageExists(url)) {
         out += ` srcset="${attrEsc(srcsetOf(e))}"`;
         out += ` sizes="${attrEsc(sizes)}"`;
         if (ratio && e.w && e.h) out += ` width="${e.w}" height="${e.h}"`;
@@ -216,6 +215,10 @@ export function ncImg(src, opts = {}) {
     out += ` loading="${attrEsc(loading)}" decoding="${lcp ? 'sync' : 'async'}"`;
     if (fetchpriority) out += ` fetchpriority="${attrEsc(fetchpriority)}"`;
     if (style) out += ` style="${attrEsc(style)}"`;
+    if (!/\bonerror\s*=/i.test(attrs)) {
+        const fb = opts.fallback || '/static/images/p1.svg';
+        if (url !== fb) out += ` onerror="this.onerror=null;this.removeAttribute('srcset');this.src='${attrEsc(fb)}'"`;
+    }
     if (attrs) out += ' ' + attrs;
     out += '>';
     return out;

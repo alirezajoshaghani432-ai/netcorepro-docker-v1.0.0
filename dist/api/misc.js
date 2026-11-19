@@ -10,6 +10,7 @@ import { adminRequired } from '../middleware/auth.js';
 import { getAllSettings, setSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
 import { sendText, sendTemplate, accountInfo, smsEnabled, SMS_MASK } from '../utils/sms.js';
 import { generateVariantsFor } from '../utils/imggen.js';
+import { saveUploadedImageHybrid, readUploadedImageFromDb } from '../utils/torob.js';
 const misc = new Hono();
 // Newsletter subscribe
 misc.post('/newsletter/subscribe', async (c) => {
@@ -262,6 +263,12 @@ function imageContentHash(webPath) {
         return h;
     }
     catch {
+        if (webPath.startsWith('/static/uploads/') || webPath.startsWith('/uploads/')) {
+            const dbHit = readUploadedImageFromDb(webPath);
+            if (dbHit && dbHit.buffer) {
+                return createHash('md5').update(dbHit.buffer).digest('hex').slice(0, 12);
+            }
+        }
         return null;
     }
 }
@@ -552,9 +559,17 @@ const UPLOAD_DIR = path.resolve(__PROJ_ROOT, 'public/static/uploads');
 // NOTE: SVG is intentionally excluded — SVG files can embed <script> and would
 // execute as stored XSS when opened directly from /static/uploads/. Raster only.
 const ALLOWED_EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
-const MAX_IMG_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_IMG_BYTES = 10 * 1024 * 1024; // 10MB server limit (browser also compresses to <700KB WebP/JPEG automatically)
+function sniffBufferExt(buf) {
+    if (!buf || buf.length < 12) return null;
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return { ext: 'png', mime: 'image/png' };
+    if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
+    if (buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP') return { ext: 'webp', mime: 'image/webp' };
+    return null;
+}
 function ensureUploadDir() {
-    try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch { /* ignore */ }
+    try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch { /* ignore EACCES */ }
 }
 function safeName(ext) {
     const rnd = Math.random().toString(36).slice(2, 8);
@@ -567,16 +582,19 @@ misc.post('/admin/upload', adminRequired, async (c) => {
     try {
         let buffer = null;
         let ext = null;
+        let mime = 'image/jpeg';
         if (ctype.includes('multipart/form-data')) {
             const form = await c.req.parseBody();
             const file = form['file'];
             if (!file || typeof file === 'string')
                 return c.json({ success: false, message: 'فایلی ارسال نشد', code: 400 }, 400);
-            ext = ALLOWED_EXT[file.type];
-            if (!ext)
-                return c.json({ success: false, message: 'فرمت تصویر مجاز نیست (jpg, png, webp, gif)', code: 400 }, 400);
             const ab = await file.arrayBuffer();
             buffer = Buffer.from(ab);
+            const sniffed = sniffBufferExt(buffer);
+            ext = ALLOWED_EXT[String(file.type || '').toLowerCase()] || (sniffed && sniffed.ext) || null;
+            mime = (sniffed && sniffed.mime) || file.type || 'image/jpeg';
+            if (!ext)
+                return c.json({ success: false, message: 'فرمت تصویر مجاز نیست (فقط JPG, PNG, WebP, GIF)', code: 400 }, 400);
         }
         else {
             const body = await c.req.json().catch(() => ({}));
@@ -584,33 +602,29 @@ misc.post('/admin/upload', adminRequired, async (c) => {
             const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
             if (!m)
                 return c.json({ success: false, message: 'داده تصویر معتبر نیست', code: 400 }, 400);
-            ext = ALLOWED_EXT[m[1]];
-            if (!ext)
-                return c.json({ success: false, message: 'فرمت تصویر مجاز نیست (jpg, png, webp, gif)', code: 400 }, 400);
             buffer = Buffer.from(m[2], 'base64');
+            const sniffed = sniffBufferExt(buffer);
+            ext = ALLOWED_EXT[String(m[1] || '').toLowerCase()] || (sniffed && sniffed.ext) || null;
+            mime = (sniffed && sniffed.mime) || m[1] || 'image/jpeg';
+            if (!ext)
+                return c.json({ success: false, message: 'فرمت تصویر مجاز نیست (فقط JPG, PNG, WebP, GIF)', code: 400 }, 400);
         }
         if (!buffer || !buffer.length)
             return c.json({ success: false, message: 'فایل خالی است', code: 400 }, 400);
         if (buffer.length > MAX_IMG_BYTES)
-            return c.json({ success: false, message: 'حجم تصویر بیش از ۵ مگابایت است', code: 400 }, 400);
+            return c.json({ success: false, message: 'حجم تصویر بیش از ۱۰ مگابایت است', code: 400 }, 400);
         const fname = safeName(ext);
-        fs.writeFileSync(path.join(UPLOAD_DIR, fname), buffer);
-        try {
-            const pDir = path.resolve(__PROJ_ROOT, 'uploads');
-            fs.mkdirSync(pDir, { recursive: true });
-            fs.writeFileSync(path.join(pDir, fname), buffer);
-        } catch { /* ignore */ }
+        const storage = saveUploadedImageHybrid(fname, mime, buffer);
         const url = `/static/uploads/${fname}`;
-        // F2f: build the responsive WebP ladder for this new photo in the
-        // background so images added from the admin panel stay as fast as the
-        // ones processed at build time. Never blocks or fails the upload.
-        generateVariantsFor(url).catch(() => { });
-        logActivity({ user_id: user.id, user_name: user.full_name, action: 'upload', entity_type: 'image', details: { url, size: buffer.length } });
-        return c.json({ success: true, data: { url }, message: 'تصویر آپلود شد', code: 200 });
+        if (storage.savedDisk) {
+            generateVariantsFor(url).catch(() => { });
+        }
+        logActivity({ user_id: user.id, user_name: user.full_name, action: 'upload', entity_type: 'image', details: { url, size: buffer.length, db: storage.savedDb, disk: storage.savedDisk } });
+        return c.json({ success: true, data: { url, size: buffer.length }, message: 'تصویر با موفقیت آپلود و ذخیره شد', code: 200 });
     }
     catch (e) {
         console.error('[upload]', e?.message);
-        return c.json({ success: false, message: 'خطا در آپلود تصویر — فایل را بررسی کنید یا دوباره تلاش کنید', code: 500 }, 500);
+        return c.json({ success: false, message: 'خطا در آپلود تصویر: ' + (e?.message || 'فایل را بررسی کنید'), code: 500 }, 500);
     }
 });
 // list uploaded images (media library)
@@ -629,6 +643,15 @@ misc.get('/admin/uploads', adminRequired, (c) => {
     };
     scanDir(UPLOAD_DIR);
     scanDir(path.resolve(__PROJ_ROOT, 'uploads'));
+    try {
+        const dbFiles = db.prepare('SELECT fname, size, created_at FROM uploaded_files ORDER BY created_at DESC LIMIT 500').all();
+        for (const r of dbFiles) {
+            if (r && r.fname && Number(r.size) > 200 && !byName.has(r.fname)) {
+                const ts = r.created_at ? (new Date(r.created_at).getTime() || Date.now()) : Date.now();
+                byName.set(r.fname, { url: `/static/uploads/${r.fname}`, name: r.fname, mtime: ts });
+            }
+        }
+    } catch { /* ignore */ }
     const files = [...byName.values()].sort((a, b) => b.mtime - a.mtime);
     return c.json({ success: true, data: files, code: 200 });
 });

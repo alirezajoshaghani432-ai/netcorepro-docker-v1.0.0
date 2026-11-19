@@ -27,6 +27,7 @@ import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
 import { logActivity, friendlyDbError, resolveSiteBaseUrl, requestOriginFromHono } from '../utils/helpers.js';
 import { generateVariantsFor } from '../utils/imggen.js';
+import { saveUploadedImageHybrid } from '../utils/torob.js';
 
 const io = new Hono();
 
@@ -281,16 +282,11 @@ async function downloadImage(url) {
         if (buf.length > MAX_IMG) throw new Error('حجم تصویر بیش از ۵ مگابایت');
         const ext = sniffExt(buf);
         if (!ext) throw new Error('فایل تصویر معتبر نیست');
-        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         const fname = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        fs.writeFileSync(path.join(UPLOAD_DIR, fname), buf);
-        try {
-            const pDir = path.resolve(__PROJ_ROOT, 'uploads');
-            fs.mkdirSync(pDir, { recursive: true });
-            fs.writeFileSync(path.join(pDir, fname), buf);
-        } catch { /* ignore */ }
+        const mime = ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+        const st = saveUploadedImageHybrid(fname, mime, buf);
         const local = `/static/uploads/${fname}`;
-        generateVariantsFor(local).catch(() => { });
+        if (st.savedDisk) generateVariantsFor(local).catch(() => { });
         return local;
     }
     throw new Error('ریدایرکت بیش از حد');

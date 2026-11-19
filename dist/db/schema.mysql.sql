@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   phone VARCHAR(32) NOT NULL,
   code VARCHAR(10) NOT NULL,
   is_used TINYINT NOT NULL DEFAULT 0,
+  attempts INT NOT NULL DEFAULT 0,
   expires_at DATETIME NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -270,3 +271,12 @@ CREATE INDEX idx_site_blocks_ps ON site_blocks(page, section, is_active, sort_or
 CREATE INDEX idx_site_pages_page ON site_pages(page, is_active);
 CREATE INDEX idx_otp_phone ON otp_codes(phone, is_used, expires_at);
 CREATE INDEX idx_categories_parent ON categories(parent_id, sort_order);
+
+
+CREATE TABLE IF NOT EXISTS uploaded_files (
+  fname VARCHAR(190) PRIMARY KEY,
+  mime VARCHAR(64) NOT NULL,
+  size INT NOT NULL DEFAULT 0,
+  data LONGBLOB NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

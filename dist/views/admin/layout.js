@@ -4,7 +4,7 @@ const LOCAL_HEAD = `
 <link rel="stylesheet" href="/static/css/vazirmatn.css?v=20260708c">
 <link rel="stylesheet" href="/static/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/css/tailwind.min.css">
-<link rel="stylesheet" href="/static/css/app.css?v=20260708c">
+<link rel="stylesheet" href="/static/css/app.css?v=20261119b">
 <link rel="stylesheet" href="/static/css/admin-utils.css?v=20261103d">
 <script>
 /* Early toast stub: guarantees window.toast exists before any inline page script runs
@@ -64,7 +64,7 @@ window.toast = window.toast || function(message){ try { console.info('[toast]', 
 <!-- admin.js loaded SYNCHRONOUSLY so its helpers (escAdmin, formatPrice, statusLabel,
      showModal, attrJson, uploadImage, ncpImageField, statusLabel, toast) are defined
      BEFORE any inline page <script> calls loadX(). DOM-dependent init runs on DOMContentLoaded. -->
-<script src="/static/js/admin.js?v=20260708c"></script>
+<script src="/static/js/admin.js?v=20261119b"></script>
 `;
 
 export function adminLayout(opts, content) {

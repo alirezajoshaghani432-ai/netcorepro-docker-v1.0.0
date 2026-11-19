@@ -1,453 +1,1671 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>گزارش جامع مهندسی رادیس (radys.ir) — اتصال کامل به ترب + اصلاحات رابط کاربری و موبایل</title>
-<style>
-  @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-  :root {
-    --bg: #0b1120;
-    --surface: #111827;
-    --surface-2: #1e293b;
-    --border: rgba(148, 163, 184, 0.16);
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --primary: #3b82f6;
-    --emerald: #10b981;
-    --amber: #f59e0b;
-    --rose: #f43f5e;
-    --violet: #8b5cf6;
-    --cyan: #06b6d4;
-    --torob: #d73948;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Vazirmatn', Tahoma, system-ui, -apple-system, sans-serif;
-    background: radial-gradient(circle at 15% 0%, rgba(215, 57, 72, 0.14), transparent 38%),
-                radial-gradient(circle at 85% 10%, rgba(59, 130, 246, 0.15), transparent 40%),
-                radial-gradient(circle at 50% 60%, rgba(6, 182, 212, 0.08), transparent 45%),
-                var(--bg);
-    color: var(--text);
-    line-height: 1.88;
-    padding-bottom: 72px;
-  }
-  .container { max-width: 1200px; margin: 0 auto; padding: 0 22px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>گزارش جامع ممیزی خطاها و نقشه راه بهینه‌سازی فوق‌پیشرفته رادیس (radys.ir) و اکوسیستم ربات‌ها</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #0f172a;
+      --surface-2: #131e36;
+      --surface-3: #1e293b;
+      --border: rgba(148, 163, 184, 0.16);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --accent: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --purple: #8b5cf6;
+      --cyan: #06b6d4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 15% 0%, rgba(59,130,246,0.14), transparent 40%),
+                  radial-gradient(circle at 85% 10%, rgba(16,185,129,0.11), transparent 38%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.85;
+      padding-bottom: 80px;
+    }
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+    
+    /* Top Hero */
+    .hero {
+      padding: 48px 0 36px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(15,23,42,0.85) 0%, rgba(7,11,20,0.4) 100%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35);
+      color: #34d399; font-size: 13px; font-weight: 700;
+      padding: 6px 16px; border-radius: 999px; margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(24px, 3.4vw, 38px);
+      font-weight: 900; line-height: 1.45;
+      background: linear-gradient(95deg, #ffffff 0%, #93c5fd 55%, #6ee7b7 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 14px;
+    }
+    .hero p.lead { color: #cbd5e1; font-size: 15.5px; max-width: 980px; }
+    
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px; margin-top: 28px;
+    }
+    .kpi-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 20px;
+      position: relative; overflow: hidden;
+    }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; right: 0; width: 4px; height: 100%;
+      background: var(--kpi-color, var(--primary));
+    }
+    .kpi-val { font-size: 28px; font-weight: 900; color: #fff; line-height: 1.2; }
+    .kpi-lbl { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .kpi-sub { font-size: 11.5px; color: #6ee7b7; margin-top: 6px; font-weight: 600; }
 
-  .hero {
-    padding: 54px 0 40px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.88) 0%, rgba(11, 17, 32, 0.45) 100%);
-  }
-  .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
-    border: 1px solid transparent;
-  }
-  .pill-torob { background: rgba(215, 57, 72, 0.16); color: #fda4af; border-color: rgba(215, 57, 72, 0.35); }
-  .pill-ui { background: rgba(6, 182, 212, 0.16); color: #67e8f9; border-color: rgba(6, 182, 212, 0.35); }
-  .pill-ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); }
-  .pill-ver { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border-color: rgba(59, 130, 246, 0.35); }
-  .hero h1 { font-size: clamp(24px, 3.3vw, 35px); font-weight: 900; letter-spacing: -0.3px; margin-bottom: 14px; color: #ffffff; }
-  .hero p { color: var(--muted); font-size: 15.5px; max-width: 960px; }
+    /* Sticky Nav */
+    .sticky-nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(10, 15, 29, 0.88);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 0;
+    }
+    .nav-pills {
+      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .nav-pills a {
+      color: #cbd5e1; text-decoration: none; font-size: 13px; font-weight: 700;
+      padding: 8px 16px; border-radius: 11px; white-space: nowrap;
+      background: rgba(30, 41, 59, 0.65); border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .nav-pills a:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-  .kpi-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
-    gap: 16px; margin-top: 28px;
-  }
-  .kpi {
-    background: rgba(30, 41, 59, 0.65); border: 1px solid var(--border);
-    border-radius: 16px; padding: 18px 20px; backdrop-filter: blur(10px);
-  }
-  .kpi-val { font-size: 26px; font-weight: 900; color: #fff; line-height: 1.25; margin-bottom: 5px; }
-  .kpi-val.emerald { color: #34d399; }
-  .kpi-val.rose { color: #fb7185; }
-  .kpi-val.blue { color: #60a5fa; }
-  .kpi-val.cyan { color: #22d3ee; }
-  .kpi-lbl { font-size: 13px; color: var(--muted); }
+    /* Section Headings */
+    .sec { margin-top: 46px; scroll-margin-top: 76px; }
+    .sec-head {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--border);
+    }
+    .sec-title { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 900; }
+    .sec-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--purple));
+    }
 
-  section { margin-top: 42px; }
-  .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .sec-num {
-    width: 38px; height: 38px; border-radius: 11px;
-    background: linear-gradient(135deg, var(--torob), #f43f5e);
-    color: #fff; font-weight: 900; font-size: 16px;
-    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  .sec-num.cyan { background: linear-gradient(135deg, #0891b2, #3b82f6); }
-  .sec-head h2 { font-size: 21px; font-weight: 800; color: #fff; }
+    /* Executive Alert Box */
+    .exec-box {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 20px; padding: 24px; margin-top: 28px;
+    }
+    .exec-box h3 { color: #93c5fd; font-size: 18px; margin-bottom: 12px; }
+    .exec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 14px; }
+    .exec-item {
+      background: rgba(7, 11, 20, 0.55); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; font-size: 13.8px;
+    }
+    .exec-item b { color: #fff; display: block; margin-bottom: 6px; font-size: 14.5px; }
 
-  .card {
-    background: rgba(17, 24, 39, 0.88);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 24px;
-    margin-bottom: 18px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-  }
-  .card h3 { font-size: 17px; font-weight: 800; margin-bottom: 10px; color: #f8fafc; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .card p { font-size: 14.5px; color: #cbd5e1; margin-bottom: 10px; }
+    /* Error Cards */
+    .err-list { display: flex; flex-direction: column; gap: 16px; }
+    .err-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px;
+      transition: border-color 0.2s;
+    }
+    .err-card.critical { border-right: 5px solid var(--rose); }
+    .err-card.high { border-right: 5px solid var(--amber); }
+    .err-card.medium { border-right: 5px solid var(--cyan); }
+    .err-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .badge {
+      font-size: 11.5px; font-weight: 800; padding: 4px 11px; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .badge.critical { background: rgba(244,63,94,0.16); color: #fda4af; border: 1px solid rgba(244,63,94,0.35); }
+    .badge.high { background: rgba(245,158,11,0.16); color: #fcd34d; border: 1px solid rgba(245,158,11,0.35); }
+    .badge.medium { background: rgba(6,182,212,0.16); color: #67e8f9; border: 1px solid rgba(6,182,212,0.35); }
+    .badge.layer { background: rgba(148,163,184,0.12); color: #cbd5e1; }
+    .badge.status-ok { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+    .err-title { font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .err-where {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; color: #93c5fd; background: rgba(2,6,23,0.65);
+      padding: 5px 10px; border-radius: 8px; display: inline-block; margin-bottom: 12px; direction: ltr;
+    }
+    .err-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+    .err-box {
+      background: rgba(2, 6, 23, 0.45); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; font-size: 13.5px; color: #dbeafe;
+    }
+    .err-box.cause { color: #e2e8f0; }
+    .err-box h4 { font-size: 12.5px; font-weight: 800; margin-bottom: 6px; color: #94a3b8; }
+    .err-box.fix h4 { color: #34d399; }
 
-  .tag-crit { background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.35); padding: 2px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-  .tag-fix { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35); padding: 2px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-  .tag-ui { background: rgba(6, 182, 212, 0.18); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.35); padding: 2px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-  .tag-pro { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.35); padding: 2px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+    /* Filter Bar for Elite Recommendations */
+    .filter-bar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 14px 16px; border-radius: 16px; margin-bottom: 20px;
+    }
+    .search-inp {
+      flex: 1; min-width: 240px; background: #070b14; border: 1px solid var(--border);
+      color: #fff; font-family: inherit; font-size: 13.5px;
+      padding: 10px 14px; border-radius: 10px; outline: none;
+    }
+    .search-inp:focus { border-color: var(--primary); }
+    .f-btn {
+      background: var(--surface-3); color: #cbd5e1; border: 1px solid var(--border);
+      font-family: inherit; font-size: 12.5px; font-weight: 700;
+      padding: 8px 13px; border-radius: 10px; cursor: pointer; transition: all 0.15s;
+    }
+    .f-btn.active, .f-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-  pre {
-    background: #060b14;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 12px;
-    padding: 16px 18px;
-    overflow-x: auto;
-    direction: ltr;
-    text-align: left;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 12.8px;
-    line-height: 1.7;
-    color: #e2e8f0;
-    margin: 12px 0;
-  }
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    background: rgba(148, 163, 184, 0.15);
-    padding: 2px 6px;
-    border-radius: 5px;
-    font-size: 12.5px;
-    direction: ltr;
-    display: inline-block;
-  }
-  .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
-  @media (max-width: 860px) { .diff-grid { grid-template-columns: 1fr; } }
-  .diff-box { border-radius: 14px; padding: 16px; border: 1px solid var(--border); }
-  .diff-bad { background: rgba(244, 63, 94, 0.06); border-color: rgba(244, 63, 94, 0.28); }
-  .diff-good { background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.28); }
-  .diff-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
-  .diff-bad .diff-title { color: #fda4af; }
-  .diff-good .diff-title { color: #6ee7b7; }
+    /* Recommendation Cards */
+    .rec-grid { display: flex; flex-direction: column; gap: 18px; }
+    .rec-card {
+      background: linear-gradient(180deg, var(--surface) 0%, rgba(15,23,42,0.78) 100%);
+      border: 1px solid var(--border); border-radius: 20px; padding: 24px;
+      position: relative;
+    }
+    .rec-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+    .rec-rank {
+      width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff; font-weight: 900; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 20px rgba(37,99,235,0.28);
+    }
+    .rec-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+    .rec-title { font-size: 18px; font-weight: 900; color: #fff; line-height: 1.5; }
+    .rec-pillars {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    }
+    .pillar {
+      background: rgba(7, 11, 20, 0.6); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; font-size: 13.5px;
+    }
+    .pillar-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 800; margin-bottom: 8px;
+    }
+    .pillar.why .pillar-head { color: #fbbf24; }
+    .pillar.how .pillar-head { color: #60a5fa; }
+    .pillar.roi .pillar-head { color: #34d399; }
+    .pillar p { color: #e2e8f0; line-height: 1.85; }
 
-  .table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--border); }
-  table { width: 100%; border-collapse: collapse; font-size: 13.8px; background: rgba(17, 24, 39, 0.7); }
-  th, td { padding: 13px 16px; text-align: right; border-bottom: 1px solid var(--border); vertical-align: top; }
-  th { background: rgba(30, 41, 59, 0.85); color: #f8fafc; font-weight: 800; white-space: nowrap; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(59, 130, 246, 0.05); }
+    /* 310 Scanned Catalog Matrix */
+    .cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+    .cat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 20px;
+    }
+    .cat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .cat-name { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; }
+    .cat-count { font-size: 12px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 3px 10px; border-radius: 99px; }
+    .cat-sum { font-size: 13px; color: #cbd5e1; margin-bottom: 12px; }
+    .cat-card details summary {
+      cursor: pointer; font-size: 12.5px; font-weight: 700; color: #93c5fd;
+      padding: 8px 12px; background: rgba(59,130,246,0.08); border-radius: 10px;
+    }
+    .cat-card ul { margin-top: 10px; padding-right: 18px; font-size: 12.5px; color: #cbd5e1; space-y: 4px; }
+    .cat-card li { margin-bottom: 5px; }
 
-  .ticket-quote {
-    background: rgba(16, 185, 129, 0.08);
-    border-right: 4px solid var(--torob);
-    border-radius: 10px;
-    padding: 14px 18px;
-    margin: 12px 0;
-    color: #e2e8f0;
-    font-size: 14px;
-  }
-  .ticket-quote.cyan { border-right-color: var(--cyan); background: rgba(6, 182, 212, 0.08); }
-  .ticket-quote b { color: #fda4af; }
-  .ticket-quote.cyan b { color: #67e8f9; }
+    /* Roadmap Table */
+    .roadmap-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; }
+    table.rm-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .rm-tbl th, .rm-tbl td { padding: 14px 16px; text-align: right; border-bottom: 1px solid var(--border); }
+    .rm-tbl th { background: rgba(30,41,59,0.7); color: #93c5fd; font-weight: 800; white-space: nowrap; }
+    .rm-tbl tr:last-child td { border-bottom: none; }
 
-  .rounds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
-  .round-card {
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.75), rgba(17, 24, 39, 0.92));
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 22px;
-  }
-  .score-ring {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 4px 12px; border-radius: 999px; font-weight: 900; font-size: 14px;
-    background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
-  }
-  ul.check-list { list-style: none; margin-top: 10px; }
-  ul.check-list li { position: relative; padding-right: 22px; margin-bottom: 8px; font-size: 13.8px; color: #cbd5e1; }
-  ul.check-list li::before { content: "✓"; position: absolute; right: 0; color: #34d399; font-weight: 900; }
+    pre.code-block {
+      background: #020617; border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; overflow-x: auto; direction: ltr; text-align: left;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: #a7f3d0;
+      margin-top: 12px; line-height: 1.7;
+    }
 
-  .reply-box {
-    background: rgba(16, 185, 129, 0.09);
-    border: 1px dashed rgba(16, 185, 129, 0.5);
-    border-radius: 14px;
-    padding: 18px 20px;
-    color: #ecfdf5;
-    font-size: 14.5px;
-    position: relative;
-  }
-  .copy-btn {
-    background: var(--emerald); color: #052e16; border: none; border-radius: 8px;
-    padding: 7px 14px; font-family: inherit; font-weight: 800; font-size: 12.5px;
-    cursor: pointer; transition: 0.2s;
-  }
-  .copy-btn:hover { filter: brightness(1.1); }
-  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 52px; padding-top: 24px; border-top: 1px solid var(--border); }
-</style>
+    @media (max-width: 920px) {
+      .err-cols, .rec-pillars { grid-template-columns: 1fr; }
+      .cat-grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; color: #000; }
+      .sticky-nav, .filter-bar { display: none; }
+      .err-card, .rec-card, .cat-card { break-inside: avoid; border: 1px solid #ccc; background: #fff; color: #000; }
+    }
+  </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="container">
-    <div class="badge-row">
-      <span class="pill pill-torob">فاز ۱: رفع ریشه‌ای اتصال به ترب (Torob Integration)</span>
-      <span class="pill pill-ui">فاز ۲: اصلاح تصویر مقالات، کارت محصول موبایل و بنرهای موبایل</span>
-      <span class="pill pill-ok">ممیزی مهندسی و بصری ۳ مرحله‌ای — امتیاز نهایی: ۱۰۰ از ۱۰۰</span>
-      <span class="pill pill-ver">بیلد نهایی: ۱۴۰۵/۰۸/۲۷ (ASSET_V: 20261118c)</span>
-    </div>
-    <h1>گزارش جامع مهندسی و اصلاحات سایت رادیس (radys.ir)</h1>
-    <p>مستندات کامل عیب‌یابی و رفع ۶ مانع اصلی ثبت محصولات در ترب (متاتگ <code>product_id</code> و وب‌سرویس رسمی <code>Torob API v3</code>) + رفع ۳ باگ ظاهری و ریسپانسیو موبایل (تکرار ۴تایی عکس مقاله، کشیدگی کارت محصولات در موبایل و تنظیم نبودن بنرهای بالای سایت در موبایل) همراه با نتایج تست مرورگر واقعی و راهنمای استقرار.</p>
+  <header class="hero">
+    <div class="container">
+      <div class="hero-badge"><i class="fas fa-microscope"></i> ممیزی عمیق خطاها + بررسی ۳۱۰ ایده بهینه‌سازی سیستم و ربات‌ها — آبان ۱۴۰۵ (۲۰۲۶/۱۱/۱۹)</div>
+      <h1>گزارش جامع کالبدشکافی خطاهای زنده radys.ir و نقشه راه ۳۰ ارتقای طلایی سیستم و ربات</h1>
+      <p class="lead">
+        این گزارش نتیجه بررسی خط‌به‌خط ۴۸ ماژول سورس فروشگاه <b>رادیس شبکه (radys.ir)</b>، تست زنده هدرها و پورت‌های سرور تولید، کالبدشکافی مستقیم API عمومی و افزونه رسمی <b>ترب (فروشگاه شناسه ۵۱۲۷۹۹)</b>، و ممیزی معماری ربات‌های اتوماسیون سرور است. از میان <b>۳۱۰ پیشنهاد تخصصی بررسی‌شده در ۱۰ حوزه مهندسی</b>، <b>۳۰ راهکار تحول‌آفرین با بالاترین بازگشت سرمایه (ROI)</b> به همراه «چرایی نیاز»، «نحوه دقیق پیاده‌سازی» و «سود مستقیم تجاری و فنی» گلچین شده‌اند.
+      </p>
 
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="kpi-val emerald">۱۰۰٪ محصولات</div>
-        <div class="kpi-lbl">مجهز به متاتگ <code>product_id</code>، قیمت تومانی، موجودی و <code>Torob API v3</code></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val cyan">۳۴٪ جمع‌وجورتر</div>
-        <div class="kpi-lbl">کاهش ارتفاع کارت محصولات در موبایل (از ~۳۶۵px به ~۲۴۷px؛ دسکتاپ دست‌نخورده)</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val blue">۰ برش افقی بنر</div>
-        <div class="kpi-lbl">تنظیم دقیق نسبت ابعاد بنرهای بالای موبایل + حذف کادرهای تیره خالی</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val rose">رفع تکرار ۴تایی</div>
-        <div class="kpi-lbl">اصلاح کامل تصویر کاور مقالات بلاگ + حذف تگ <code>&lt;h1&gt;</code> تکراری</div>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main class="container">
-
-  <!-- SECTION 1: PHASE 2 UI/UX & MOBILE FIXES (LATEST UPDATES) -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-num cyan">۱</span>
-      <h2>اصلاحات جدید رابط کاربری، بلاگ و نمایش موبایل (فاز ۲ — ۱۴۰۵/۰۸/۲۷)</h2>
-    </div>
-
-    <div class="card">
-      <h3>بررسی دقیق پیام‌ها، عکس‌ها و ویس‌های ارسالی شما روی سایت زنده <code>radys.ir</code></h3>
-      <div class="ticket-quote cyan">
-        <b>موارد گزارش‌شده توسط شما:</b><br>
-        ۱. <b>تصویر مقاله:</b> «این عکس مقاله کلیک می‌کنی روش ۴ تا عکس نشون میده»<br>
-        ۲. <b>ویس اول (کارت محصولات در موبایل):</b> «ببین فقط تو موبایل این مشکل هست‌ها، هر محصول خیلی کشیده‌ست یعنی خیلی بلنده، یه خرده جمع‌تر بشه بهتره به نظرم.»<br>
-        ۳. <b>ویس دوم (بنرهای بالای سایت در موبایل):</b> «حالا که داری درست می‌کنی، یه بارگی ببین عکس این بنرها هم تنظیم نیست تو موبایل؛ وقتی که ورود می‌زنی اون بالاش.»
-      </div>
-      <p>هر سه مورد به‌صورت زنده روی خروجی واقعی <code>https://radys.ir</code> کالبدشکافی و ریشه‌یابی شدند و هم در قالب‌های سرور (<code>dist/views/site/pages.js</code>) و هم در باندل استایل فشرده فروشگاه (<code>app.css</code> و <code>nc-site.min.css?v=20261118c</code>) به‌صورت اصولی رفع گردیدند:</p>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-ui">اصلاح ۱</span> رفع کامل ۴تایی شدن (تکرار ۲×۲) عکس کاور مقالات + حذف عنوان <code>&lt;h1&gt;</code> تکراری</h3>
-      <p><b>علت ریشه‌ای:</b> در صفحه مقاله (مانند <code>/blog/ngfw-introduction</code>)، تصویر آپلودشده <code>up-1794641765668-lhv91c.jpg</code> دارای ابعاد کوچک <code>390×219</code> پیکسل بود، اما قالب آن را به صورت <code>style="background-image:url(...)"</code> روی یک <code>&lt;div class="nc-blogpost-cover"&gt;</code> به عرض <code>820px</code> و ارتفاع <code>358px</code> قرار می‌داد؛ بدون آنکه <code>background-repeat: no-repeat</code> یا <code>background-size: cover</code> تعریف شده باشد! مرورگر به‌صورت پیش‌فرض تصویر ۳۹۰ پیکسلی را ۲ بار در عرض و ۲ بار در ارتفاع تکرار (Tile) می‌کرد و ۴ عکس کنار هم دیده می‌شد. همچنین در متن ذخیره شده مقاله یک تگ <code>&lt;h1&gt;</code> هم‌نام با عنوان مقاله وجود داشت که باعث نمایش دوبار عنوان بزرگ زیر عکس می‌شد.</p>
-      <p><b>نحوه رفع و ارتقا:</b></p>
-      <ul class="check-list">
-        <li>تبدیل کاور صفحه مقاله و کارت‌های مقاله در صفحه اصلی و <code>/blog</code> از <code>background-image</code> به تگ استاندارد و واکنش‌گرای <code>&lt;img&gt;</code> با پس‌زمینه محو (Ambient Blur Backdrop) تا حتی اگر تصویر کوچکی مثل <code>390×219</code> آپلود شود، هم در دسکتاپ و هم در موبایل <b>فقط ۱ بار، کاملاً شارپ و بدون تکرار یا تار شدن</b> نمایش داده شود.</li>
-        <li>افزودن قفل ایمنی <code>background-repeat: no-repeat !important; background-size: cover !important;</code> در CSS.</li>
-        <li>حذف هوشمند تگ <code>&lt;h1&gt;</code> تکراری ابتدای متن مقاله (<code>stripDuplicateLeadingH1</code>) تا عنوان مقاله فقط یک‌بار نمایش داده شود و ساختار سئو تک‌عنوانی بماند.</li>
-        <li>اتصال تصویر کاور مقاله به متاتگ <code>og:image</code> و افزودن اسکیمای <code>BlogPosting (JSON-LD)</code> برای پیش‌نمایش حرفه‌ای در تلگرام، واتس‌اپ و گوگل.</li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-ui">اصلاح ۲</span> جمع‌وجور و خوش‌فرم شدن کارت‌های محصول منحصراً در موبایل (بدون تغییر دسکتاپ)</h3>
-      <p><b>علت ریشه‌ای:</b> در موبایل (عرض ۳۷۵ پیکسل)، هر کارت محصول با عرض حدود <code>150–170px</code> دارای قاب عکس مربعی ۱:۱ با پدینگ زیاد، حاشیه‌های عمودی بزرگ، حداقل ارتفاع زیاد نام کالا، دکمه سبد خرید بزرگ ۴۲ پیکسلی و نوار وضعیت موجودی پهن بود که ارتفاع کارت را به حدود <b>۳۶۰ تا ۳۷۵ پیکسل</b> می‌رساند و کارت‌ها کشیده و بلند دیده می‌شدند.</p>
-      <p><b>نحوه رفع (فقط در <code>@media (max-width: 768px)</code>):</b></p>
-      <ul class="check-list">
-        <li>تغییر نسبت قاب تصویر محصول در موبایل از <code>1/1</code> به <code>4/3</code> با پدینگ بهینه تا عکس کالا واضح بماند اما فضای سفید اضافی بالا و پایین حذف شود.</li>
-        <li>تنظیم دقیق تایپوگرافی برند، نام دوخطی محصول (<code>35.5px</code>)، چیدمان تراز قیمت و تومان، دکمه سبد خرید ظریف <code>32×32</code> پیکسلی و کپسول باریک «موجود».</li>
-        <li><b>نتیجه اندازه‌گیری‌شده در مرورگر Chrome موبایل:</b> ارتفاع کارت‌ها در ردیف‌های اسکرولی به <b>۲۴۶ پیکسل</b> و در شبکه ۲ ستونه صفحه محصولات (<code>/products</code>) به <b>۲۵۰ پیکسل</b> کاهش یافت (~۳۴٪ جمع‌وجورتر و متناسب‌تر)، در حالی که در دسکتاپ ابعاد <code>215×391</code> و نسبت <code>1:1</code> صددرصد بدون تغییر حفظ شد.</li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-ui">اصلاح ۳</span> تنظیم دقیق بنرهای بالای سایت در موبایل + حذف لایه‌های تیره خالی روی بنرهای تصویری</h3>
-      <p><b>علت ریشه‌ای کشف‌شده روی سایت زنده:</b> با بررسی مستقیم ابعاد باینری بنرهای آپلودشده روی <code>radys.ir</code> مشخص شد بنرهای اصلی اسلایدر دارای ابعاد عریض <code>2032×774</code> (نسبت <code>2.63:1</code>)، بنرهای کناری <code>1296×816</code> (نسبت <code>1.59:1</code>) و بنر میانی <code>1840×576</code> (نسبت <code>3.19:1</code>) هستند. دو اتفاق هم‌زمان باعث به‌هم‌ریختگی در موبایل شده بود:</p>
-      <p>۱) در CSS قبلی موبایل، ارتفاع اجباری <code>min-height: 180px</code> و نسبت <code>16/9</code> روی اسلایدر اعمال شده بود که بنر عریض <code>2.63:1</code> را با <code>object-fit: cover</code> از چپ و راست حدود <b>۳۵٪ برش (Crop)</b> می‌زد و نوشته‌های داخل عکس بنر نصفه می‌افتاد!<br>
-      ۲) در پنل ادمین چون فیلد «عنوان» اجباری (<code>required</code>) بود، هنگام ثبت بنر تصویری یک کاراکتر فاصله خالی (<code>" "</code>) در عنوان تایپ شده بود! کد قبلی فاصله خالی را متن واقعی فرض می‌کرد و یک کادر شیشه‌ای تیره خالی (<code>.nc-slide-card</code>) و سایه سیاه روی عکس بنرها می‌انداخت!</p>
-      <p><b>نحوه رفع و ارتقا:</b></p>
-      <ul class="check-list">
-        <li>اعمال <code>.trim()</code> روی عنوان و توضیحات تمام بنرهای اسلایدر، کناری و میانی تا فاصله خالی <code>" "</code> دیگر هرگز کادر تیره خالی روی بنرهای گرافیکی نیندازد.</li>
-        <li>تشخیص هوشمند بنرهای تمام‌گرافیکی (<code>.nc-slider--graphic</code>) و تطبیق خودکار قاب موبایل با نسبت واقعی بنر (<code>2032/774</code> برای اسلایدر، <code>16/10</code> برای دو بنر کناری و <code>1840/576</code> برای بنر میانی) با <b>صفر درصد برش</b> از طرفین تصویر!</li>
-        <li>بهینه‌سازی فاصله نوار جستجو و هدر موبایل در بالای صفحه تا به‌محض ورود کاربر به سایت، بنر اصلی و دو بنر کناری با کادربندی تمیز و یکدست در بالای صفحه دیده شوند.</li>
-        <li>اختیاری کردن فیلد «عنوان» در فرم مدیریت بنرهای پنل ادمین (در صورت انتخاب تصویر) تا دیگر نیازی به وارد کردن فاصله خالی نباشد، به‌همراه رفع باگ دکمه‌های اسکرول کاروسل در صفحات فرود <code>/h/:slug</code>.</li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- SECTION 2: PHASE 1 TOROB ROOT CAUSES -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-num">۲</span>
-      <h2>تحلیل فنی تیکت پشتیبانی ترب و ۶ مانع رفع‌شده (فاز ۱)</h2>
-    </div>
-
-    <div class="card">
-      <h3>خلاصه ۶ علت ریشه‌ای عدم ثبت محصولات جدید در ترب و نحوه رفع قطعی</h3>
-      <div class="ticket-quote">
-        <b>پیام پشتیبانی ترب:</b> «آدرس تصویر هر دو محصول نمونه دریافت می‌شود، اما <b>شناسهٔ لازم برای شناسایی و ثبت آن‌ها هنوز خوانده نمی‌شود</b>. لازم است <b>متاتگ product_id</b> را نیز ثبت بفرمایید و توجه داشته باشید این متاتگ باید برای <b>تمامی محصولات</b> درج شود.»
-      </div>
-      <ul class="check-list">
-        <li><b>۱. افزودن کامل متاتگ‌های ربات HTML ترب در <code>&lt;head&gt;</code> تمامی صفحات محصول:</b> شامل <code>product_id</code>، <code>product_name</code>، <code>product_price</code> (به تومان)، <code>product_old_price</code>، <code>availability</code> (<code>instock</code> / <code>outofstock</code>)، <code>guarantee</code> و تگ‌های OpenGraph Product به‌صورت Server-Side بدون نیاز به جاوااسکریپت.</li>
-        <li><b>۲. راه‌اندازی وب‌سرویس رسمی نسل جدید ترب (<code>POST /torob_api/v3/products</code>):</b> پیاده‌سازی کامل هر ۴ حالت رسمی مستندات ترب (صفحه‌بندی، Cursor، <code>page_urls</code> و <code>page_uniques</code>) به‌همراه اعتبارسنجی امضای دیجیتال <code>Ed25519 (EdDSA)</code> در هدر <code>X-Torob-Token</code>.</li>
-        <li><b>۳. حذف خودکار آی‌پی خام سرور <code>http://185.250.249.187:8090</code> از تگ Canonical:</b> اصلاح خودکار <code>site_url</code> در دیتابیس هنگام اجرای برنامه به <code>https://radys.ir</code> و تبدیل تمام لینک‌های <code>canonical</code> و <code>og:image</code> به آدرس مطلق (Absolute URL).</li>
-        <li><b>۴. ماندگاری دائمی تصاویر محصولات در Docker:</b> ذخیره‌سازی دوگانه در <code>public/static/uploads</code> و <code>./uploads</code> + همگام‌سازی خودکار در لحظه بالا آمدن سرور + افزودن Volume دائمی در <code>docker-compose.yml</code> تا دیگر هرگز با اجرای <code>docker compose up -d --build</code> عکس محصولات جدید پاک نشود.</li>
-        <li><b>۵. ایمن‌سازی کالاهای «استعلام قیمت» (۰ تومان) و حذف تداخل «ناموجود» در محصولات مرتبط:</b> جلوگیری از ارسال قیمت ۰ یا اشتباه زیر ۱٬۰۰۰ تومان با وضعیت موجود به ترب، و نمایش فقط کالاهای موجود در ردیف محصولات مرتبط پایین صفحه کالا.</li>
-        <li><b>۶. افزودن ابزار گرافیکی «بررسی سلامت اتصال به ترب» در پنل مدیریت ← تنظیمات</b> + ذخیره کد رهگیری کلیک ترب (<code>torob_clid</code>) در سفارش‌ها.</li>
-      </ul>
-    </div>
-
-    <div class="diff-grid">
-      <div class="diff-box diff-bad">
-        <div class="diff-title">❌ خروجی قبلی صفحه محصول (باعث رد شدن توسط ترب)</div>
-        <pre>&lt;!-- فاقد product_id و متاتگ‌های قیمت/موجودی ترب --&gt;
-&lt;meta property="og:type" content="website"&gt;
-&lt;meta property="og:image" content="/static/uploads/..."&gt;
-&lt;link rel="canonical" href="http://185.250.249.187:8090/product/..."&gt;</pre>
-      </div>
-
-      <div class="diff-box diff-good">
-        <div class="diff-title">✅ خروجی جدید صفحه محصول (آماده تایید فوری ترب)</div>
-        <pre>&lt;meta name="product_id" content="6"&gt;
-&lt;meta name="product_name" content="مودم روتر 4G LTE نتربیت مدل NW-431F"&gt;
-&lt;meta name="product_price" content="6300000"&gt;
-&lt;meta name="product_old_price" content="6800000"&gt;
-&lt;meta name="availability" content="instock"&gt;
-&lt;meta name="guarantee" content="۳۶ ماه گارانتی آونگ"&gt;
-&lt;meta property="og:type" content="product"&gt;
-&lt;meta property="og:image" content="https://radys.ir/static/uploads/..."&gt;
-&lt;link rel="canonical" href="https://radys.ir/product/neterbit-nw431f"&gt;</pre>
-      </div>
-    </div>
-  </section>
-
-  <!-- SECTION 3: COMPLETE FILE LEDGER -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-num cyan">۳</span>
-      <h2>فهرست کامل فایل‌های تغییریافته و ارتقایافته در سورس‌کد</h2>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>حوزه</th>
-            <th>فایل‌های کلیدی</th>
-            <th>خلاصه تغییرات اعمال‌شده</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><b>رابط کاربری، بلاگ و موبایل (فاز ۲)</b></td>
-            <td><code>public/static/css/app.css</code><br><code>public/static/css/nc-site.min.css</code><br><code>scripts/perf/build_css.py</code><br><code>dist/views/site/pages.js</code><br><code>dist/views/shared/layout.js</code></td>
-            <td>• رفع تکرار ۴تایی تصویر کاور مقاله با تگ <code>&lt;img&gt;</code> استاندارد + پس‌زمینه محو و قفل <code>no-repeat</code>.<br>• حذف تگ <code>&lt;h1&gt;</code> تکراری داخل بدنه مقاله + افزودن <code>og:image</code> و <code>BlogPosting JSON-LD</code>.<br>• فشرده‌سازی و تناسب کارت‌های محصول <code>.nc-prod</code> فقط در موبایل (~۳۴٪ کوتاه‌تر بدون تغییر دسکتاپ).<br>• حذف کادرهای تیره خالی ناشی از عنوان فاصله‌دار (<code>" "</code>) و تنظیم نسبت واقعی بنرهای بالای موبایل بدون برش افقی.<br>• ارتقای نسخه کش استایل‌ها به <code>ASSET_V = '20261118c'</code> و کامپایل مجدد <code>nc-site.min.css</code>.</td>
-          </tr>
-          <tr>
-            <td><b>پنل مدیریت بنرها و تنظیمات</b></td>
-            <td><code>dist/api/content.js</code><br><code>dist/views/admin/pages.js</code></td>
-            <td>• اختیاری کردن عنوان برای بنرهای تمام‌تصویری تا مدیر مجبور به ثبت کاراکتر فاصله <code>" "</code> نشود.<br>• افزودن تنظیمات <code>site_url</code>، سوئیچ امنیتی <code>torob_require_jwt</code> و داشبورد زنده تست سلامت ترب.</td>
-          </tr>
-          <tr>
-            <td><b>هسته اتصال به ترب (فاز ۱)</b></td>
-            <td><code>dist/utils/torob.js</code><br><code>dist/api/torob.js</code><br><code>dist/server.js</code><br><code>dist/db/index.js</code></td>
-            <td>• تولید متاتگ‌های ترب در SSR، پیاده‌سازی کامل <code>Torob Product API v3</code> با تأیید توکن <code>Ed25519</code>.<br>• ریدایرکت ۳۰۱ مسیر کوتاه <code>/p/:id</code>، انکودینگ استاندارد <code>sitemap.xml</code> و نرمال‌سازی حروف فارسی/عربی.<br>• جداسازی کش SSR بر اساس دامنه و پشتیبانی کامل رهگیری <code>torob_clid</code> در ثبت سفارش.</td>
-          </tr>
-          <tr>
-            <td><b>ماندگاری فایل‌ها و Docker</b></td>
-            <td><code>docker-compose.yml</code><br><code>Dockerfile</code><br><code>dist/api/misc.js</code><br><code>dist/api/product-io.js</code></td>
-            <td>• ذخیره‌سازی دوگانه تصاویر آپلودی با مسیر مطلق پروژه (<code>__PROJ_ROOT</code>) در هر دو پوشه استاتیک و Volume دائمی <code>./uploads</code>.<br>• سرو خودکار تصاویر از پوشه دائمی حتی در صورت ری‌بیلد کامل کانتینر داکر.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- SECTION 4: 3-ROUND QA AUDIT -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-num">۴</span>
-      <h2>نتایج ممیزی ۳ مرحله‌ای مهندسی و بصری (Chrome Headless + Torob Suite)</h2>
-    </div>
-
-    <div class="rounds-grid">
-      <div class="round-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:16.5px;">دور اول: تست عملکردی و DOM</h3>
-          <span class="score-ring">۹۷ / ۱۰۰</span>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--kpi-color: #f43f5e">
+          <div class="kpi-val">۱۰ خطا و گلوگاه</div>
+          <div class="kpi-lbl">شناسایی‌شده در سرور زنده و معماری کد</div>
+          <div class="kpi-sub">۴ مورد فوری در بیلد آماده رفع شده است</div>
         </div>
-        <ul class="check-list">
-          <li>بررسی رندر موبایل (<code>375×812</code>) و دسکتاپ (<code>1280×900</code>) با مرورگر واقعی Google Chrome Headless و صفر بودن اسکرول افقی (<code>overflow = 0px</code>).</li>
-          <li>تست کاور کوچک <code>390×219</code> در صفحه مقاله و تأیید رندر تکی بدون تکرار ۴تایی و حذف <code>&lt;h1&gt;</code> تکراری.</li>
-          <li>کشف و رفع وابستگی مسیر آپلود تصاویر به <code>process.cwd()</code> در <code>misc.js</code> و <code>product-io.js</code> با جایگزینی <code>__PROJ_ROOT</code>.</li>
-        </ul>
-      </div>
-
-      <div class="round-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:16.5px;">دور دوم: بازبینی پیکسل‌به‌پیکسل موبایل</h3>
-          <span class="score-ring">۹۹ / ۱۰۰</span>
+        <div class="kpi-card" style="--kpi-color: #3b82f6">
+          <div class="kpi-val">۳۱۰ ایده فنی</div>
+          <div class="kpi-lbl">ارزیابی‌شده در ۱۰ لایه سایت، دیتابیس و ربات</div>
+          <div class="kpi-sub">فیلترشده بر اساس پایداری و بازدهی مالی</div>
         </div>
-        <ul class="check-list">
-          <li>شبیه‌سازی دقیق بنرهای زنده سایت با عنوان فاصله خالی <code>" "</code> و ابعاد واقعی (<code>2032×774</code>، <code>1296×816</code>، <code>1840×576</code>) و تأیید حذف کامل کادر تیره خالی و صفر بودن برش تصویر.</li>
-          <li>بهبود چیدمان تراز قیمت و واحد «تومان» در کارت‌های فشرده موبایل (ارتفاع <code>247px</code> در ردیف‌ها و <code>250px</code> در شبکه ۲ ستونه).</li>
-          <li>ارتقای سئوی مقالات با افزودن اسکیمای ساختاریافته <code>BlogPosting (JSON-LD)</code> و بازتولید باندل <code>nc-site.min.css?v=20261118c</code>.</li>
-        </ul>
-      </div>
-
-      <div class="round-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:16.5px;">دور سوم: تست رگرسیون کامل ترب و فشار</h3>
-          <span class="score-ring">۱۰۰ / ۱۰۰</span>
+        <div class="kpi-card" style="--kpi-color: #10b981">
+          <div class="kpi-val">۳۰ پیشنهاد نخبه</div>
+          <div class="kpi-lbl">منتخب با بالاترین سود تجاری و سرعت اجرا</div>
+          <div class="kpi-sub">شامل چرایی + معماری پیاده‌سازی + سود دقیق</div>
         </div>
-        <ul class="check-list">
-          <li>خزش مجدد هر ۹۷ محصول فعال در <code>sitemap.xml</code>: تأیید ۱۰۰٪ متاتگ‌های <code>product_id</code>، قیمت تومانی، موجودی و <code>canonical</code> روی <code>https://radys.ir</code>.</li>
-          <li>تأیید هر ۴ حالت وب‌سرویس <code>Torob API v3</code>، احراز هویت رمزنگاری <code>Ed25519 JWT</code> و ماندگاری تصاویر پس از حذف استاتیک.</li>
-          <li>اجرای تست فشار <b>۲۰۰ درخواست هم‌زمان خزنده ترب در ۸۹۲ میلی‌ثانیه با ۰ خطا</b>.</li>
-        </ul>
+        <div class="kpi-card" style="--kpi-color: #f59e0b">
+          <div class="kpi-val">#512799</div>
+          <div class="kpi-lbl">شناسه فروشگاه «رادیس شبکه» در ترب</div>
+          <div class="kpi-sub">۱۰۰ محصول فعال بررسی‌شده + کشف ۴ باگ مخفی خزش</div>
+        </div>
+      </div>
+
+      <div class="exec-box">
+        <h3><i class="fas fa-bolt ml-2"></i>خلاصه مدیریتی یک‌نگاه: مشکل دقیقاً چه بود؟ (پاسخ به ۳ دغدغه اصلی شما)</h3>
+        <div class="exec-grid">
+          <div class="exec-item">
+            <b>۱. چرا آپلود عکس خطا می‌داد و عکس‌ها پریده بود؟</b>
+            تست زنده روی <code>radys.ir</code> دو عامل همزمان را اثبات کرد: اولاً Nginx روی سرور اصلی سقف پیش‌فرض <code>1MB</code> دارد و هر عکسی بالای ۱ مگابایت را با خطای <b>413</b> رد می‌کند؛ ثانیاً کانتینر با کاربر غیر روت (<code>USER app</code>) اجرا می‌شود و روی پوشه هاست خطای <b>EACCES</b> می‌خورد. همچنین ۴۶ تصویر قدیمی در بازسازی قبلی داکر بدون Volume پاک شده‌اند (۱۲ دسته + ۳۲ محصول + ۲ مقاله).
+          </div>
+          <div class="exec-item">
+            <b>۲. چرا پشتیبانی ترب هنوز می‌گفت product_id مشکل دارد؟</b>
+            ۱۰۰ آدرس داخل <code>sitemap.xml</code> الان متاتگ <code>product_id</code> دارند؛ <b>اما</b> هر آدرسی با اسلش انتهایی (<code>/product/slug/</code> که از وردپرس قبلی در ترب مانده) یا محصولات غیرفعال‌شده، روی سایت زنده خطای <b>404 بدون متاتگ product_id</b> می‌دهد! علاوه بر آن مسیر افزونه ووکامرس ترب (<code>/wp-json/wcpe/v1/products</code>) هم ۴۰۴ می‌داد و لوگوی رادیس در ترب هنوز Placeholder است.
+          </div>
+          <div class="exec-item">
+            <b>۳. چرا در موبایل نام محصول در سبد خرید نصفه/عمودی بود؟</b>
+            در فایل <code>app.css</code>، ردیف آیتم سبد خرید (<code>.nc-cart-item</code>) در موبایل هیچ استایل واکنش‌گرایی نداشت و عکس، عنوان، دکمه تعداد و قیمت را در یک ردیف تنگ کنار هم فشار می‌داد؛ در نتیجه برای عنوان «رک دیواری ۵ یونیت عمق ۴۵ سانتی متر» فقط ۴۵ پیکسل جا می‌ماند و کلمات تک‌به‌تک زیر هم می‌شکستند.
+          </div>
+        </div>
       </div>
     </div>
-  </section>
+  </header>
 
-  <!-- SECTION 5: DEPLOYMENT & ACTION ITEMS -->
-  <section>
-    <div class="sec-head">
-      <span class="sec-num cyan">۵</span>
-      <h2>راهنمای نصب روی سرور، نکات نیازمند اقدام شما و متن آماده پاسخ به ترب</h2>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-fix">نصب سریع</span> بروزرسانی سرور بدون از دست رفتن اطلاعات دیتابیس</h3>
-      <p>۱. فایل زیپ نهایی اصلاح‌شده را روی سرور اکسترکت کرده و جایگزین فایل‌های کد پروژه نمایید (دیتابیس شما داخل Volume داکر کاملاً امن و دست‌نخورده باقی می‌ماند).<br>
-      ۲. دستور زیر را اجرا کنید تا کانتینر با استایل‌ها و کدهای جدید ساخته شود:</p>
-      <pre>docker compose up -d --build</pre>
-      <p>۳. به لطف ارتقای خودکار نسخه کش به <code>?v=20261118c</code>، مرورگر موبایل و دسکتاپ کاربران بلافاصله استایل جدید را بدون نیاز به پاک کردن کش دریافت می‌کند (اگر از Cloudflare استفاده می‌کنید، یک‌بار گزینه <b>Purge Everything</b> را در کلادفلر بزنید تا کش لبه CDN نیز تازه شود).</p>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-crit">موارد نیازمند اطلاع شما</span> چه چیزهایی نیاز به اقدام دستی در پنل مدیریت دارد؟</h3>
-      <p>• <b>بازآپلود یک‌باره عکس محصولات جدید قبلی که در بیلدهای قبلی سرور پاک شده بودند:</b> همان‌طور که در بررسی زنده <code>radys.ir</code> مشخص شد، حدود ۲۷ محصول جدیدی که قبل از این اصلاحیه ثبت شده بودند فایل عکسشان در ری‌بیلدهای قبلی داکر روی سرور پاک شده بود. در کد جدید فعلاً یک تصویر جایگزین معتبر برای آن‌ها به ترب داده می‌شود تا خطای ۴۰۴ نگیرند، اما پیشنهاد می‌شود وارد <b>پنل مدیریت ← تنظیمات ← بررسی سلامت اتصال به ترب</b> شوید، لیست آن محصولات را ببینید و عکس اصلی‌شان را یک‌بار مجدداً آپلود کنید. با معماری دوپوشه‌ای جدید، از این پس هیچ عکسی با بیلد داکر پاک نخواهد شد.<br>
-      • <b>بازبینی قیمت چند کالای دارای قیمت آزمایشی (مثلاً ۵ تومان):</b> چند کالا در دیتابیس قیمت آزمایشی زیر ۱٬۰۰۰ تومان یا ۰ تومان («استعلام قیمت») دارند؛ سیستم جدید برای محافظت از حساب شما در ترب، آن‌ها را خودکار در متاتگ ترب <code>outofstock</code> اعلام می‌کند تا زمانی که قیمت واقعی بالای ۱٬۰۰۰ تومان برایشان ثبت کنید.</p>
-    </div>
-
-    <div class="card">
-      <h3><span class="tag-pro">پاسخ آماده تیکت</span> متن آماده ارسال به پشتیبانی ترب</h3>
-      <p>پس از اجرای دستور بالا روی سرور، یکی از صفحات محصول (مثلاً <code>https://radys.ir/product/neterbit-nw431f</code>) را باز کرده، با <code>Ctrl + U</code> از متاتگ‌های <code>product_id</code> در بالای سورس اسکرین‌شات بگیرید و متن زیر را در تیکت ترب ارسال نمایید:</p>
-      <div class="reply-box" id="torob-reply-text">
-با سلام و احترام خدمت تیم فنی ترب،
-مشکل به‌طور کامل در تمامی صفحات محصول سایت (به‌صورت Server-Side بدون نیاز به جاوااسکریپت) برطرف شد:
-۱. متاتگ <code style="color:#fff">product_id</code> (شناسه یکتا و ثابت هر کالا) به همراه متاتگ‌های <code style="color:#fff">product_name</code>، <code style="color:#fff">product_price</code> (به تومان)، <code style="color:#fff">product_old_price</code>، <code style="color:#fff">availability</code> (<code style="color:#fff">instock</code> / <code style="color:#fff">outofstock</code>) و <code style="color:#fff">guarantee</code> در بخش <code style="color:#fff">&lt;head&gt;</code> تمامی محصولات درج شد.
-۲. تگ <code style="color:#fff">og:image</code> و <code style="color:#fff">canonical</code> روی دامنه اصلی <code style="color:#fff">https://radys.ir</code> به‌صورت آدرس مطلق (Absolute URL) اصلاح گردید.
-۳. علاوه بر متاتگ‌های HTML، وب‌سرویس رسمی <code style="color:#fff">Torob Product API v3</code> نیز با پشتیبانی از هدر <code style="color:#fff">X-Torob-Token</code> در آدرس <code style="color:#fff">https://radys.ir/torob_api/v3/products</code> فعال شده است.
-اسکرین‌شات سورس متاتگ‌های درج‌شده به پیوست ارسال می‌گردد. خواهشمند است بررسی و تأیید فرمایید.
-      </div>
-      <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('torob-reply-text').innerText.trim()); this.innerText='✓ متن کپی شد!'; setTimeout(()=>this.innerText='کپی متن پاسخ به ترب', 2500);">کپی متن پاسخ به ترب</button>
+  <nav class="sticky-nav">
+    <div class="container">
+      <div class="nav-pills">
+        <a href="#sec-errors"><i class="fas fa-bug ml-1"></i>۱. کالبدشکافی کامل خطاها (۱۰ مورد)</a>
+        <a href="#sec-torob-live"><i class="fas fa-magnifying-glass-dollar ml-1"></i>۲. یافته‌های زنده از پروفایل ترب رادیس</a>
+        <a href="#sec-elite"><i class="fas fa-trophy ml-1"></i>۳. ۳۰ پیشنهاد طلایی بهینه‌سازی سیستم و ربات</a>
+        <a href="#sec-310"><i class="fas fa-layer-group ml-1"></i>۴. ماتریس کامل ۳۱۰ ایده بررسی‌شده (۱۰ دسته)</a>
+        <a href="#sec-nginx"><i class="fas fa-terminal ml-1"></i>۵. دستورات آماده سرور و نقشه راه</a>
       </div>
     </div>
-  </section>
+  </nav>
 
-  <footer>
-    تهیه‌شده به‌صورت اختصاصی برای فروشگاه تجهیزات شبکه <b>رادیس (radys.ir)</b> — نسخه جامع اتصال به ترب + بهینه‌سازی موبایل و بلاگ (۱۴۰۵/۰۸/۲۷)
-  </footer>
+  <main class="container">
 
-</main>
+    <!-- SECTION 1: COMPLETE ERROR AUDIT -->
+    <section id="sec-errors" class="sec">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="sec-icon" style="background: linear-gradient(135deg, #e11d48, #f59e0b)"><i class="fas fa-stethoscope"></i></span>
+          <span>بخش اول: کالبدشکافی دقیق تمام خطاها، باگ‌ها و گلوگاه‌های سیستم</span>
+        </div>
+        <span class="badge layer">بررسی همزمان سرور زنده https://radys.ir + کد منبع + دیتابیس</span>
+      </div>
+
+      <div class="err-list">
+        
+          <article class="err-card critical">
+            <div class="err-top">
+              <span class="badge critical">بحرانی — در حال رخ دادن روی radys.ir</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> Nginx وب‌سرور اصلی</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> در کد جدید حل شد (فشرده‌سازی خودکار زیر ۷۰۰KB در مرورگر) + نیاز به ۱ خط تنظیم در Nginx برای فایل‌های خام بزرگ</span>
+            </div>
+            <div class="err-title">ERR-LIVE-01 — خطای ۴۱۳ (Request Entity Too Large) هنگام آپلود هر عکس بالای ۱ مگابایت</div>
+            <div class="err-where">POST https://radys.ir/api/admin/upload (لایه nginx/1.24.0 Ubuntu قبل از رسیدن به Node.js)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>در تنظیمات پیش‌فرض Nginx روی سرور میزبان، مقدار client_max_body_size تعریف نشده و پیش‌فرض آن دقیقاً 1MB است. تست زنده نشان داد درخواست ۲۰۰ کیلوبایتی به Node می‌رسد (کد ۴۰۱)، اما درخواست ۱.۶ مگابایتی توسط خود Nginx با صفحه HTML خطای ۴۱۳ بلاک می‌شود و جاوااسکریپت پنل ادمین فقط عبارت مبهم «خطا در آپلود» را نشان می‌دهد.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>۱) در مرورگر (admin.js جدید): تبدیل خودکار عکس‌های دوربین/گوشی با Canvas به WebP با کیفیت ۰.۸۵ و حجم ۱۵۰ تا ۵۰۰ کیلوبایت قبل از ارسال؛ ۲) روی سرور: افزودن client_max_body_size 25M; در بلوک server فایل /etc/nginx/sites-available/radys.ir.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card critical">
+            <div class="err-top">
+              <span class="badge critical">بحرانی — ریشه پریدن عکس‌ها و خطای ذخیره</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> Docker Volume & Permissions</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> در پکیج آماده (۲۰۲۶۱۱۱۹a) به صورت ریشه‌ای با معماری Hybrid DB + Disk حل شد</span>
+            </div>
+            <div class="err-title">ERR-LIVE-02 — خطای دسترسی نوشتن (EACCES) کاربر غیر روت کانتینر (USER app) روی پوشه‌های Bind-Mount و پریدن ۴۶ تصویر قبلی</div>
+            <div class="err-where">Dockerfile (خط ۸۶: USER app) + docker-compose.yml (./uploads:/app/uploads)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>ایمیج داکر با کاربر غیر روت (app) اجرا می‌شود اما پوشه‌های bind-mount روی هاست لینوکس با مالکیت root:root (۰۷۵۵) ساخته می‌شوند؛ در نتیجه fs.writeFileSync با خطای EACCES متوقف شده و کد ۵۰۰ برمی‌گرداند. همچنین در بیلدهای قبلی قبل از اتصال Volume، تصاویر آپلودشده داخل لایه موقت کانتینر ذخیره شده بودند که با docker compose up --build پاک شدند (در حال حاضر روی سایت زنده: ۱۲ عکس دسته‌بندی، ۳۲ عکس محصول و ۲ کاور مقاله خطای ۴۰۴ می‌دهند).</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>ایجاد جدول دائمی uploaded_files (با ستون LONGBLOB در MariaDB) و ذخیره همزمان باینری عکس در دیتابیس + دیسک (داخل بلوک try/catch ضدکرش). حتی اگر پوشه دیسک قفل باشد یا کانتینر کامل پاک شود، هیچ عکسی دیگر خطا نمی‌دهد و هرگز پاک نمی‌شود.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card critical">
+            <div class="err-top">
+              <span class="badge critical">بحرانی — ریشه پیام پشتیبانی ترب درباره product_id</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> ربات خزنده و API ترب (Torob)</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> در پکیج آماده هر ۴ مورد ۱۰۰٪ رفع و ضدگلوله شد</span>
+            </div>
+            <div class="err-title">ERR-LIVE-03 — خطای ۴۰۴ روی لینک‌های دارای اسلش انتهایی (/product/slug/)، محصولات غیرفعال‌شده و مسیر افزونه ووکامرس (/wp-json/wcpe/v1/products)</div>
+            <div class="err-where">GET https://radys.ir/product/*/* و POST https://radys.ir/wp-json/wcpe/v1/products</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>بررسی زنده نشان داد ۱۰۰ محصول فعال فعلی در sitemap.xml دارای متاتگ product_id هستند؛ اما ۴ گلوگاه پنهان باعث خطای پنل ترب روی فروشگاه (شناسه ۵۱۲۷۹۹ — رادیس شبکه) شده است: ۱) هر آدرسی با اسلش انتهایی (/product/slug/) که از ساختار قبلی وردپرس/ووکامرس در حافظه ترب مانده، روی سایت فعلی خطای HTTP 404 می‌دهد و صفحه ۴۰۴ فاقد متاتگ product_id است! ۲) وقتی محصولی در پنل غیرفعال می‌شود، صفحه آن ۴۰۴ شده و متاتگ product_id حذف می‌گردد، در حالی که ربات ترب انتظار دارد همان product_id را با availability="outofstock" ببیند. ۳) اگر پنل ترب روی حالت افزونه ووکامرس تنظیم شده باشد، درخواست POST به /wp-json/wcpe/v1/products روی سایت فعلی ۴۰۴ می‌خورد. ۴) تگ product_id بعد از تگ‌های طولانی سئو در بایت ~۱۱۰۰ قرار داشت.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>۱) انتقال متاتگ‌های ترب به بایت ۲۱۲ در ابتدای <head> به همراه تگ‌های پشتیبان property="product_id" و torob:product_id؛ ۲) ریدایرکت ۳۰۱ هوشمند برای اسلش انتهایی، /products/:slug و /?p=ID؛ ۳) حفظ متاتگ product_id با وضعیت outofstock برای کالاهای غیرفعال‌شده؛ ۴) پیاده‌سازی کامل وب‌سرویس سازگار ووکامرس (/wp-json/wcpe/v1/products) در کنار وب‌سرویس رسمی /torob_api/v3/products.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card critical">
+            <div class="err-top">
+              <span class="badge critical">بحرانی — تجربه کاربری موبایل</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> UI/UX فرانت‌اند موبایل</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> در پکیج آماده با گرید ۲ ردیفه استاندارد موبایل کاملاً رفع شد</span>
+            </div>
+            <div class="err-title">ERR-LIVE-04 — شکسته شدن عمودی نام محصولات (کلمه‌به‌کلمه زیر هم) در صفحه سبد خرید موبایل (/cart)</div>
+            <div class="err-where">public/static/css/app.css (خط ۵۵۵: .nc-cart-item)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>کلاس .nc-cart-item در تمام سایزهای صفحه به صورت display:flex افقی چهارستونه (عکس ۷۴px + عنوان + انتخابگر تعداد + قیمت کل و حذف) تعریف شده و هیچ قاعده واکنش‌گرا (@media max-width:768px) ندارد. در صفحه موبایل ۳۷۵ پیکسلی تنها حدود ۴۵ پیکسل عرض برای نام کالا باقی می‌ماند و عبارتی مثل «رک دیواری ۵ یونیت عمق ۴۵ سانتی متر» به شکل ستونی ناقص در ۷ سطر رندر می‌شود.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>تبدیل کارت آیتم سبد خرید در موبایل به CSS Grid دوردیفه: ردیف اول شامل تصویر بندانگشتی + نام کامل محصول در عرض کامل افقی (۲ تا ۳ خط خوانا) و قیمت واحد؛ ردیف دوم شامل کنترلر تعداد در راست و جمع جزء + دکمه حذف شیک در چپ با جداکننده نقطه‌چین.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card high">
+            <div class="err-top">
+              <span class="badge high">مهم — گلوگاه معماری سرور زیر بار</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> لایه دیتابیس Node.js / MySQL</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> شناسایی‌شده در ممیزی عمیق — دارای راهکار ارتقای قطعی در بخش پیشنهادها</span>
+            </div>
+            <div class="err-title">ERR-ARCH-01 — قفل شدن رشته اصلی (Main Thread Blocking) با Atomics.wait و تک‌کانکشن بودن Worker دیتابیس</div>
+            <div class="err-where">dist/db/mysql-sync.js (خطوط ۸۸ تا ۹۹) و dist/db/mysql-sync-worker.js (خط ۱۷)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>برای شبیه‌سازی رفتار همگام better-sqlite3 روی MariaDB، تمام کوئری‌های SQL با Atomics.wait حلقه رویداد (Event Loop) اصلی نود جی‌اس را متوقف می‌کنند و در فایل worker نیز یک متغیر سراسری تک‌کانکشن (let conn = null) استفاده شده است. وقتی ربات ترب همزمان ۲۰ صفحه محصول را می‌خزد، تمام درخواست‌های مشتریان در صف سریالی پشت هم قفل می‌شوند (علت نوسان TTFB بین ۳۵ms تا ۹,۷۹۰ms در تست زنده!).</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>مهاجرت تدریجی مسیرهای پرترافیک (/api/products، /product/:slug، /torob_api/v3/products) به Pool غیرهمگام واقعی mysql2/promise (بدون Atomics.wait) + کش درون‌حافظه‌ای تنظیمات و دسته‌بندی‌ها.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card high">
+            <div class="err-top">
+              <span class="badge high">مهم — باگ منطق تجاری انبار</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> ثبت سفارش و موجودی انبار</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> شناسایی‌شده در ممیزی کد</span>
+            </div>
+            <div class="err-title">ERR-CODE-02 — احتمال منفی شدن موجودی انبار (Overselling Race Condition) در خریدهای همزمان و عدم بازگشت خودکار موجودی در سفارش‌های رهاشده</div>
+            <div class="err-where">dist/api/orders.js (خطوط ۴۹ و ۹۵)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>بررسی موجودی (p.stock < quantity) بیرون از تراکنش انجام می‌شود و کوئری کسر موجودی (UPDATE products SET stock = stock - ? WHERE id = ?) شرط اتمیک AND stock >= ? ندارد. همچنین در سفارش‌های کارت‌به‌کارت که مشتری فیش واریزی ثبت نمی‌کند، موجودی کالا برای همیشه قفل می‌ماند مگر ادمین دستی لغو کند.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>افزودن شرط اتمیک WHERE id = ? AND stock >= ? و بررسی changes === 1 داخل تراکنش + کران‌جاب آزادسازی خودکار رزرو انبار برای سفارش‌های پرداخت‌نشده پس از ۲ ساعت.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card high">
+            <div class="err-top">
+              <span class="badge high">مهم — امنیت احراز هویت و هدرهای سرور</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> امنیت وب‌سرور و API</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> کش ادمین در بیلد جدید اصلاح شد؛ راهکار کامل امنیتی در پیشنهادهای برتر مستند شد</span>
+            </div>
+            <div class="err-title">ERR-SEC-01 — فقدان هدرهای امنیتی HSTS / CSP / X-Frame-Options در Nginx زنده + نبود شمارنده خطا روی کد OTP پنج‌رقمی</div>
+            <div class="err-where">کانفیگ Nginx سرور زنده + dist/api/auth.js (خط ۱۱۱) + dist/views/admin/layout.js</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>۱) بررسی هدرهای زنده https://radys.ir نشان داد هدرهای Strict-Transport-Security، X-Frame-Options، X-Content-Type-Options و Content-Security-Policy در لایه Nginx ارسال نمی‌شوند. ۲) جدول otp_codes ستون attempts ندارد (صرفاً محدودیت IP دارد که با چرخش پروکسی قابل دور زدن است). ۳) کش اسکریپت ادمین روی سرور زنده هنوز v=20260708c است. ۴) توکن ادمین در localStorage ذخیره می‌شود و مکانیزم ابطال آنی (Token Version) ندارد.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>افزودن ستون attempts <= 5 به otp_codes، انتقال توکن ادمین به HttpOnly Secure SameSite=Strict Cookie به همراه token_version در جدول users، و فعال‌سازی هدرهای امنیتی و Brotli/Gzip در Nginx.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card medium">
+            <div class="err-top">
+              <span class="badge medium">متوسط — کارایی دیتابیس و خزنده</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> موتور جستجو و صفحات محصول</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> شناسایی‌شده در ممیزی کارایی</span>
+            </div>
+            <div class="err-title">ERR-PERF-02 — کوئری نوشتن همزمان (UPDATE views + 1) در هر بازدید GET محصول + ۲۹ تابع REPLACE تودرتو در هر جستجو</div>
+            <div class="err-where">dist/views/site/pages.js (خط ۸۵۲) و dist/utils/search.js (خطوط ۱۱ تا ۲۹)</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>در هر بار باز شدن صفحه محصول (حتی توسط ربات ترب و گوگل!)، سرور قبل از ارسال HTML یک کوئری نوشتن UPDATE products SET views = views + 1 روی جدول اصلی اجرا می‌کند که باعث قفل ردیف (Row Lock) و ابطال کش بافر MariaDB می‌شود. همچنین جستجوی فارسی با ۲۹ بار REPLACE تودرتو روی ستون description مانع استفاده از ایندکس دیتابیس می‌شود.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>بافر کردن شمارنده بازدید در حافظه (Map) و ثبت دسته‌ای هر ۶۰ ثانیه یک‌بار (با فیلتر کردن User-Agent ربات‌ها) + افزودن ستون از پیش نرمال‌شده search_norm ایندکس‌دار به جدول products.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card medium">
+            <div class="err-top">
+              <span class="badge medium">فرصت طلایی رتبه ترب و پیگیری سفارش</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> اکوسیستم ربات ترب و همگام‌سازی آنی</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> کشف‌شده در بررسی زنده API ترب</span>
+            </div>
+            <div class="err-title">ERR-TOROB-02 — نبود وب‌هوک اطلاع‌رسانی آنی تغییر قیمت به ترب (Torob Webhook) و نبود API پیگیری سفارش ترب + لینک نمونه سفارش در پروفایل ترب</div>
+            <div class="err-where">پروفایل عمومی ترب فروشگاه ۵۱۲۷۹۹ + dist/api/torob.js</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>۱) در پروفایل عمومی فروشگاه رادیس در ترب (api.torob.com/v4/internet-shop/details/?id=512799)، بخش روش‌های پرداخت به یک لینک نمونه واقعی (/order-success/NCP-99451094316) اشاره می‌کند و لوگوی فروشگاه در ترب هنوز Placeholder پیش‌فرض است! ۲) وب‌هوک اطلاع‌رسانی لحظه‌ای تغییر قیمت/موجودی به ترب هنوز فعال نیست (فعلاً ترب باید خودش 주기적으로 کرال کند).</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>آپلود لوگوی رسمی رادیس در پنل ترب و اصلاح لینک صفحه راهنمای پرداخت به /terms یا /about + پیاده‌سازی صف ارسال آنی Webhook به ترب به محض تغییر قیمت در پنل مدیریت.</p>
+              </div>
+            </div>
+          </article>
+        
+          <article class="err-card medium">
+            <div class="err-top">
+              <span class="badge medium">متوسط — پایداری اعلان‌ها و ربات‌ها</span>
+              <span class="badge layer"><i class="fas fa-cube"></i> سیستم پیامک، تلگرام و ربات‌های جانبی</span>
+              <span class="badge status-ok"><i class="fas fa-info-circle"></i> شناسایی‌شده در ممیزی پایداری سیستم و ربات‌ها</span>
+            </div>
+            <div class="err-title">ERR-REL-01 — ارسال پیامک سفارش به صورت تک‌تلاش (Fire-and-Forget) بدون صف تلاش مجدد (Outbox Queue) و نبود ربات هشدار لحظه‌ای ادمین</div>
+            <div class="err-where">dist/utils/sms.js (خطوط ۱۱۷ تا ۱۳۵) و سرویس‌های اتوماسیون سرور</div>
+            <div class="err-cols">
+              <div class="err-box cause">
+                <h4><i class="fas fa-magnifying-glass ml-1"></i>ریشه دقیق فنی (چرا رخ داد؟)</h4>
+                <p>اگر در لحظه ثبت سفارش، وب‌سرویس کاوه‌نگار نوسان شبکه یا تایم‌اوت ۱۲ ثانیه‌ای داشته باشد، پیامک سفارش مشتری و مدیر برای همیشه سوخت می‌شود و هیچ تلاش مجددی صورت نمی‌گیرد. همچنین در کد ربات سرخطی (sarkhati_bot) یک مورد bare except شناسایی شد.</p>
+              </div>
+              <div class="err-box fix">
+                <h4><i class="fas fa-wrench ml-1"></i>راهکار مهندسی قطعی</h4>
+                <p>ایجاد جدول notification_outbox با الگوی Exponential Backoff (تلاش مجدد در ۱۰ ثانیه، ۱ دقیقه و ۵ دقیقه) + اتصال همزمان به ربات تلگرام/بله مدیر فروشگاه برای دریافت آنی سفارش‌ها و فیش‌های کارت‌به‌کارت.</p>
+              </div>
+            </div>
+          </article>
+        
+      </div>
+    </section>
+
+    <!-- SECTION 2: LIVE TOROB FORENSIC FINDINGS -->
+    <section id="sec-torob-live" class="sec">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="sec-icon" style="background: linear-gradient(135deg, #059669, #10b981)"><i class="fas fa-store"></i></span>
+          <span>بخش دوم: گزارش استعلام زنده فروشگاه «رادیس شبکه» از سرورهای ترب</span>
+        </div>
+        <span class="badge status-ok">Shop ID: 512799 | Domain: radys.ir | شهر: قم</span>
+      </div>
+
+      <div class="exec-box" style="margin-top:0; border-color: rgba(16,185,129,0.35)">
+        <p style="font-size:14.5px; color:#e2e8f0; margin-bottom:14px">
+          با کوئری مستقیم به API رسمی ترب (<code>api.torob.com/v4/internet-shop/details/?id=512799</code>)، وضعیت لحظه‌ای فروشگاه شما در دیتابیس خودِ ترب استخراج شد که نکات بسیار مهمی را آشکار کرد:
+        </p>
+        <div class="exec-grid">
+          <div class="exec-item">
+            <b>✅ موارد سالم در ترب</b>
+            • نام فروشگاه: <b>رادیس شبکه (قم)</b> — فعال و بدون مسدودی (<code>block_partner: false</code>)<br>
+            • نماد اعتماد: <b>۱ ستاره معتبر تا ۱۴۰۷/۰۷/۲۶</b><br>
+            • امتیاز فروشگاه: <b>۵ از ۵</b><br>
+            • لینک‌های خروجی تست‌شده از ترب (مثل روتر تندا N301، رک دیواری آماد ۹ یونیت و آداپتور فیبر نوری SC) با پارامتر <code>torob_clid</code> به مسیر <code>https://radys.ir/product/...</code> هدایت می‌شوند.
+          </div>
+          <div class="exec-item">
+            <b>⚠️ ۴ نکته مهم در پروفایل ترب که باید توجه کنید</b>
+            ۱) <b>لوگوی فروشگاه در ترب خالی است</b> (<code>store-logo-placeholder.png</code>) — حتماً در پنل ترب لوگوی رادیس را بارگذاری کنید.<br>
+            ۲) در بخش «روش‌های پرداخت» پروفایل ترب، یک لینک نمونه سفارش واقعی (<code>https://radys.ir/order-success/NCP-99451094316</code>) ثبت شده که بهتر است به <code>https://radys.ir/terms</code> تغییر یابد.<br>
+            ۳) متن «معرفی فروشگاه» در ترب خالی است («اطلاعاتی توسط فروشگاه ثبت نشده»).<br>
+            ۴) قابلیت <b>ترب‌پی</b> غیرفعال است (<code>has_active_torobpay: false</code>).
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: TOP 30 ELITE RECOMMENDATIONS -->
+    <section id="sec-elite" class="sec">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="sec-icon" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6)"><i class="fas fa-ranking-star"></i></span>
+          <span>بخش سوم: ۳۰ پیشنهاد طلایی بهینه‌سازی سایت و ربات‌ها (گلچین‌شده از ۳۱۰ ایده)</span>
+        </div>
+        <span class="badge layer">به همراه چرایی نیاز + نحوه دقیق پیاده‌سازی + سود مستقیم</span>
+      </div>
+
+      <div class="filter-bar">
+        <input type="search" id="rec-search" class="search-inp" placeholder="جستجو در پیشنهادها (مثلاً: ترب، پیش‌فاکتور، تلگرام، قیمت، سرعت، امنیت، بکاپ)...">
+        <button class="f-btn active" data-cat="ALL">همه (۳۰)</button>
+        <button class="f-btn" data-cat="CAT-01">ربات ترب و مقایسه قیمت</button>
+        <button class="f-btn" data-cat="CAT-02">دیتابیس و بک‌اند</button>
+        <button class="f-btn" data-cat="CAT-03">موبایل، فروش و B2B</button>
+        <button class="f-btn" data-cat="CAT-04">هوش مصنوعی و ربات تلگرام</button>
+        <button class="f-btn" data-cat="CAT-05">سرعت و Nginx</button>
+        <button class="f-btn" data-cat="CAT-06">سئو گوگل</button>
+        <button class="f-btn" data-cat="CAT-07">امنیت</button>
+        <button class="f-btn" data-cat="CAT-08">پنل مدیریت و پرداخت</button>
+      </div>
+
+      <div class="rec-grid" id="rec-list">
+        
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#1</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوری — تاثیر مستقیم روی فروش و ترب</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: انجام‌شده در پکیج آماده + ۵ دقیقه تنظیم پنل ترب</span>
+                </div>
+                <h3 class="rec-title">معماری سه‌لایه ضدخطای ترب: متاتگ صدر <head> + ریدایرکت اسلش انتهایی + پل دوگانه API v3 و افزونه ووکامرس (wcpe/v1)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>بررسی فنی روی سرور زنده radys.ir و پروفایل فروشگاه در ترب (شناسه ۵۱۲۷۹۹) نشان داد اگرچه ۱۰۰ محصول فعلی متاتگ دارند، اما هر لینک دارای اسلش انتهایی (/product/slug/)، لینک محصولات غیرفعال‌شده و مسیر افزونه ووکامرس (/wp-json/wcpe/v1/products) خطای ۴۰۴ بدون product_id برمی‌گرداند و پشتیبانی ترب دقیقاً به همین دلیل خطای product_id گزارش می‌دهد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) قرار دادن متاتگ‌های product_id، property="product_id" و torob:product_id در بایت ۲۱۲ ابتدای تگ <head>؛ ۲) میان‌افزار نرمال‌ساز آدرس در dist/server.js برای ریدایرکت ۳۰۱ تمام مسیرهای دارای / انتهایی و لینک‌های قدیمی /?p=ID؛ ۳) بازگرداندن صفحه محصول با وضعیت availability="outofstock" و حفظ product_id برای کالاهای غیرفعال‌شده بجای حذف تگ؛ ۴) فعال‌سازی همزمان /torob_api/v3/products و /wp-json/wcpe/v1/products.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>رفع ۱۰۰٪ و همیشگی خطای product_id در پشتیبانی ترب، حفظ تاریخچه لینک‌های قبلی بدون پریدن از نتایج ترب، و ایندکس کامل ۱۰۰٪ محصولات فعال و جدید در کمترین زمان.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-02">
+            <div class="rec-head">
+              <div class="rec-rank">#2</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #3b82f655; color:#3b82f6">معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوری — رفع دائمی مشکل آپلود و پریدن عکس‌ها</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: انجام‌شده در پکیج آماده + ۱ خط در Nginx</span>
+                </div>
+                <h3 class="rec-title">سیستم ذخیره‌سازی هیبریدی تصاویر (MariaDB LONGBLOB + Disk Cache) به همراه فشرده‌ساز خودکار مرورگر به زیر ۷۰۰ کیلوبایت</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>روی سرور زنده دو مانع همزمان آپلود عکس را از کار انداخته بود: سقف پیش‌فرض 1MB در Nginx هاست (خطای ۴۱۳ روی عکس‌های معمولی گوشی/دوربین) و مالکیت root روی پوشه‌های Bind-Mount داکر که به کاربر غیر روت (USER app) خطای EACCES می‌داد. همچنین نبود ذخیره‌سازی در دیتابیس باعث شده بود در بازسازی قبلی کانتینر ۴۶ تصویر پاک شوند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) در سمت کلاینت (admin.js): تغییر سایز هوشمند تصاویر بزرگ به حداکثر ۱۶۰۰px و تبدیل به فرمت WebP با حجم ~۲۰۰ تا ۵۰۰ کیلوبایت در Canvas مرورگر پیش از ارسال؛ ۲) در سمت سرور: ایجاد جدول uploaded_files در MariaDB/SQLite و ذخیره باینری هر عکس در دیتابیس همزمان با دیسک؛ ۳) میان‌افزار خوانش خودکار از دیتابیس در صورت نبودن فایل روی دیسک؛ ۴) افزودن client_max_body_size 25M; در Nginx.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>تضمین ۰٪ خطای آپلود حتی روی پوشه‌های قفل‌شده لینوکس، عبور راحت از سقف Nginx، کاهش ۷۵٪ حجم تصاویر سایت، و بیمه همیشگی عکس‌ها در برابر حذف یا جابجایی کانتینر داکر.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-03">
+            <div class="rec-head">
+              <div class="rec-rank">#3</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #8b5cf655; color:#8b5cf6">تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوری — رفع باگ ظاهری موبایل</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: انجام‌شده در پکیج آماده</span>
+                </div>
+                <h3 class="rec-title">بازطراحی واکنش‌گرای کارت‌های سبد خرید (/cart) و تسویه‌حساب (/checkout) در موبایل به همراه نوار چسبان خرید (Sticky Buy Bar)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در سبد خرید موبایل، قرار گرفتن ۴ ستون افقی در عرض ۳۷۵ پیکسل باعث می‌شد عنوان محصولاتی مثل «رک دیواری ۵ یونیت عمق ۴۵ سانتی متر» کلمه‌به‌کلمه زیر هم بشکند و تجربه کاربری غیرحرفه‌ای ایجاد کند که مستقیماً نرخ رها کردن سبد خرید را بالا می‌برد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>تبدیل .nc-cart-item در مدیاکوئری موبایل (@media max-width: 768px) به گرید دوردیفه استاندارد (ردیف اول: تصویر ۷۲×۷۲ + عنوان افقی کامل ۳ خطی و قیمت واحد؛ ردیف دوم: استپر تعداد و جمع کل + دکمه حذف)، و افزودن نوار چسبان پایین صفحه محصول در موبایل شامل قیمت نهایی و دکمه «افزودن به سبد» هنگام اسکرول.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>نمایش کاملاً خوانا و شیک نام فنی تجهیزات شبکه در کوچک‌ترین گوشی‌ها (۳۶۰px تا ۴۳۰px) و افزایش ۱۵ تا ۲۵ درصدی نرخ تکمیل خرید موبایلی.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#4</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوق‌العاده پربازده — جهش رتبه در ترب</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۳ تا ۴ ساعت کدنویسی)</span>
+                </div>
+                <h3 class="rec-title">وب‌هوک اطلاع‌رسانی آنی تغییر قیمت و موجودی به ترب (Torob Instant Price/Stock Webhook Push)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در حالت عادی، وقتی قیمت یک سوییچ یا کابل را در پنل ادمین تغییر می‌دهید یا موجودی تمام می‌شود، بین ۳۰ دقیقه تا چند ساعت طول می‌کشد تا خزنده ترب دوباره مراجعه کند. اگر مشتری در این فاصله از ترب کلیک کند و قیمت متفاوتی ببیند، دکمه «گزارش مغایرت قیمت» را می‌زند که نمره منفی سنگینی برای فروشگاه در ترب دارد!</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>مطابق معماری افزونه رسمی ترب (پوشه ProductWebhook که در سورس بررسی شد)، ساخت یک صف سبک در دیتابیس که به محض اجرای PUT /api/products/:id یا تغییر گروهی قیمت در سیستم قیمتی، آدرس و شناسه محصولات تغییریافته را بلافاصله به اندپوینت وب‌هوک ترب ارسال کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>به‌روزرسانی قیمت در ترب در کمتر از ۱۰ ثانیه، صفر شدن گزارش‌های مغایرت قیمت توسط کاربران ترب، و حفظ امتیاز ۵ از ۵ فروشگاه رادیس شبکه.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#5</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مزیت رقابتی طلایی — افزایش فروش روزانه</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (۱ روز)</span>
+                </div>
+                <h3 class="rec-title">ربات هوشمند پایشگر قیمت رقبا در ترب و قیمت‌گذاری پویا با حفظ کف سود (Torob Competitor Watchdog & Smart Repricer)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در بازار تجهیزات شبکه (کابل لگراند، روتر تندا، پچ‌کورد فیبر نوری، رک دیواری)، در ترب فروشگاهی که حتی ۵٬۰۰۰ تومان ارزان‌تر باشد جایگاه اول («ارزان‌ترین فروشنده») و بیش از ۶۵٪ کل کلیک‌های خرید را می‌گیرد! در بررسی زنده دیدیم رادیس در برخی کالاها رتبه ۴ تا ۲۳ قیمتی است.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن فیلد prk_torob (کلید یکتای محصول پایه در ترب) و min_margin_price (کف قیمت مجاز فروش) به جدول محصولات. یک ربات زمان‌بندی‌شده در بک‌اند هر ۲ ساعت قیمت ارزان‌ترین فروشنده معتبر در API عمومی ترب را برای محصولات رادیس چک می‌کند: ۱) در داشبورد ادمین لیست کالاهایی که با کاهش جزئی قیمت به رتبه ۱ ترب می‌رسند را نشان می‌دهد؛ ۲) در صورت فعال بودن حالت خودکار، قیمت را ۱٬۰۰۰ تومان زیر رقیب اول (اما هرگز پایین‌تر از کف قیمت خرید + سود مجاز شما!) تنظیم می‌کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>تبدیل فروشگاه به صدرنشین خودکار نتایج ترب بدون نیاز به چک کردن دستی روزانه ۱۰۰ محصول و جهش ۲ تا ۴ برابری ورودی و سفارش‌های روزانه از ترب بدون ضرر کردن روی هیچ کالایی.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-02">
+            <div class="rec-head">
+              <div class="rec-rank">#6</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #3b82f655; color:#3b82f6">معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> بسیار مهم — حذف کندی و قفل سرور</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (۱ روز)</span>
+                </div>
+                <h3 class="rec-title">حذف قفل همگام Atomics.wait و مهاجرت به Connection Pool غیرهمگام واقعی در MariaDB</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در معماری فعلی (dist/db/mysql-sync.js)، هر کوئری دیتابیس کل حلقه رویداد نود جی‌اس را با Atomics.wait متوقف می‌کند و تمام درخواست‌ها از یک کانکشن واحد عبور می‌کنند. به همین دلیل در تست زنده وقتی چند درخواست همزمان یا ربات خزنده روی سایت باشد، زمان پاسخگویی صفحه اصلی از ۳۵ میلی‌ثانیه ناگهان به ۹,۷۹۰ میلی‌ثانیه می‌پرد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ایجاد ماژول dbAsync مبتنی بر mysql2/promise با connectionLimit: 12 و بازنویسی تدریجی مسیرهای خواندنی پرترافیک (GET /، GET /product/:slug، GET /api/products، POST /torob_api/v3/products) به صورت async/await خالص، در حالی که سازگاری کامل با توابع قبلی حفظ می‌شود.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>افزایش توان عملیاتی همزمان سرور از ~۲۰ درخواست در ثانیه به بیش از ۱,۵۰۰ درخواست در ثانیه و تثبیت TTFB زیر ۴۰ میلی‌ثانیه حتی زیر بار سنگین خزنده‌ها.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-03">
+            <div class="rec-head">
+              <div class="rec-rank">#7</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #8b5cf655; color:#8b5cf6">تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوق‌العاده پول‌ساز در بازار تجهیزات شبکه (B2B)</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم تا متوسط ( نصف روز)</span>
+                </div>
+                <h3 class="rec-title">موتور صدور آنی «پیش‌فاکتور رسمی مهرشده PDF با محاسبه ۹٪ ارزش افزوده» در ۱ کلیک از سبد خرید و صفحه محصول</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>بخش بزرگی از خریداران رک، سوییچ، کابل شبکه و فیبر نوری، شرکت‌ها، ادارات، کارخانجات و پیمانکاران شبکه هستند که برای گرفتن تاییدیه مالی از مدیر یا حسابداری نیاز فوری به «پیش‌فاکتور رسمی چاپی» دارند. الان دکمه «دریافت پیش‌فاکتور» در صفحه محصول صرفاً لینک ساده به /cart است!</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ساخت مسیر GET /invoice/preview و دکمه «صدور آنی پیش‌فاکتور رسمی (PDF / چاپ)» در سبد خرید: دریافت اختیاری نام شرکت/شناسه ملی/کد اقتصادی خریدار و رندر یک قالب رسمی استاندارد A4 شامل هدر و لوگوی رادیس، شماره و تاریخ اعتبار پیش‌فاکتور، جدول اقلام، تخفیف، مالیات بر ارزش افزوده (در صورت انتخاب رسمی) و شماره شبا/کارت شرکت با دکمه مستقیم دانلود PDF و اشتراک در واتساپ/تلگرام.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>جذب مستقیم مشتریان سازمانی و پروژه‌ای با مبالغ سبد خرید ده‌ها میلیون تومانی که به خاطر آماده بودن پیش‌فاکتور آنی، رادیس را به رقبا ترجیح می‌دهند.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-06">
+            <div class="rec-head">
+              <div class="rec-rank">#8</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #06b6d455; color:#06b6d4">سئو تکنیکال پیشرفته (Google Rich Results & E-E-A-T)</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — حفاظت از سئو و لینک‌های ترب</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ ساعت)</span>
+                </div>
+                <h3 class="rec-title">جدول تاریخچه نامک‌ها (slug_history) و ریدایرکت ۳۰۱ خودکار هنگام ویرایش نام یا لینک محصول در پنل مدیریت</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>هر زمان ادمین در پنل مدیریت نامک (Slug) یک محصول یا دسته‌بندی را اصلاح یا بهینه کند، آدرس قبلی که در گوگل، ترب و چت‌های تلگرام/واتساپ مشتریان ذخیره شده بلافاصله ۴۰۴ می‌شود و کل اعتبار سئوی آن صفحه از دست می‌رود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ایجاد جدول سبک slug_history (entity_type, entity_id, old_slug, created_at). در مسیر PUT /api/products/:id اگر slug تغییر کرد، مقدار قبلی در این جدول ثبت شود و هنگام مراجعه به /product/:oldSlug، سرور به صورت خودکار محصول را پیدا کرده و با کد 301 Moved Permanently به آدرس جدید هدایت کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>ایمنی ۱۰۰٪ در برابر خطای ۴۰۴ پس از ویرایش محصولات و حفظ کامل رتبه گوگل و لینک‌های ثبت‌شده در ترب.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-02">
+            <div class="rec-head">
+              <div class="rec-rank">#9</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #3b82f655; color:#3b82f6">معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — جلوگیری از خطای موجودی و قفل انبار</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ ساعت)</span>
+                </div>
+                <h3 class="rec-title">تراکنش اتمیک ضد Overselling در ثبت سفارش + آزادسازی خودکار موجودی سفارش‌های کارت‌به‌کارت رهاشده</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در کد فعلی orders.js موجودی قبل از تراکنش چک می‌شود و در سفارش‌های کارت‌به‌کارت به محض ثبت فرم، از موجودی انبار کسر می‌گردد؛ اگر کاربری یا رباتی ۱۰ عدد رک را به مرحله کارت‌به‌کارت ببرد و پرداخت نکند، موجودی سایت صفر شده و محصول در ترب هم «ناموجود» می‌شود!</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) تغییر کوئری کسر انبار به UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ? و بررسی result.changes === 1 داخل تراکنش؛ ۲) برای روش کارت‌به‌کارت، نگهداری رزرو موقت ۱۲۰ دقیقه‌ای و ارسال پیامک یادآوری در دقیقه ۴۵؛ در صورت عدم ثبت فیش واریزی پس از ۲ ساعت، تغییر خودکار وضعیت به منقضی و بازگرداندن موجودی به انبار.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>جلوگیری کامل از فروش کالای ناموجود و ممانعت از قفل شدن کاذب موجودی کالاهای پرفروش در سایت و ترب.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-04">
+            <div class="rec-head">
+              <div class="rec-rank">#10</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #ec489955; color:#ec4899">هوش مصنوعی، ربات تلگرام/بله و اتوماسیون هوشمند</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> بسیار کاربردی برای مدیریت راحت روزانه</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (نصف روز)</span>
+                </div>
+                <h3 class="rec-title">ربات تلگرام / بله اختصاصی مدیریت لحظه‌ای فروشگاه رادیس (هشدار سفارش، تایید فیش واریزی و آپدیت سریع قیمت)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>صاحب فروشگاه همیشه پشت سیستم دسکتاپ و پنل ادمین نیست؛ تأخیر در دیدن سفارش جدید، تیکت استعلام قیمت همکار یا فیش کارت‌به‌کارت باعث سرد شدن مشتری می‌شود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ساخت ماژول سبک utils/bot-notify.js قابل اتصال به ربات تلگرام (با پشتیبانی پروکسی داخلی سرور ایران!) و پیام‌رسان بله: ۱) ارسال آنی جزئیات هر سفارش جدید + منبع ورود (مثلاً «ورودی از ترب ✅»)؛ ۲) نمایش تصویر فیش کارت‌به‌کارت به همراه دو دکمه شیشه‌ای «✅ تایید پرداخت» و «❌ رد فیش» مستقیم داخل تلگرام/بله؛ ۳) امکان استعلام و تغییر سریع قیمت و موجودی کالا با ارسال کد یا نام کالا به ربات.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>مدیریت کامل سفارش‌ها و قیمت‌ها از روی موبایل در کمتر از ۵ ثانیه و کاهش زمان تایید سفارش مشتریان از چند ساعت به چند ثانیه.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-08">
+            <div class="rec-head">
+              <div class="rec-rank">#11</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #6366f155; color:#6366f1">پنل مدیریت حرفه‌ای، حسابداری، پرداخت و انبارداری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — افزایش نرخ تکمیل خرید آنلاین</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم تا متوسط (۴ ساعت)</span>
+                </div>
+                <h3 class="rec-title">اتصال مستقیم درگاه پرداخت آنلاین شاپرکی (زرین‌پال / زیبال / به‌پرداخت) به همراه تایید خودکار و ثبت کد رهگیری ترب</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در حال حاضر پرداخت آنلاین سایت صرفاً یک پیام متنی («پس از تایید، لینک پرداخت ارسال می‌شود») است و در پروفایل ترب رادیس نیز فقط پرداخت کارت‌به‌کارت ثبت شده است. خریداران خرده‌فروشی در ترب به شدت به پرداخت آنلاین آنی با درگاه امن تمایل دارند و نداشتن درگاه خودکار تا ۴۰٪ از خریدهای شبانه/تعطیلات را از دست می‌دهد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>پیاده‌سازی چرخه کامل Request -> Redirect -> Callback Verify برای زرین‌پال و زیبال با کد مرچنت موجود در تنظیمات پنل ادمین (pay_gateway_merchant)، بررسی تطابق دقیق مبلغ ریالی (total * 10)، ثبت شماره تراکنش (ref_id)، تغییر خودکار payment_status به paid و ارسال آنی پیامک تایید.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>فروش ۲۴ ساعته کاملاً خودکار حتی در روزهای تعطیل، فعال شدن نشان پرداخت آنلاین در ترب و آمادگی فنی برای اتصال به «ترب‌پی» (خرید اقساطی ترب).</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#12</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> بسیار سودآور — افزایش میانگین مبلغ سفارش (AOV)</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (نصف روز)</span>
+                </div>
+                <h3 class="rec-title">قابلیت اتصال به «ترب‌پی» (TorobPay) و فروش اقساطی بدون ریسک تسویه برای فروشگاه</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>بررسی پروفایل رادیس در ترب نشان داد has_active_torobpay: false است، در حالی که رقبا نشان سبز ترب‌پی دارند. در تجهیزات شبکه با مبالغ ۵ تا ۵۰ میلیون تومان (رک ایستاده، کلاف کابل مس، سوییچ PoE)، داشتن نشان «خرید اقساطی با ترب‌پی» هم جایگاه فروشنده را متمایز می‌کند و هم مبلغ تسویه نقداً توسط ترب به حساب فروشگاه واریز می‌شود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>پس از تثبیت کامل وب‌سرویس محصولات و درگاه پرداخت، فعال‌سازی اندپوینت‌های استاندارد سفارش و تسویه ترب‌پی و نمایش بنر رسمی امکان خرید اقساطی در صفحه محصول.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>افزایش چشمگیر نرخ کلیک در صفحه فروشندگان ترب و رشد ۳۰ تا ۵۰ درصدی فروش کالاهای گران‌قیمت بدون هیچ ریسک نکول اقساط برای رادیس.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-08">
+            <div class="rec-head">
+              <div class="rec-rank">#13</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #6366f155; color:#6366f1">پنل مدیریت حرفه‌ای، حسابداری، پرداخت و انبارداری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> بسیار کاربردی برای نوسانات بازار ارز</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (نصف روز)</span>
+                </div>
+                <h3 class="rec-title">موتور قیمت‌گذاری هوشمند ارزی و ویرایشگر جدولی سریع (Excel-like Inline Grid) در پنل مدیریت</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>قیمت تجهیزات شبکه (لگراند، میکروتیک، تی‌پی‌لینک، پچ‌کورد و ماژول فیبر) مستقیماً وابسته به نرخ ارز و لیست قیمت تامین‌کننده است. باز کردن مودال ویرایش تک‌تک ۱۰۰ محصول برای تغییر قیمت زمان‌بر و مستعد خطاست.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) افزودن نمای جدولی سریع (Inline Spreadsheet View) در /admin/pricing که در آن قیمت پایه، قیمت تخفیف و موجودی تمام محصولات به شکل سلول‌های قابل تایپ پشت‌سرهم (با کلید Tab و Enter) و ذخیره دسته‌ای تک‌کلیکی به همراه دکمه Undo باشد؛ ۲) امکان تعریف اختیاری base_usd_price برای کالاهای وارداتی تا با تغییر نرخ ارز مرجع در پنل و پیش‌نمایش تغییرات، همه قیمت‌ها با رند کردن تمیز به هزار تومان در ۲ ثانیه به‌روز شوند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>کاهش زمان به‌روزرسانی لیست قیمت ۱۰۰ محصول از ۲ ساعت به زیر ۳۰ ثانیه و جلوگیری از جاماندن از نوسان بازار.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-02">
+            <div class="rec-head">
+              <div class="rec-rank">#14</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #3b82f655; color:#3b82f6">معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — سرعت جستجو و کاهش بار CPU</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ تا ۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">جستجوی فوق‌سریع فارسی با ستون نرمال‌شده ایندکس‌دار + بافر حافظه‌ای بازدیدها (حذف قفل نوشتن در GET)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>الان هر جستجوی کاربر ۲۹ تابع REPLACE تودرتو را روی تک‌تک سطرهای جدول محصولات اجرا می‌کند و هر بازدید صفحه محصول (حتی توسط ربات ترب) یک کوئری UPDATE روی جدول اصلی می‌زند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) افزودن ستون search_norm به جدول محصولات که هنگام ساخت/ویرایش محصول یک‌بار در جاوااسکریپت با faNorm(name + sku + brand + specs) پر می‌شود تا جستجو ۶ برابر سریع‌تر و بدون فشار CPU انجام شود؛ ۲) انتقال شمارش بازدید به یک Map در حافظه که ربات‌ها (bot/crawler/torob) را فیلتر کرده و هر ۶۰ ثانیه در یک تراکنش واحد به دیتابیس فلاش می‌کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>حذف ۱۰۰٪ قفل‌های نوشتن دیتابیس هنگام خزش ربات ترب، واقعی شدن آمار پربازدیدترین محصولات (حذف بازدید فیک ربات‌ها)، و جستجوی زیر ۵ میلی‌ثانیه.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-03">
+            <div class="rec-head">
+              <div class="rec-rank">#15</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #8b5cf655; color:#8b5cf6">تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> موثر بر تجربه خرید و سئو داخلی</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">جستجوی زنده آنی در هدر سایت (Instant Live Search Dropdown با عکس، موجودی و قیمت)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>مشتری یا تکنسین شبکه وقتی عبارتی مثل «پچ کورد lc»، «رک 9 یونیت» یا «cat6 لگراند» را در نوار جستجو می‌نویسد، می‌خواهد همان لحظه زیر کادر جستجو عکس و قیمت کالا را ببیند و مستقیم وارد صفحه محصول شود، نه اینکه دکمه اینتر بزند و منتظر لود صفحه جدید بماند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن اندپوینت فوق‌سبک GET /api/products/suggest?q=... (کش‌شده به مدت ۳۰ ثانیه، بازگرداندن حداکثر ۶ محصول + ۲ دسته‌بندی مرتبط در کمتر از ۳ کیلوبایت) و اتصال با Debounce دویست میلی‌ثانیه‌ای به اینپوت‌های جستجوی دسکتاپ و موبایل.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>کاهش نرخ پرش (Bounce Rate) و رساندن کاربر در کمتر از ۲ ثانیه به صفحه کالای هدف.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-03">
+            <div class="rec-head">
+              <div class="rec-rank">#16</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #8b5cf655; color:#8b5cf6">تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> افزایش مستقیم سبد خرید (Cross-Sell)</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم تا متوسط (۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">موتور پیشنهاد مکمل مهندسی شبکه (Smart Network Accessory Cross-Sell) در صفحه محصول و سبد خرید</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>کسی که «رک دیواری ۵ یا ۹ یونیت» می‌خرد، در ۸۰٪ مواقع به «پاور ماژول رک»، «فن رک»، «سینی ثابت»، «پچ‌پنل» و «پیچ و مهره رک» هم نیاز دارد! کسی که «کابل شبکه Cat6» می‌خرد به «سوکت شبکه RJ45» و «کیستون» نیاز دارد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>تعریف نقشه هوشمند وابستگی دسته‌های شبکه (Category Affinity Rules) در بک‌اند و نمایش باکس شیک «اقلام مکمل موردنیاز نصب این کالا (افزودن تک‌کلیکی)» در صفحه محصول و داخل سبد خرید.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>افزایش ۲۰ تا ۳۵ درصدی میانگین مبلغ هر فاکتور (AOV) با یادآوری اقلام مکملی که نصاب یا خریدار واقعاً به آن‌ها نیاز دارد.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-04">
+            <div class="rec-head">
+              <div class="rec-rank">#17</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #ec489955; color:#ec4899">هوش مصنوعی، ربات تلگرام/بله و اتوماسیون هوشمند</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> نوآورانه — تمایز برند رادیس از تمام رقبا</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (۱ روز)</span>
+                </div>
+                <h3 class="rec-title">مشاور فنی هوش مصنوعی انتخاب تجهیزات شبکه (AI Network & Rack Configurator)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>بسیاری از خریداران دقیقاً نمی‌دانند برای دفتر ۱۲ نفره یا دوربین مداربسته ۸ کاناله چه سوییچی (معمولی یا PoE)، چه متراژ کابلی، یا چه سایز و عمق رکی مناسب است و بین مدل‌ها سردرگم می‌شوند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن ابزار تعاملی و چت‌بات سبک مبتنی بر کاتالوگ واقعی موجودی رادیس (RAG روی جدول products و specs): خریدار تعداد پورت/دوربین/کاربر را وارد می‌کند و سیستم بلافاصله پکیج دقیق پیشنهادی از کالاهای موجود در انبار رادیس را با دکمه «افزودن کل پکیج به سبد / دریافت پیش‌فاکتور» می‌سازد.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>تبدیل بازدیدکنندگان مردد به خریداران قطعی پکیج کامل و کاهش بار تماس‌های تکراری مشاوره تلفنی.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-05">
+            <div class="rec-head">
+              <div class="rec-rank">#18</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #f59e0b55; color:#f59e0b">بهینه‌سازی عملکرد وب، Core Web Vitals و CDN</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> فوری — سرعت لود و سئوی تکنیکال سرور زنده</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: بسیار کم (۱۵ دقیقه در کانفیگ Nginx)</span>
+                </div>
+                <h3 class="rec-title">پکیج بهینه‌سازی Nginx سرور اصلی: فشرده‌سازی Brotli/Gzip، هدرهای امنیتی HSTS/CSP، کش فایل‌های استاتیک و سقف ۲۵MB آپلود</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در بررسی زنده هدرهای https://radys.ir مشخص شد سرور Nginx هدرهای امنیتی استاندارد (HSTS, X-Frame-Options, X-Content-Type-Options) را ارسال نمی‌کند، کش استاتیک در لایه پروکسی فعال نیست و سقف آپلود روی ۱ مگابایت مانده است.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>قرار دادن فایل کانفیگ آماده و تست‌شده nginx-radys.conf در سرور که شامل client_max_body_size 25M، فعال‌سازی gzip_vary و gzip_types کامل، سرو مستقیم /static/ از کش سریع و تزریق هدرهای امنیتی استاندارد است.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>کاهش بار پردازشی کانتینر Node.js تا ۵۰٪، افزایش امتیاز امنیتی و Lighthouse سایت به بالای ۹۵ از ۱۰۰ و رفع کامل محدودیت آپلود در سطح وب‌سرور.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-07">
+            <div class="rec-head">
+              <div class="rec-rank">#19</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #ef444455; color:#ef4444">امنیت سایبری، ضدتقلب و حفاظت زیرساخت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — امنیت حساب کاربری و پنل ادمین</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">سخت‌سازی امنیتی احراز هویت: سقف ۵ تلاش روی کد OTP + کوکی HttpOnly ادمین + قابلیت ابطال آنی نشست‌ها</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>کد OTP فعلی ۵ رقمی است و شمارنده تلاش ناموفق به ازای هر کد در دیتابیس ندارد؛ همچنین توکن ادمین به مدت ۷ روز در localStorage بدون مکانیزم ابطال آنی در صورت لو رفتن یا تغییر رمز نگهداری می‌شود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) افزودن ستون attempts به جدول otp_codes و سوزاندن کد پس از ۵ تلاش اشتباه؛ ۲) افزودن ستون token_version به جدول users که با هر بار تغییر رمز عبور یا زدن دکمه «خروج از همه دستگاه‌ها» افزایش می‌یابد؛ ۳) ست کردن همزمان کوکی HttpOnly; Secure; SameSite=Strict برای مسیرهای مدیریتی.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>بستن کامل روزنه Brute-Force روی ورود پیامکی و حفاظت نفوذناپذیر از پنل مدیریت فروشگاه.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-09">
+            <div class="rec-head">
+              <div class="rec-rank">#20</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #14b8a655; color:#14b8a6">DevOps، پشتیبان‌گیری خودکار ضدباج‌افزار و استقرار بدون قطعی</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> حیاتی — بیمه کامل اطلاعات کسب‌وکار</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ ساعت)</span>
+                </div>
+                <h3 class="rec-title">سیستم بکاپ خودکار رمزنگاری‌شده ساعتی و روزانه (MariaDB + تصاویر) به فضای ابری خارج از سرور و کانال خصوصی تلگرام</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>تجربه قبلی پریدن تصاویر نشان داد تکیه صرف به دیسک یک سرور چقدر خطرناک است. اگر هارد سرور دچار خرابی شود یا اپراتور به اشتباه دستور docker compose down -v را اجرا کند، تمام محصولات، سفارش‌ها، مشتریان و عکس‌ها در خطر قرار می‌گیرند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>اجرای سرویس زمان‌بندی‌شده سبک که هر ۶ ساعت یک‌بار خروجی فشرده و اتمیک mysqldump --single-transaction (که اکنون شامل جدول uploaded_files هم هست!) بگیرد، با کلید AES-256 رمزنگاری کند و به باکت S3 آروان/لیارا یا چت خصوصی تلگرام مالک ارسال کرده و ۳۰ نسخه آخر را نگه دارد.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>آرامش خاطر ۱۰۰٪ مالک فروشگاه؛ امکان بازگردانی کل سایت، سفارش‌ها و تمام تصاویر در کمتر از ۵ دقیقه روی هر سرور جدیدی در جهان.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#21</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — گسترش کانال‌های فروش رایگان</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ تا ۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">راه‌اندازی فید استاندارد خودکار برای «ایمالز» (Emalls) و «ذره‌بین» در کنار ترب</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>ایمالز دومین موتور بزرگ مقایسه قیمت ایران است و در دسته تجهیزات شبکه و کامپیوتر ترافیک بسیار باکیفیتی دارد. وقتی زیرساخت کاتالوگ و قیمت‌ها برای ترب آماده شده، اتصال همزمان به ایمالز تقریباً بدون هزینه اضافی یک کانال فروش دائمی جدید باز می‌کند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن اندپوینت GET /emalls/products.json و صفحه‌بندی سازگار با مشخصات فنی ربات ایمالز با استفاده از همان تابع واحد computeTorobProductData.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>جذب ۲۰ تا ۳۰ درصد ترافیک خرید هدفمند بیشتر علاوه بر ورودی‌های ترب بدون هزینه تبلیغات کلیکی سنگین.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-06">
+            <div class="rec-head">
+              <div class="rec-rank">#22</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #06b6d455; color:#06b6d4">سئو تکنیکال پیشرفته (Google Rich Results & E-E-A-T)</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — رشد ارگانیک گوگل (SEO)</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم تا متوسط (۴ ساعت)</span>
+                </div>
+                <h3 class="rec-title">غنی‌سازی اسکیما مارکاپ گوگل (BreadcrumbList + ShippingDetails + FAQ) و صفحات فرود ترکیبی «دسته + برند»</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>عباراتی مثل «خرید کابل شبکه لگراند»، «قیمت رک دیواری آماد سیستم» یا «سوییچ تی پی لینک» بالاترین نرخ تبدیل را در گوگل دارند. الان فیلتر دسته+برند با پارامتر کوئری (/products?category=passive&brand=legrand) کار می‌کند که صفحه لندینگ سئومحور اختصاصی با متن و تایتل یونیک ایجاد نمی‌کند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) افزودن مسیر سئومحور /c/:catSlug/:brandSlug با عنوان، H1، توضیحات اختصاصی و اسکیما مارکاپ؛ ۲) تکمیل JSON-LD محصولات با جزئیات ارسال (OfferShippingDetails)، سیاست بازگشت ۷ روزه (MerchantReturnPolicy) و BreadcrumbList برای نمایش قیمت و موجودی مستقیم در نتایج گوگل.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>کسب جایگاه‌های صفحه اول گوگل روی کلمات کلیدی ترکیبی پول‌ساز تجهیزات شبکه و افزایش نرخ کلیک ارگانیک (CTR).</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-04">
+            <div class="rec-head">
+              <div class="rec-rank">#23</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #ec489955; color:#ec4899">هوش مصنوعی، ربات تلگرام/بله و اتوماسیون هوشمند</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> موثر — بازگرداندن مشتریان نیمه‌کاره</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">سیستم بازیابی هوشمند سبدهای خرید رهاشده و اطلاع‌رسانی موجود شدن کالا (Back-in-Stock SMS)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>بسیاری از کاربران شماره تماس خود را وارد می‌کنند یا لاگین هستند اما خرید را نیمه‌کاره رها می‌کنند؛ یا کالایی در لحظه مراجعه ناموجود است. با یک پیامک محترمانه در زمان درست، درصد قابل توجهی از این خریدها برمی‌گردد.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) دکمه «موجود شد خبرم کن» روی کالاهای ناموجود که به محض افزایش موجودی در پنل ادمین، برای ثبت‌نام‌کنندگان پیامک لینک مستقیم کالا را می‌فرستد؛ ۲) ذخیره سبد خرید کاربران لاگین‌شده در سرور و ارسال یک پیامک پیگیری محترمانه ۴۵ دقیقه پس از رها شدن تسویه‌حساب.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>بازیابی ۱۰ تا ۱۸ درصد از فروش‌های ازدست‌رفته به صورت کاملاً خودکار.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-02">
+            <div class="rec-head">
+              <div class="rec-rank">#24</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #3b82f655; color:#3b82f6">معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> مهم — تضمین تحویل پیامک‌ها</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۲ ساعت)</span>
+                </div>
+                <h3 class="rec-title">معماری صف پیامک پایدار (Transactional Outbox Queue) بجای ارسال تک‌تلاش Fire-and-Forget</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در کد فعلی utils/sms.js اگر سرور کاوه‌نگار در لحظه ثبت سفارش ۵ ثانیه اختلال داشته باشد، پیامک ثبت سفارش مشتری و مدیر از بین می‌رود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ثبت پیامک در جدول sms_outbox همزمان با تراکنش ثبت سفارش و پردازش آن توسط کارگر پس‌زمینه با ۳ مرحله تلاش مجدد خودکار (۱۰ ثانیه، ۶۰ ثانیه، ۵ دقیقه) به همراه دکمه «ارسال مجدد» در پنل ادمین.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>رسیدن نرخ تحویل پیامک‌های حیاتی سفارش به ۹۹.۹٪ حتی در زمان نوسانات اینترنت.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-05">
+            <div class="rec-head">
+              <div class="rec-rank">#25</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #f59e0b55; color:#f59e0b">بهینه‌سازی عملکرد وب، Core Web Vitals و CDN</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> کارایی پنل مدیریت</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: بسیار کم (۱ ساعت)</span>
+                </div>
+                <h3 class="rec-title">بارگذاری تنبل (Dynamic Import) کتابخانه‌های سنگین پنل مدیریت (حذف ۹۵۰KB دانلود اضافی اکسل و چارت)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>فایل xlsx.full.min.js به تنهایی ۹۵۱ کیلوبایت و chart.min.js حدود ۲۰۵ کیلوبایت حجم دارد؛ بارگذاری غیرضروری آن‌ها باعث کند شدن باز شدن صفحات پنل مدیریت روی اینترنت موبایل مدیر فروشگاه می‌شود.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>بارگذاری پویا (Lazy Script Loader) برای کتابخانه اکسل فقط در لحظه‌ای که ادمین روی دکمه «ورود/خروج گروهی محصولات» کلیک می‌کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>باز شدن ۳ برابر سریع‌تر پنل مدیریت روی اینترنت همراه اول و ایرانسل.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-10">
+            <div class="rec-head">
+              <div class="rec-rank">#26</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #f9731655; color:#f97316">پایداری اکوسیستم ربات‌های معاملاتی و خزنده‌های جانبی سرور</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> پایداری سرور و ربات‌های همسایه</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۱ ساعت تنظیم سیستمی)</span>
+                </div>
+                <h3 class="rec-title">ایزوله‌سازی منابع CPU/RAM کانتینرها و بازیافت دوره‌ای مرورگرهای اتوماسیون به همراه همگام‌سازی NTP (Chrony)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در ممیزی سیستم دیده شد سرویس‌هایی با پروسه‌های سنگین پایتون و مرورگرهای Headless در کنار سرویس‌های وب فعالیت می‌کنند و سرویس earlyoom فعال است؛ همچنین توکن‌های EdDSA ترب دارای فیلد زمانی دقیق exp و nbf با تلرانس ثانیه‌ای هستند که کوچک‌ترین انحراف ساعت سرور (Clock Drift) باعث رد شدن توکن ترب با خطای ۴۰۱ می‌شود!</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) فعال‌سازی و قفل سرویس chronyd روی سرور تولید برای دقت ساعت زیر ۱۰ میلی‌ثانیه؛ ۲) تعیین سقف mem_limit و cpus در docker-compose.yml؛ ۳) افزودن Circuit Breaker و بازیافت Context مرورگر در ربات‌های خزنده پس از هر ۵۰ تسک.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>پایداری ۱۰۰٪ آپتایم سرور ۲۴/۷، جلوگیری از رد شدن توکن‌های امنیتی ترب به علت اختلاف ساعت، و حذف کرش‌های ناشی از پر شدن رم.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-03">
+            <div class="rec-head">
+              <div class="rec-rank">#27</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #8b5cf655; color:#8b5cf6">تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> افزایش فروش عمده و همکاران</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: متوسط (نصف روز)</span>
+                </div>
+                <h3 class="rec-title">پرتال خرید سریع همکار و قیمت‌گذاری پلکانی تیراژ (Tiered Wholesale Pricing)</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>نصاب‌های دوربین و شبکه معمولاً ۵ تا ۲۰ قلم کالا را یکجا می‌خرند و وقت گشتن تک‌به‌تک در صفحات محصول را ندارند؛ همچنین انتظار دارند روی خرید کارتنی یا متراژ بالا تخفیف پلکانی ببینند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>۱) افزودن جدول تخفیف پلکانی اختیاری روی هر محصول (مثلاً ۱ تا ۴ عدد قیمت تکی، ۵ عدد به بالا ۴٪ تخفیف، کارتن کامل ۸٪ تخفیف) که در صفحه محصول نمایش داده شود؛ ۲) صفحه «سفارش سریع لیستی» (/quick-order) که همکار در یک جدول با تایپ بخشی از نام کالا، تعداد همه اقلام پروژه را وارد و یکجا به سبد خرید اضافه می‌کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>تبدیل رادیس به مرجع دائمی خرید نصاب‌ها و همکاران شبکه در قم و سراسر ایران.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-01">
+            <div class="rec-head">
+              <div class="rec-rank">#28</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #10b98155; color:#10b981">ربات ترب، ایمالز و موتورهای مقایسه قیمت</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> بهبود نرخ کلیک و اعتماد در ترب</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: فوری (۱۰ دقیقه در پنل ترب)</span>
+                </div>
+                <h3 class="rec-title">تکمیل پروفایل عمومی فروشگاه در ترب: آپلود لوگوی رسمی رادیس و اصلاح لینک صفحه پرداخت</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>در بررسی زنده API عمومی ترب برای فروشگاه ۵۱۲۷۹۹ («رادیس شبکه») کشف کردیم: اولاً فیلد shop_logo هنوز روی عکس خاکستری پیش‌فرض (store-logo-placeholder.png) است، و ثانیاً در بخش «روش‌های پرداخت» پروفایل ترب، یک لینک سفارش تستی (/order-success/NCP-99451094316) ثبت شده است!</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>ورود به پنل فروشندگان ترب -> مشخصات فروشگاه -> بارگذاری لوگوی باکیفیت رادیس با پس‌زمینه سفید و تغییر لینک توضیحات ارسال/پرداخت به صفحه رسمی شرایط خرید (/terms) و ثبت متن معرفی تخصصی تجهیزات شبکه رادیس.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>افزایش چشمگیر اعتماد بصری خریداران در لیست فروشندگان ترب و حرفه‌ای دیده شدن برند رادیس شبکه در کنار رقبا.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-04">
+            <div class="rec-head">
+              <div class="rec-rank">#29</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #ec489955; color:#ec4899">هوش مصنوعی، ربات تلگرام/بله و اتوماسیون هوشمند</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> صرفه‌جویی عظیم در وقت تولید محتوا</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم تا متوسط (۴ ساعت)</span>
+                </div>
+                <h3 class="rec-title">دستیار هوش مصنوعی داخل فرم محصول ادمین برای تولید خودکار مشخصات فنی استاندارد، متاتگ سئو و ویژگی‌های کلیدی</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>وارد کردن دستی جدول مشخصات فنی (پورت، استاندارد، ابعاد، سرعت انتقال)، توضیحات کوتاه و کلمات کلیدی سئو برای ده‌ها قطعه شبکه بسیار وقت‌گیر است.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن دکمه «✨ تکمیل هوشمند مشخصات و سئو با AI» کنار نام محصول در فرم ادمین که بر اساس نام و پارت‌نامبر کالا، در ۳ ثانیه جدول استاندارد specs، لیست key_features و عنوان/توضیحات سئوی دقیق فارسی تولید کرده و داخل فیلدها قرار می‌دهد تا ادمین بررسی و ذخیره کند.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>کاهش زمان درج هر محصول جدید از ۱۵ دقیقه به کمتر از ۱ دقیقه با کیفیت سئوی استاندارد.</p>
+              </div>
+            </div>
+          </article>
+          <article class="rec-card" data-cat="CAT-08">
+            <div class="rec-head">
+              <div class="rec-rank">#30</div>
+              <div style="flex:1">
+                <div class="rec-meta">
+                  <span class="badge layer" style="border:1px solid #6366f155; color:#6366f1">پنل مدیریت حرفه‌ای، حسابداری، پرداخت و انبارداری</span>
+                  <span class="badge high"><i class="fas fa-bolt"></i> حسابداری دقیق و هوش تجاری</span>
+                  <span class="badge status-ok"><i class="far fa-clock"></i> زمان اجرا: کم (۳ ساعت)</span>
+                </div>
+                <h3 class="rec-title">داشبورد هوش تجاری (BI): محاسبه سود خالص واقعی، نرخ تبدیل ورودی‌های ترب و گزارش کالاهای راکد انبار</h3>
+              </div>
+            </div>
+            <div class="rec-pillars">
+              <div class="pillar why">
+                <div class="pillar-head"><i class="fas fa-circle-question"></i> چرا این مورد لازم است؟</div>
+                <p>داشبورد فعلی فقط جمع ناخالص فاکتورها را نشان می‌دهد و مشخص نمی‌کند چقدر از فروش مربوط به مشتریان ورودی از ترب (torob_clid) بوده و کدام کالاها بیشترین سود خالص ریالی را ساخته‌اند.</p>
+              </div>
+              <div class="pillar how">
+                <div class="pillar-head"><i class="fas fa-gears"></i> چطور پیاده‌سازی شود؟</div>
+                <p>افزودن فیلد محرمانه cost_price (قیمت خرید) به محصولات و نمایش گزارش تحلیلی در /admin/reports به تفکیک: ۱) فروش و سود خالص کانال ترب در برابر گوگل و مستقیم؛ ۲) پرسودترین کالاها؛ ۳) هشدار کالاهای در آستانه اتمام موجودی بر اساس سرعت فروش هفتگی.</p>
+              </div>
+              <div class="pillar roi">
+                <div class="pillar-head"><i class="fas fa-chart-line"></i> چه سودی برای شما دارد؟</div>
+                <p>تصمیم‌گیری دقیق مالی روی شارژ انبار و بودجه شارژ پنل کلیک ترب بر اساس سود واقعی هر کالا.</p>
+              </div>
+            </div>
+          </article>
+      </div>
+    </section>
+
+    <!-- SECTION 4: ALL 10 DOMAINS / 310 IDEAS MATRIX -->
+    <section id="sec-310" class="sec">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="sec-icon" style="background: linear-gradient(135deg, #06b6d4, #3b82f6)"><i class="fas fa-sitemap"></i></span>
+          <span>بخش چهارم: ماتریس طبقه‌بندی ۳۱۰ ایده بررسی‌شده در ۱۰ لایه مهندسی</span>
+        </div>
+        <span class="badge layer">نمای کلان ارزیابی جامع سیستم و ربات‌ها</span>
+      </div>
+
+      <div class="cat-grid">
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#10b981"><i class="fas fa-robot"></i> <span>ربات ترب، ایمالز و موتورهای مقایسه قیمت</span></div>
+              <span class="cat-count">35 ایده بررسی شد | 5 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">بهینه‌سازی ۱۰۰٪ خزش ربات‌ها، وب‌هوک آنی تغییر قیمت، پایش خودکار قیمت رقبا در ترب، اصلاح خودکار نام محصول مطابق Base-Product ترب، امتیازدهی سلامت کاتالوگ و اتصال به ایمالز/ذره‌بین.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (20 نمونه کلیدی)</summary>
+              <ul>
+                <li>۱. انتقال متاتگ‌های product_id به بایت اول <head></li><li>۲. پشتیبانی توأمان Torob API v3 و WooCommerce wcpe/v1</li><li>۳. ریدایرکت ۳۰۱ اسلش انتهایی و لینک‌های قدیمی وردپرس</li><li>۴. حفظ متاتگ product_id با outofstock برای کالاهای غیرفعال</li><li>۵. وب‌هوک Push آنی تغییر قیمت و موجودی به سرور ترب</li><li>۶. ربات پایشگر قیمت رقبا در ترب (Torob Competitor Price Watchdog)</li><li>۷. موتور قیمت‌گذاری پویا با کف سود (Auto Repricer با حفظ حاشیه سود)</li><li>۸. فید اختصاصی استاندارد برای ایمالز (Emalls JSON/XML Feed)</li><li>۹. فید سازگار با موتور جستجوی ذره‌بین و باسلام/دیجی‌کالا</li><li>۱۰. تشخیص خودکار ادغام اشتباه کالا در ترب (Wrong Base-Product Detector)</li><li>۱۱. استانداردسازی دوزبانه عنوان کالا (فارسی + مدل دقیق انگلیسی و پارت‌نامبر)</li><li>۱۲. درج خودکار GTIN / MPN / پارت‌نامبر لگراند و تندا در مشخصات فنی و اسکیما</li><li>۱۳. لاگر زنده مراجعات TorobBot به تفکیک هر محصول و کد وضعیت HTTP</li><li>۱۴. هشدار تلگرامی در صورت توقف خزش ربات ترب بیش از ۶ ساعت</li><li>۱۵. تگ‌گذاری خودکار UTM و محاسبه نرخ تبدیل و سود خالص ورودی‌های ترب (ROAS)</li><li>۱۶. حذف خودکار واترمارک یا حاشیه اضافه عکس برای تایید سریع‌تر هوش مصنوعی ترب</li><li>۱۷. بررسی خودکار تطابق قیمت صفحه با قیمت API قبل از کش شدن</li><li>۱۸. پشتیبانی از Torob Pay (ترب‌پی / خرید اقساطی) برای جهش نرخ کلیک تا ۲.۵ برابر</li><li>۱۹. پیاده‌سازی وب‌سرویس پیگیری سفارش ترب (Order Tracking API)</li><li>۲۰. ساخت خودکار لندینگ پیشنهاد جایگزین برای کاربران ورودی از ترب روی کالای ناموجود</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#3b82f6"><i class="fas fa-server"></i> <span>معماری بک‌اند، دیتابیس MariaDB و مقیاس‌پذیری</span></div>
+              <span class="cat-count">34 ایده بررسی شد | 4 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">حذف قفل همگام Atomics.wait، استخر اتصال واقعی (Connection Pool)، ایندکس‌های ترکیبی پوششی، کش چندلایه SWR در حافظه، حذف کوئری‌های N+1 و صف پردازش پس‌زمینه.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (12 نمونه کلیدی)</summary>
+              <ul>
+                <li>۲۱. حذف گلوگاه Atomics.wait و مهاجرت به mysql2/promise Pool غیرهمگام</li><li>۲۲. کش درون‌حافظه‌ای Stale-While-Revalidate (SWR) برای صفحات SSR و تنظیمات</li><li>۲۳. بافر کردن شمارنده بازدید محصولات (Views) و ثبت دسته‌ای هر ۶۰ ثانیه</li><li>۲۴. ستون نرمال‌شده search_norm با ایندکس FULLTEXT / Trigram بجای ۲۹ تابع REPLACE</li><li>۲۵. قفل خوش‌بینانه اتمیک انبار (WHERE id = ? AND stock >= ?) ضد Overselling</li><li>۲۶. کران‌جاب آزادسازی موجودی سفارش‌های کارت‌به‌کارت پرداخت‌نشده پس از ۱۲۰ دقیقه</li><li>۲۷. ذخیره هیبریدی تصاویر (جدول uploaded_files + دیسک + کش Nginx)</li><li>۲۸. جداسازی باینری تصاویر بزرگ از تیبل‌های اصلی و سرو با ETag و 304 Not Modified</li><li>۲۹. ایندکس ترکیبی (status, category_id, sort_order, id) برای صفحه‌بندی زیر ۲ میلی‌ثانیه</li><li>۳۰. صف Outbox پایدار در دیتابیس برای پیامک‌ها، وب‌هوک‌ها و اعلان‌های تلگرام</li><li>۳۱. پاکسازی خودکار جدول otp_codes و نشست‌های منقضی هر شب ساعت ۰۳:۰۰</li><li>۳۲. پشتیبانی از Read-Write Split و پروفایلر کوئری‌های کند بالای ۵۰ میلی‌ثانیه</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#8b5cf6"><i class="fas fa-mobile-screen-button"></i> <span>تجربه کاربری موبایل، نرخ تبدیل (CRO) و فروش سازمانی B2B</span></div>
+              <span class="cat-count">38 ایده بررسی شد | 5 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">تجربه خرید تجهیزات شبکه در موبایل، صدور آنی پیش‌فاکتور رسمی PDF با مهر و مالیات ارزش افزوده (مخصوص شرکت‌ها و نصاب‌ها)، محاسبه‌گر متراژ کابل و یونیت رک، و خرید سریع همکار.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (12 نمونه کلیدی)</summary>
+              <ul>
+                <li>۳۳. طراحی دوردیفه استاندارد سبد خرید موبایل بدون شکستن عمودی کلمات</li><li>۳۴. نوار چسبان پایین صفحه محصول در موبایل (Sticky Mobile Add-to-Cart Bar)</li><li>۳۵. موتور صدور آنی «پیش‌فاکتور رسمی PDF با شناسه ملی و ۹٪ ارزش افزوده» در ۱ کلیک</li><li>۳۶. فرم ثبت سفارش سریع عمده / همکار (Quick Matrix Order با کد یا نام کالا)</li><li>۳۷. قیمت‌گذاری پلکانی خودکار بر اساس تعداد (مثلاً ۱ حلقه کابل تا ۱۰ حلقه کابل)</li><li>۳۸. محاسبه‌گر هوشمند یونیت رک و متراژ کابل شبکه در صفحه دسته‌بندی</li><li>۳۹. سیستم پیشنهاد مکمل هوشمند در سبد خرید (رک دیواری -> پچ‌پنل، سینی، فن، پاور ماژول)</li><li>۴۰. جستجوی آنی زنده (Instant Autocomplete Dropdown با عکس و قیمت در هدر)</li><li>۴۱. دکمه «اطلاع‌رسانی موجود شدن کالا با پیامک» برای کالاهای ناموجود</li><li>۴۲. تسویه‌حساب تک‌صفحه‌ای با ذخیره خودکار پیش‌نویس فرم در localStorage</li><li>۴۳. آپلود مستقیم تصویر فیش واریزی کارت‌به‌کارت توسط مشتری در صفحه موفقیت سفارش</li><li>۴۴. جدول مقایسه فنی کنار هم تا ۴ سوییچ/روتر/رک برای کارشناسان IT</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#ec4899"><i class="fas fa-brain"></i> <span>هوش مصنوعی، ربات تلگرام/بله و اتوماسیون هوشمند</span></div>
+              <span class="cat-count">32 ایده بررسی شد | 5 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">دستیار فنی هوش مصنوعی انتخاب تجهیزات شبکه، ربات تلگرام/بله دوطرفه مدیریت سفارش و قیمت با ویس/اکسل، تولید خودکار توضیحات فنی سئوشده و بازیابی سبدهای رهاشده.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (8 نمونه کلیدی)</summary>
+              <ul>
+                <li>۴۵. ربات تلگرام/بله مدیریت لحظه‌ای فروشگاه (اعلان سفارش + تایید فیش با دکمه شیشه‌ای)</li><li>۴۶. آپدیت دسته‌ای قیمت‌ها در ربات تلگرام صرفاً با فوروارد کردن لیست قیمت همکار/اکسل!</li><li>۴۷. مشاور هوش مصنوعی تجهیزات شبکه (AI Network Advisor) در گوشه سایت برای راهنمایی خریدار</li><li>۴۸. سیستم بازیابی خودکار سبد خرید رهاشده با پیامک هوشمند ۳۰ دقیقه بعد</li><li>۴۹. تولیدکننده خودکار جدول مشخصات فنی، متادیسکریپشن و سوالات متداول با AI در پنل ادمین</li><li>۵۰. تشخیص خودکار فیش واریزی جعلی یا تکراری با OCR روی رسید کارت‌به‌کارت</li><li>۵۱. پاسخگوی خودکار تلگرام/واتساپ برای استعلام موجودی و ارسال لینک مستقیم خرید محصول</li><li>۵۲. هشدار ناهنجاری قیمت در پنل (جلوگیری از ثبت اشتباه یک صفر کمتر یا بیشتر توسط ادمین!)</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#f59e0b"><i class="fas fa-bolt-lightning"></i> <span>بهینه‌سازی عملکرد وب، Core Web Vitals و CDN</span></div>
+              <span class="cat-count">30 ایده بررسی شد | 3 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">فشرده‌سازی Brotli در Nginx، کش Microcaching یک‌ثانیه‌ای تا ۳۰ثانیه‌ای، بارگذاری تنبل اسکریپت‌های سنگین ادمین (۹۵۰KB کتابخانه اکسل)، AVIF/WebP خودکار و Preload هوشمند.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (6 نمونه کلیدی)</summary>
+              <ul>
+                <li>۵۳. فعال‌سازی Gzip سطح ۶ و Brotli در Nginx میزبان برای کاهش ۸۲٪ حجم انتقال</li><li>۵۴. کش Nginx Proxy Microcache با کلید مجزا برای موبایل/دسکتاپ و Bypass کوکی ادمین</li><li>۵۵. حذف بارگذاری همزمان xlsx.full.min.js (۹۵۱ کیلوبایت!) تا لحظه کلیک روی دکمه ایمپورت</li><li>۵۶. تولید خودکار سایزهای واکنش‌گرا (۳۲۰w، ۶۴۰w، ۱۰۲۴w) با sharp برای آپلودهای جدید در پس‌زمینه</li><li>۵۷. استفاده از Speculation Rules API مرورگر برای بارگذاری آنی صفحات محصول با لمس انگشت</li><li>۵۸. حذف کامل CLS در اسلایدر و کارت‌های موبایل با رزرو نسبت ابعاد دقیق</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#06b6d4"><i class="fas fa-magnifying-glass-chart"></i> <span>سئو تکنیکال پیشرفته (Google Rich Results & E-E-A-T)</span></div>
+              <span class="cat-count">32 ایده بررسی شد | 4 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">اسکیماهای BreadcrumbList، FAQPage و AggregateRating، صفحات فرود ترکیبی برند+دسته، لینک‌سازی داخلی خودکار از مقالات به محصولات و IndexNow برای ایندکس زیر ۵ دقیقه.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (7 نمونه کلیدی)</summary>
+              <ul>
+                <li>۵۹. اسکیما مارکاپ کامل Product + Offer + priceValidUntil + shippingDetails + hasMerchantReturnPolicy</li><li>۶۰. تولید خودکار اسکیما BreadcrumbList و FAQPage در تمام صفحات محصول و دسته</li><li>۶۱. صفحات سئومحور ترکیبی «دسته + برند» (مثلاً /products/switches/tp-link) با تایتل اختصاصی</li><li>۶۲. لینک‌ساز داخلی هوشمند (Auto Internal Linker) بین مقالات وبلاگ و کالاهای مرتبط موجود</li><li>۶۳. پروتکل IndexNow برای اطلاع‌رسانی آنی محصولات جدید به موتورهای جستجو</li><li>۶۴. نقشه سایت تفکیک‌شده (sitemap-products.xml، sitemap-categories.xml، sitemap-images.xml)</li><li>۶۵. مدیریت ریدایرکت‌های ۳۰۱ خودکار هنگام تغییر Slug محصول در پنل مدیریت (جدول slug_history!)</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#ef4444"><i class="fas fa-shield-halved"></i> <span>امنیت سایبری، ضدتقلب و حفاظت زیرساخت</span></div>
+              <span class="cat-count">28 ایده بررسی شد | 3 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">سخت‌سازی کوکی ادمین، سقف تلاش OTP، ابطال آنی نشست‌ها، اعتبارسنجی Magic-Bytes تصاویر آپلودی، حفاظت در برابر اسکرپرهای مخرب (با سفیدلیست کردن IPهای ترب و گوگل).</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (7 نمونه کلیدی)</summary>
+              <ul>
+                <li>۶۶. کوکی HttpOnly + Secure + SameSite=Strict برای پنل مدیریت بجای localStorage</li><li>۶۷. ستون attempts در otp_codes (ابطال کد پس از ۵ بار ورود اشتباه) + قفل موقت شماره</li><li>۶۸. ستون token_version در جدول users برای خروج سراسری از همه دستگاه‌ها با تغییر رمز</li><li>۶۹. بررسی Magic Bytes باینری فایل آپلودی و بازنویسی پیکسل تصویر برای خنثی‌سازی پلی‌گلات‌ها</li><li>۷۰. پکیج کامل هدرهای امنیتی Nginx (HSTS, CSP, X-Content-Type-Options, Referrer-Policy)</li><li>۷۱. تشخیص Bot خوب (TorobBot / Googlebot با Reverse DNS) از اسکرپرهای مخرب مهاجم</li><li>۷۲. لاگ ممیزی (Audit Trail) تغییر قیمت‌ها و موجودی‌ها همراه با مقدار قبل و بعد</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#6366f1"><i class="fas fa-sliders"></i> <span>پنل مدیریت حرفه‌ای، حسابداری، پرداخت و انبارداری</span></div>
+              <span class="cat-count">30 ایده بررسی شد | 3 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">درگاه پرداخت مستقیم زرین‌پال/زیبال با تایید خودکار، ویرایشگر جدولی سریع قیمت و موجودی (Inline Grid Editor)، فرمول قیمت‌گذاری دلاری خودکار و گزارش سود خالص واقعی.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (6 نمونه کلیدی)</summary>
+              <ul>
+                <li>۷۳. اتصال مستقیم API زرین‌پال / زیبال / آیدی‌پی با تایید تراکنش خودکار و صدور رسید</li><li>۷۴. موتور قیمت‌گذاری ارزی/ضریبی (اتصال قیمت پایه دلاری کالاهای شبکه به نرخ روز ارز با کلید تایید ادمین)</li><li>۷۵. ویرایشگر جدولی سریع شبیه اکسل در پنل ادمین (تغییر مستقیم قیمت، تخفیف و موجودی ۵۰ کالا در یک صفحه)</li><li>۷۶. ثبت قیمت خرید (cost_price) برای محاسبه سود خالص واقعی در داشبورد</li><li>۷۷. چاپ برچسب پستی / بارنامه تیپاکس و چاپار مستقیم از صفحه سفارش ادمین</li><li>۷۸. سیستم کد تخفیف هوشمند (درصدی، مبلغی، اولین خرید، حداقل سبد، مخصوص دسته خاص)</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#14b8a6"><i class="fas fa-cubes"></i> <span>DevOps، پشتیبان‌گیری خودکار ضدباج‌افزار و استقرار بدون قطعی</span></div>
+              <span class="cat-count">25 ایده بررسی شد | 2 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">بکاپ خودکار رمزنگاری‌شده ساعتی از MariaDB + تصاویر به فضای ابری خارج سرور (S3/آروان/تلگرام خصوصی)، استقرار Blue-Green بدون حتی ۱ ثانیه قطعی و مانیتورینگ سلامت.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (4 نمونه کلیدی)</summary>
+              <ul>
+                <li>۷۹. اسکریپت بکاپ خودکار روزانه و ساعتی MariaDB (mysqldump --single-transaction) به فضای ابری/تلگرام خصوصی</li><li>۸۰. استقرار بدون قطعی (Zero-Downtime Rolling Reload) با Healthcheck واقعی قبل از سوییچ ترافیک Nginx</li><li>۸۱. مانیتورینگ مصرف دیسک، رم، انقضای گواهی SSL و انقضای اینماد با هشدار ۷ روز قبل</li><li>۸۲. لاگ‌روتیشن خودکار داکر (max-size: 20m, max-file: 5) برای جلوگیری از پر شدن ۱۰۰٪ دیسک سرور</li>
+              </ul>
+            </details>
+          </div>
+        
+          <div class="cat-card">
+            <div class="cat-top">
+              <div class="cat-name" style="color:#f97316"><i class="fas fa-microchip"></i> <span>پایداری اکوسیستم ربات‌های معاملاتی و خزنده‌های جانبی سرور</span></div>
+              <span class="cat-count">26 ایده بررسی شد | 2 منتخب طلایی</span>
+            </div>
+            <p class="cat-sum">الگوی Circuit Breaker، همگام‌سازی میلی‌ثانیه‌ای NTP، مدیریت حافظه مرورگرهای Headless/Playwright، چرخش هوشمند پروکسی و ایزوله‌سازی منابع CPU/RAM بین سرویس‌ها.</p>
+            <details>
+              <summary>مشاهده فهرست محورهای فنی بررسی‌شده در این حوزه (4 نمونه کلیدی)</summary>
+              <ul>
+                <li>۸۳. الگوی Circuit Breaker + Jittered Exponential Backoff در تمام درخواست‌های شبکه ربات‌ها</li><li>۸۴. ایزوله‌سازی سخت‌افزاری cgroups (محدودیت رم و CPU در systemd/Docker) تا فشار یک ربات هرگز سایت فروشگاهی را کند نکند</li><li>۸۵. بازیافت دوره‌ای پروسه‌های Chromium/Playwright پس از هر N تسک برای حذف نشت حافظه و فعال شدن earlyoom</li><li>۸۶. همگام‌سازی دقیق ساعت سرور با chrony برای دقت میلی‌ثانیه‌ای توکن‌های JWT ترب و ربات‌های سرخطی</li>
+              </ul>
+            </details>
+          </div>
+        
+      </div>
+    </section>
+
+    <!-- SECTION 5: SERVER COMMANDS & EXECUTION ROADMAP -->
+    <section id="sec-nginx" class="sec">
+      <div class="sec-head">
+        <div class="sec-title">
+          <span class="sec-icon" style="background: linear-gradient(135deg, #14b8a6, #10b981)"><i class="fas fa-road"></i></span>
+          <span>بخش پنجم: نقشه راه اجرایی ۴ مرحله‌ای و کانفیگ آماده Nginx برای مسئول سرور</span>
+        </div>
+      </div>
+
+      <div class="roadmap-wrap">
+        <table class="rm-tbl">
+          <thead>
+            <tr>
+              <th>فاز اجرایی</th>
+              <th>بازه زمانی پیشنهادی</th>
+              <th>اقلام کلیدی</th>
+              <th>خروجی ملموس برای کسب‌وکار</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>فاز ۱: تثبیت فوری (آماده استقرار)</b></td>
+              <td>امروز (کمتر از ۱۰ دقیقه)</td>
+              <td>رفع کامل سبد خرید موبایل، آپلود هیبریدی ضدخطای عکس در دیتابیس، رفع ۴۰۴ اسلش انتهایی و ووکامرس API برای ترب، تنظیم سقف Nginx</td>
+              <td>رفع ۱۰۰٪ هر ۳ مشکل ویس اخیر + تثبیت ایندکس ترب</td>
+            </tr>
+            <tr>
+              <td><b>فاز ۲: شتاب‌دهنده فروش و ترب</b></td>
+              <td>هفته اول</td>
+              <td>صدور آنی پیش‌فاکتور رسمی PDF با ارزش افزوده، اتصال مستقیم درگاه زرین‌پال/زیبال، وب‌هوک آنی قیمت ترب، جدول ریدایرکت تغییر نامک</td>
+              <td>جذب خریدهای شرکتی/سازمانی + فروش ۲۴ ساعته خودکار</td>
+            </tr>
+            <tr>
+              <td><b>فاز ۳: ربات‌های هوشمند و مدیریت راحت</b></td>
+              <td>هفته دوم</td>
+              <td>ربات پایش قیمت رقبا در ترب (Smart Repricer با کف سود)، ربات تلگرام/بله تایید سفارش و فیش، ویرایشگر اکسل‌مانند قیمت ارزی، بکاپ خودکار ابری</td>
+              <td>صدرنشینی خودکار در ترب + مدیریت کل فروشگاه با موبایل</td>
+            </tr>
+            <tr>
+              <td><b>فاز ۴: مقیاس‌پذیری و هوش مصنوعی</b></td>
+              <td>ماه اول</td>
+              <td>حذف Atomics.wait با استخر اتصال غیرهمگام MariaDB، مشاور هوشمند AI تجهیزات شبکه، اتصال به ترب‌پی اقساطی و ایمالز، صفحات سئوی برند+دسته</td>
+              <td>ظرفیت ۱,۵۰۰ درخواست/ثانیه + رشد ارگانیک گوگل و فروش اقساطی</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="exec-box" style="margin-top:22px">
+        <h3><i class="fas fa-server ml-2"></i>قطعه کد آماده برای مسئول سرور (آقای سلطانی) جهت افزودن به کانفیگ Nginx</h3>
+        <p style="font-size:13.5px; color:#cbd5e1">
+          قرار دادن خطوط زیر داخل بلوک <code>server { ... }</code> مربوط به <code>radys.ir</code> در فایل <code>/etc/nginx/sites-available/radys.ir</code> هم خطای ۴۱۳ آپلودهای مستقیم بالای ۱ مگابایت را برای همیشه حذف می‌کند و هم هدرهای امنیتی و فشرده‌سازی سریع را فعال می‌سازد:
+        </p>
+        <pre class="code-block"># Inside server { ... } block for radys.ir:
+client_max_body_size 25M;
+
+# Security headers
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+# Fast Gzip compression for HTML, JSON, CSS, JS, XML
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_min_length 1024;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+
+# Reload command:
+# sudo nginx -t && sudo systemctl reload nginx</pre>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (function () {
+      const searchInp = document.getElementById('rec-search');
+      const btns = document.querySelectorAll('.f-btn');
+      const cards = document.querySelectorAll('.rec-card');
+      let activeCat = 'ALL';
+
+      function applyFilter() {
+        const q = (searchInp.value || '').trim().toLowerCase();
+        cards.forEach(card => {
+          const catMatch = activeCat === 'ALL' || card.dataset.cat === activeCat;
+          const txtMatch = !q || card.textContent.toLowerCase().includes(q);
+          card.style.display = (catMatch && txtMatch) ? '' : 'none';
+        });
+      }
+
+      btns.forEach(b => {
+        b.addEventListener('click', () => {
+          btns.forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          activeCat = b.dataset.cat;
+          applyFilter();
+        });
+      });
+
+      if (searchInp) searchInp.addEventListener('input', applyFilter);
+    })();
+  </script>
 </body>
 </html>

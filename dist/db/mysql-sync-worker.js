@@ -28,11 +28,27 @@ async function ensureConn() {
             dateStrings: true, // return DATETIME as strings like SQLite does
             supportBigNumbers: true,
             decimalNumbers: true, // SUM()/AVG() as numbers, matching better-sqlite3
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 10000,
+            connectTimeout: 10000,
         });
     }
     conn = await pool.getConnection();
+    conn.on('error', (err) => {
+        if (err && (err.fatal || /PROTOCOL_CONNECTION_LOST|ECONNRESET|EPIPE|ETIMEDOUT/i.test(String(err.code || err.message || '')))) {
+            try { conn.destroy(); } catch (_) { }
+            conn = null;
+        }
+    });
     return conn;
 }
+
+function isDroppedConnError(e) {
+    const s = String((e && (e.code || e.message)) || '');
+    return /PROTOCOL_CONNECTION_LOST|ECONNRESET|EPIPE|ETIMEDOUT|Connection lost|closed state|Can't add new command/i.test(s);
+}
+
+let inTransaction = false;
 
 (async () => {
     try {
@@ -51,9 +67,27 @@ async function ensureConn() {
             wake({ result: null });
             return;
         }
+        const sqlUpper = String(msg.sql || '').trim().toUpperCase();
         try {
-            const c = await ensureConn();
-            const [result] = await c.query(msg.sql, msg.params || []);
+            let c = await ensureConn();
+            let result;
+            try {
+                [result] = await c.query(msg.sql, msg.params || []);
+            }
+            catch (firstErr) {
+                // Auto-reconnect transparently on idle MariaDB socket drops (when not mid-transaction)
+                if (!inTransaction && isDroppedConnError(firstErr)) {
+                    try { if (conn) conn.destroy(); } catch (_) { }
+                    conn = null;
+                    c = await ensureConn();
+                    [result] = await c.query(msg.sql, msg.params || []);
+                }
+                else {
+                    throw firstErr;
+                }
+            }
+            if (sqlUpper === 'START TRANSACTION' || sqlUpper === 'BEGIN') inTransaction = true;
+            else if (sqlUpper === 'COMMIT' || sqlUpper === 'ROLLBACK') inTransaction = false;
             if (msg.method === 'all') {
                 wake({ result: Array.isArray(result) ? result : [] });
             }
@@ -63,6 +97,13 @@ async function ensureConn() {
             }
         }
         catch (e) {
+            if (sqlUpper === 'COMMIT' || sqlUpper === 'ROLLBACK' || isDroppedConnError(e)) {
+                inTransaction = false;
+                if (isDroppedConnError(e)) {
+                    try { if (conn) conn.destroy(); } catch (_) { }
+                    conn = null;
+                }
+            }
             wake({ error: String(e.message || e), code: e.code });
         }
     });

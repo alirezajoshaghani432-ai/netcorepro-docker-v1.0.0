@@ -4,7 +4,14 @@ import db from '../db/index.js';
 import { authOptional, adminRequired } from '../middleware/auth.js';
 import { logActivity, friendlyDbError } from '../utils/helpers.js';
 import { searchClause } from '../utils/search.js';
+import { isValidRasterImageUrl } from '../utils/torob.js';
 const blog = new Hono();
+function safeCoverImage(cover) {
+    const c = String(cover || '').trim();
+    if (!c) return '/static/images/blog1.svg';
+    if (/\.svg$/i.test(c.split('?')[0])) return c;
+    return isValidRasterImageUrl(c) ? c : '/static/images/blog1.svg';
+}
 // Public posts list
 blog.get('/posts', (c) => {
     let page = parseInt(c.req.query('page') || '1', 10);
@@ -24,7 +31,7 @@ blog.get('/posts', (c) => {
         where += sc.sql;
         params.push(...sc.params);
     }
-    const items = db.prepare(`SELECT id, title, slug, excerpt, cover_image, category, views, created_at FROM posts ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+    const items = db.prepare(`SELECT id, title, slug, excerpt, cover_image, category, views, created_at FROM posts ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset).map(it => ({ ...it, cover_image: safeCoverImage(it.cover_image) }));
     const total = db.prepare(`SELECT COUNT(*) AS t FROM posts ${where}`).get(...params).t;
     return c.json({ success: true, data: { items, total, page, limit, pages: Math.ceil(total / limit) }, code: 200 });
 });
@@ -34,7 +41,11 @@ blog.get('/posts/:slug', (c) => {
     const post = db.prepare(`SELECT * FROM posts WHERE slug = ? AND status = 'published'`).get(slug);
     if (!post)
         return c.json({ success: false, message: 'مقاله یافت نشد', code: 404 }, 404);
-    db.prepare(`UPDATE posts SET views = views + 1 WHERE id = ?`).run(post.id);
+    post.cover_image = safeCoverImage(post.cover_image);
+    const ua = c.req.header('user-agent') || '';
+    if (!/bot|crawler|spider|torob|emalls|slurp|bingpreview|headless/i.test(ua)) {
+        db.prepare(`UPDATE posts SET views = views + 1 WHERE id = ?`).run(post.id);
+    }
     const comments = db.prepare(`SELECT id, author_name, content, created_at FROM comments WHERE post_id = ? AND status = 'approved' ORDER BY created_at DESC`).all(post.id);
     return c.json({ success: true, data: { post, comments }, code: 200 });
 });

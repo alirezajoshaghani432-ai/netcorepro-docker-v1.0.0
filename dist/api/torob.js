@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import db from '../db/index.js';
 import { getAllSettings, resolveSiteBaseUrl, requestOriginFromHono } from '../utils/helpers.js';
 import { catVisSql } from '../utils/catvis.js';
-import { computeTorobProductData, findActiveProductBySlug } from '../utils/torob.js';
+import { computeTorobProductData, findActiveProductBySlug, findInactiveProductBySlug } from '../utils/torob.js';
 import { adminRequired } from '../middleware/auth.js';
 
 const torobApi = new Hono();
@@ -19,10 +19,10 @@ const PAGE_SIZE = 100;
 
 // Keep recent Torob API request logs in memory (and DB if table exists) for instant admin diagnostics
 const recentTorobLogs = [];
-function recordTorobLog(entry) {
+export function recordTorobLog(entry) {
     recentTorobLogs.unshift({ ...entry, time: new Date().toISOString() });
-    if (recentTorobLogs.length > 50)
-        recentTorobLogs.length = 50;
+    if (recentTorobLogs.length > 80)
+        recentTorobLogs.length = 80;
 }
 
 function getTorobPublicKey(settings) {
@@ -211,9 +211,15 @@ torobApi.post('/products', async (c) => {
             const parsed = extractSlugOrIdFromPageUrl(u);
             if (!parsed)
                 continue;
-            const row = parsed.id
+            let row = parsed.id
                 ? db.prepare(`${baseSelect} WHERE p.id = ? AND p.status = 'active'${visClause}`).get(parsed.id)
                 : findActiveProductBySlug(parsed.slug, visClause);
+            if (!row) {
+                row = parsed.id
+                    ? db.prepare(`${baseSelect} WHERE p.id = ?`).get(parsed.id)
+                    : findInactiveProductBySlug(parsed.slug);
+                if (row) row = { ...row, status: 'inactive', stock: 0 };
+            }
             if (row && !seenIds.has(row.id)) {
                 seenIds.add(row.id);
                 items.push(formatProductForTorobApiV3(row, settings, reqOrigin));
@@ -241,7 +247,8 @@ torobApi.post('/products', async (c) => {
             .filter(n => Number.isFinite(n) && n > 0);
         let items = [];
         if (ids.length) {
-            const rows = db.prepare(`${baseSelect} WHERE p.id IN (${ids.map(() => '?').join(',')}) AND p.status = 'active'${visClause}`).all(...ids);
+            const activeIds = new Set(db.prepare(`SELECT p.id FROM products p WHERE p.id IN (${ids.map(() => '?').join(',')}) AND p.status = 'active'${visClause}`).all(...ids).map(r => Number(r.id)));
+            const rows = db.prepare(`${baseSelect} WHERE p.id IN (${ids.map(() => '?').join(',')})`).all(...ids).map(r => activeIds.has(Number(r.id)) ? r : { ...r, status: 'inactive', stock: 0 });
             const byId = new Map(rows.map(r => [Number(r.id), r]));
             const ordered = [];
             const seen = new Set();
@@ -397,6 +404,141 @@ torobApi.get('/admin/diagnostics', adminRequired, (c) => {
         },
         code: 200,
     });
+});
+
+
+/**
+ * Official Torob WooCommerce Plugin (`wcpe/v1/products`) Compatibility Endpoint
+ * Mounted at `/wp-json/wcpe/v1` so if Torob's panel is configured in WooCommerce mode
+ * (or migrating from an older WordPress/WooCommerce installation on radys.ir),
+ * `POST /wp-json/wcpe/v1/products` works seamlessly!
+ */
+export const wcpeApi = new Hono();
+
+function formatProductForWcpeV1(row, settings, reqOrigin) {
+    const td = computeTorobProductData(row, { settings, reqOrigin });
+    const specArr = Object.keys(td.spec || {}).length ? [td.spec] : [];
+    return {
+        title: td.name.slice(0, 500),
+        subtitle: '',
+        parent_id: 0,
+        page_unique: Number(td.productId) || td.productId,
+        availability: td.isAvailable ? 'instock' : 'outofstock',
+        current_price: String(td.currentPriceToman),
+        old_price: String(td.oldPriceToman),
+        category_name: td.categoryName || '',
+        image_link: td.mainImageAbs || null,
+        image_links: td.imageLinksAbs.slice(0, 10),
+        page_url: td.pageUrl,
+        short_desc: td.shortDesc || '',
+        spec: specArr,
+        date_added: td.dateAddedIso,
+        date_updated: td.dateUpdatedIso,
+        product_type: 'simple',
+        guarantee: td.guarantee || '',
+    };
+}
+
+wcpeApi.get('/products', (c) => {
+    const settings = getAllSettings();
+    const baseUrl = resolveSiteBaseUrl(settings, requestOriginFromHono(c));
+    c.header('Cache-Control', 'no-store');
+    return c.json({
+        status: 'ok',
+        api_version: 'torob_woocommerce_products_v1',
+        endpoint: `${baseUrl}/wp-json/wcpe/v1/products`,
+        method_required: 'POST',
+    }, 200);
+});
+
+wcpeApi.post('/products', async (c) => {
+    const settings = getAllSettings();
+    const reqOrigin = requestOriginFromHono(c);
+    const xfHost = String(c.req.header('x-forwarded-host') || '').split(',')[0].trim();
+    const reqHost = xfHost || String(c.req.header('host') || '').trim();
+
+    const requireJwt = String(settings.torob_require_jwt || 'فعال') !== 'غیرفعال';
+    if (requireJwt) {
+        const token = c.req.header('x-torob-token') || '';
+        const v = verifyTorobJwt(token, reqHost, settings);
+        if (!v.ok) {
+            recordTorobLog({ mode: 'wcpe_auth_failed', status: 401, error: v.error });
+            return c.json({ code: 'invalid_token', message: v.error }, 401);
+        }
+    }
+
+    let params = { ...c.req.query() };
+    const ctype = c.req.header('content-type') || '';
+    if (ctype.includes('application/json')) {
+        const jb = await c.req.json().catch(() => ({}));
+        if (jb && typeof jb === 'object') params = { ...params, ...jb };
+    } else if (ctype.includes('form')) {
+        const fb = await c.req.parseBody().catch(() => ({}));
+        if (fb && typeof fb === 'object') params = { ...params, ...fb };
+    }
+
+    const visClause = catVisSql('p.category_id');
+    const baseSelect = `SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN brands b ON p.brand_id = b.id`;
+
+    let data = {};
+    if (params.products) {
+        const ids = Array.isArray(params.products)
+            ? params.products.map(x => parseInt(String(x), 10)).filter(n => n > 0)
+            : String(params.products).split(',').map(x => parseInt(x.trim(), 10)).filter(n => n > 0);
+        const activeIds = new Set(ids.length ? db.prepare(`SELECT p.id FROM products p WHERE p.id IN (${ids.map(() => '?').join(',')}) AND p.status = 'active'${visClause}`).all(...ids).map(r => Number(r.id)) : []);
+        const rows = ids.length ? db.prepare(`${baseSelect} WHERE p.id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+        const byId = new Map(rows.map(r => [Number(r.id), activeIds.has(Number(r.id)) ? r : { ...r, status: 'inactive', stock: 0 }]));
+        data.products = ids.map(id => byId.get(id)).filter(Boolean).map(r => formatProductForWcpeV1(r, settings, reqOrigin));
+        recordTorobLog({ mode: 'wcpe_products', count: data.products.length, status: 200 });
+    } else if (params.slugs) {
+        const rawSlugs = Array.isArray(params.slugs) ? params.slugs : String(params.slugs).split(',');
+        const items = [];
+        for (const rs of rawSlugs.slice(0, 200)) {
+            let s = String(rs || '').trim();
+            try { s = decodeURIComponent(s); } catch {}
+            const parsed = extractSlugOrIdFromPageUrl(s) || { slug: s };
+            let row = parsed.id
+                ? db.prepare(`${baseSelect} WHERE p.id = ? AND p.status = 'active'${visClause}`).get(parsed.id)
+                : findActiveProductBySlug(parsed.slug, visClause);
+            if (!row) {
+                row = parsed.id ? db.prepare(`${baseSelect} WHERE p.id = ?`).get(parsed.id) : findInactiveProductBySlug(parsed.slug);
+                if (row) row = { ...row, status: 'inactive', stock: 0 };
+            }
+            if (row) items.push(formatProductForWcpeV1(row, settings, reqOrigin));
+        }
+        data.products = items;
+        recordTorobLog({ mode: 'wcpe_slugs', count: items.length, status: 200 });
+    } else {
+        const limit = Math.min(200, Math.max(1, parseInt(String(params.limit || '100'), 10) || 100));
+        const page = Math.max(1, parseInt(String(params.page || '1'), 10) || 1);
+        const total = Number(db.prepare(`SELECT COUNT(*) AS n FROM products p WHERE p.status = 'active'${visClause}`).get().n) || 0;
+        const maxPages = Math.max(1, Math.ceil(total / limit));
+        const offset = (page - 1) * limit;
+        const rows = offset < total
+            ? db.prepare(`${baseSelect} WHERE p.status = 'active'${visClause} ORDER BY p.id DESC LIMIT ? OFFSET ?`).all(limit, offset)
+            : [];
+        data = {
+            count: total,
+            current_page: page,
+            max_pages: maxPages,
+            products: rows.map(r => formatProductForWcpeV1(r, settings, reqOrigin)),
+        };
+        recordTorobLog({ mode: 'wcpe_page', page, count: data.products.length, status: 200 });
+    }
+
+    data.api_version = 'torob_woocommerce_products_v1';
+    data.metadata = {
+        wordpress_version: '6.6',
+        php_version: '8.2',
+        plugin_version: '2.5.0',
+        woocommerce_version: '9.3',
+        hpos_enabled: true,
+    };
+    c.header('Cache-Control', 'no-store');
+    return c.json(data, 200);
 });
 
 export default torobApi;

@@ -388,7 +388,7 @@ export function adminProductsPage() {
             </thead>
             <tbody>\${items.map(p => \`<tr class="table-row border-t\${p.status === 'active' ? '' : ' bg-slate-50 opacity-70'}">
               <td class="px-3 py-2"><input type="checkbox" class="psel w-4 h-4 cursor-pointer" onchange="toggleProdSel(\${p.id}, this.checked)"\${PSEL.has(p.id) ? ' checked' : ''}></td>
-              <td class="px-3 py-2"><img loading="lazy" decoding="async" src="\${escAdmin(p.image || '/static/images/p1.svg')}" alt="\${escAdmin(p.name || 'تصویر محصول')}" class="w-12 h-12 rounded object-cover\${p.status === 'active' ? '' : ' grayscale'}"></td>
+              <td class="px-3 py-2"><img loading="lazy" decoding="async" src="\${escAdmin(p.image || '/static/images/p1.svg')}" onerror="this.onerror=null;this.src='/static/images/p1.svg'" alt="\${escAdmin(p.name || 'تصویر محصول')}" class="w-12 h-12 rounded object-cover\${p.status === 'active' ? '' : ' grayscale'}"></td>
               <td class="px-3 py-2"><div class="font-medium">\${escAdmin(p.name)}</div><div class="text-xs text-slate-400">\${escAdmin(p.sku || '-')}</div></td>
               <td class="px-3 py-2">\${escAdmin(p.category_name || '-')}\${p.category_active == 0 ? '<div class="text-[10px] text-amber-600 mt-0.5" title="این دسته غیرفعال است؛ محصولاتش در سایت نمایش داده نمی‌شوند"><i class="fas fa-eye-slash ml-1"></i>دسته غیرفعال است</div>' : ''}</td>
               <td class="px-3 py-2 whitespace-nowrap">\${priceCell(p)}</td>
@@ -514,13 +514,12 @@ export function adminProductsPage() {
         file.addEventListener('change', async () => {
           const f = file.files && file.files[0];
           if (!f) return;
-          if (f.size > 5 * 1024 * 1024) { toast('حجم تصویر بیش از ۵MB است', 'error'); return; }
+          if (f.size > 15 * 1024 * 1024) { toast('حجم تصویر بیش از ۱۵MB است', 'error'); file.value = ''; return; }
           try {
-            const fd = new FormData(); fd.append('file', f);
-            const r = await axios.post('/api/admin/upload', fd);
-            urlInp.value = r.data.data.url; prev.src = r.data.data.url;
-            toast('تصویر آپلود شد', 'success'); window.ncMarkDirty && window.ncMarkDirty();
-          } catch (e) { toast(e.response?.data?.message || 'خطا در آپلود', 'error'); }
+            const uploadedUrl = await window.uploadImage(f);
+            urlInp.value = uploadedUrl; prev.src = uploadedUrl;
+            toast('تصویر گالری آپلود شد — دکمه ذخیره را بزنید', 'success'); window.ncMarkDirty && window.ncMarkDirty();
+          } catch (e) { toast(window.ncpFormatUploadError ? window.ncpFormatUploadError(e) : (e.response?.data?.message || 'خطا در آپلود'), 'error'); }
           file.value = '';
         });
         row.querySelector('.g-del').addEventListener('click', () => { row.remove(); window.ncMarkDirty && window.ncMarkDirty(); });
@@ -1132,7 +1131,7 @@ export function adminCategoriesPage() {
             + Object.keys(__dupNames).map(k => '<li>' + escAdmin(__dupNames[k].join(' ، ')) + '</li>').join('')
             + '</ul></div>'
           : '';
-        document.getElementById('cats-list').innerHTML = __dupBanner + \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">تصویر/آیکون</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">Slug</th><th class="px-3 py-3 text-right">محصولات</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${rows.map(c => \`<tr class="border-t\${c.__depth ? ' bg-slate-50/50' : ''}\${__off(c) ? ' opacity-60' : ''}"><td class="px-3 py-2">\${c.image ? '<span class="relative inline-block align-middle" title="' + escAdmin(__dupTitle(c)) + '">' + '<img loading="lazy" src="' + escAdmin(c.image) + '" class="w-10 h-10 rounded object-cover" style="' + (__isDup(c) ? 'outline:2px solid #dc2626;outline-offset:2px' : '') + '">' + (__isDup(c) ? '<i class="fas fa-triangle-exclamation absolute -top-1 -left-1 text-red-600 text-[10px] bg-white rounded-full leading-none p-[1px]"></i>' : '') + '</span>' : '<i class="fas ' + escAdmin(c.icon || 'fa-folder') + ' text-indigo-600"></i>'}</td><td class="px-3 py-2"><span style="padding-right:\${c.__depth * 22}px">\${c.__depth ? '<i class="fas fa-turn-up fa-rotate-90 text-slate-300 ml-1 text-xs"></i>' : ''}\${escAdmin(c.name)}</span>\${c.__depth ? '<span class="text-[10px] text-slate-400 mr-1">(زیرشاخه ' + escAdmin(c.parent_name || '') + ')</span>' : ''}</td><td class="px-3 py-2 text-xs text-slate-500">\${escAdmin(c.slug)}</td><td class="px-3 py-2">\${c.product_count || 0}</td><td class="px-3 py-2 whitespace-nowrap">\${c.is_active == 0
+        document.getElementById('cats-list').innerHTML = __dupBanner + \`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs"><tr><th class="px-3 py-3 text-right">تصویر/آیکون</th><th class="px-3 py-3 text-right">نام</th><th class="px-3 py-3 text-right">Slug</th><th class="px-3 py-3 text-right">محصولات</th><th class="px-3 py-3 text-right">وضعیت</th><th class="px-3 py-3 text-right">عملیات</th></tr></thead><tbody>\${rows.map(c => \`<tr class="border-t\${c.__depth ? ' bg-slate-50/50' : ''}\${__off(c) ? ' opacity-60' : ''}"><td class="px-3 py-2">\${c.image ? '<span class="relative inline-block align-middle" title="' + escAdmin(__dupTitle(c)) + '">' + '<img loading="lazy" src="' + escAdmin(c.image) + '" onerror="this.onerror=null;this.src=\'/static/images/p1.svg\'" class="w-10 h-10 rounded object-cover" style="' + (__isDup(c) ? 'outline:2px solid #dc2626;outline-offset:2px' : '') + '">' + (__isDup(c) ? '<i class="fas fa-triangle-exclamation absolute -top-1 -left-1 text-red-600 text-[10px] bg-white rounded-full leading-none p-[1px]"></i>' : '') + '</span>' : '<i class="fas ' + escAdmin(c.icon || 'fa-folder') + ' text-indigo-600"></i>'}</td><td class="px-3 py-2"><span style="padding-right:\${c.__depth * 22}px">\${c.__depth ? '<i class="fas fa-turn-up fa-rotate-90 text-slate-300 ml-1 text-xs"></i>' : ''}\${escAdmin(c.name)}</span>\${c.__depth ? '<span class="text-[10px] text-slate-400 mr-1">(زیرشاخه ' + escAdmin(c.parent_name || '') + ')</span>' : ''}</td><td class="px-3 py-2 text-xs text-slate-500">\${escAdmin(c.slug)}</td><td class="px-3 py-2">\${c.product_count || 0}</td><td class="px-3 py-2 whitespace-nowrap">\${c.is_active == 0
               ? '<button type="button" onclick="toggleCatActive(' + c.id + ', 1)" class="badge badge-blocked cursor-pointer hover:ring-2 hover:ring-rose-300" title="کلیک کنید تا دوباره فعال شود"><i class="fas fa-toggle-off ml-1"></i>غیرفعال</button>'
               : (__off(c)
                 ? '<span class="badge badge-blocked" title="دستهٔ مادر غیرفعال است؛ این زیرشاخه هم در سایت نمایش داده نمی‌شود"><i class="fas fa-eye-slash ml-1"></i>مادر غیرفعال</span>'
@@ -1726,7 +1725,9 @@ export function adminSettingsPage() {
               + '<div class="p-3 rounded-lg bg-indigo-50 border border-indigo-200"><div class="text-indigo-700">تصویر جایگزین خودکار</div><b class="text-base text-indigo-700">' + formatPrice(d.missingImageFallbackUsed) + '</b></div>'
               + '</div>';
             html += '<div class="p-3 rounded-lg bg-slate-50 border mb-3 space-y-1"><div><b>دامنه کانونیکال فعلی:</b> <code dir="ltr" class="text-indigo-700">' + escAdmin(d.baseUrl) + '</code></div>'
-              + '<div><b>آدرس API نسخه ۳ ترب:</b> <code dir="ltr" class="text-emerald-700 select-all">' + escAdmin(d.torobApiEndpoint) + '</code></div></div>';
+              + '<div><b>آدرس API نسخه ۳ ترب (اختصاصی):</b> <code dir="ltr" class="text-emerald-700 select-all">' + escAdmin(d.torobApiEndpoint) + '</code></div>'
+              + '<div><b>آدرس سازگار افزونه ووکامرس ترب:</b> <code dir="ltr" class="text-sky-700 select-all">' + escAdmin(d.baseUrl + '/wp-json/wcpe/v1/products') + '</code></div>'
+              + '<div><b>نقشه سایت (Sitemap):</b> <code dir="ltr" class="text-slate-700 select-all">' + escAdmin(d.baseUrl + '/sitemap.xml') + '</code></div></div>';
             if (d.sampleProduct) {
               const sp = d.sampleProduct;
               html += '<div class="p-3 rounded-lg bg-slate-900 text-emerald-300 font-mono text-[11px] overflow-x-auto mb-3" dir="ltr">'
@@ -1737,6 +1738,11 @@ export function adminSettingsPage() {
                 + escAdmin('<meta name="availability" content="' + sp.availabilityMeta + '">') + '<br>'
                 + escAdmin('<meta property="og:image" content="' + sp.mainImageAbs + '">')
                 + '</div>';
+            }
+            if (d.recentLogs && d.recentLogs.length) {
+              html += '<details class="border rounded-lg p-2.5 bg-emerald-50/40 mb-2"><summary class="cursor-pointer font-bold text-emerald-800">آخرین مراجعات ربات و وب‌سرویس ترب (' + formatPrice(d.recentLogs.length) + ' درخواست ثبت‌شده)</summary><ul class="mt-2 space-y-1 max-h-44 overflow-y-auto pr-3 list-disc text-[11px]">'
+                + d.recentLogs.map(lg => '<li><code dir="ltr">' + escAdmin((lg.time || '').replace('T', ' ').slice(0, 19)) + '</code> — <b>' + escAdmin(lg.mode) + '</b> (HTTP ' + escAdmin(lg.status) + ')' + (lg.slug ? ' — <code>' + escAdmin(lg.slug) + '</code>' : '') + (lg.count !== undefined ? ' — تعداد: ' + lg.count : '') + (lg.error ? ' — <span class="text-rose-600">' + escAdmin(lg.error) + '</span>' : '') + '</li>').join('')
+                + '</ul></details>';
             }
             if (d.issues && d.issues.length) {
               html += '<details class="border rounded-lg p-2.5 bg-amber-50/50"><summary class="cursor-pointer font-bold text-amber-800">مشاهده هشدارهای داده محصولات (' + formatPrice(d.issues.length) + ' مورد — نیاز به آپلود مجدد عکس یا اصلاح قیمت)</summary><ul class="mt-2 space-y-1 max-h-56 overflow-y-auto pr-3 list-disc">'

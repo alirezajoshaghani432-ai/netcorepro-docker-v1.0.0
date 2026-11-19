@@ -138,6 +138,7 @@ ensureColumn('orders', 'paid_at', 'TEXT');
 ensureColumn('orders', 'tax', 'INTEGER DEFAULT 0');
 ensureColumn('orders', 'torob_clid', 'TEXT');
 ensureColumn('products', 'tax_percent', 'REAL');
+ensureColumn('otp_codes', 'attempts', 'INTEGER NOT NULL DEFAULT 0');
 // A: multiple configurable home/landing pages (e.g. one per product family),
 // fully managed from the admin dashboard.
 if (SELECTED_DB === 'mysql') {
@@ -332,6 +333,29 @@ try {
         console.log('[db] migrated settings.site_url from raw IP to https://radys.ir');
     }
 } catch (e) { console.error('[db] site_url migration warning:', e.message); }
+
+// ===== 2026-11-19: Persistent DB-backed uploaded_files table =====
+// Guarantees admin image uploads NEVER fail with EACCES on root-owned Docker bind mounts
+// and NEVER vanish across container recreations!
+try {
+    if (SELECTED_DB === 'mysql') {
+        db.exec(`CREATE TABLE IF NOT EXISTS uploaded_files (
+            fname VARCHAR(190) PRIMARY KEY,
+            mime VARCHAR(64) NOT NULL,
+            size INT NOT NULL DEFAULT 0,
+            data LONGBLOB NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } else {
+        db.exec(`CREATE TABLE IF NOT EXISTS uploaded_files (
+            fname TEXT PRIMARY KEY,
+            mime TEXT NOT NULL,
+            size INTEGER NOT NULL DEFAULT 0,
+            data BLOB NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        )`);
+    }
+} catch (e) { console.error('[db] uploaded_files create error:', String(e.message).slice(0, 160)); }
 
 // Graceful close (called on SIGINT/SIGTERM from server.ts)
 export function closeDatabase() {

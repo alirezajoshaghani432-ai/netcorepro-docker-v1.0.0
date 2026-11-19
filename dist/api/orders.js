@@ -88,18 +88,34 @@ orders.post('/', authOptional, async (c) => {
     if (gwOn) allowed.push('gateway');
     allowed.push('cod');
     const payMethod = allowed.includes(d.payment_method) ? d.payment_method : allowed[0];
-    const tx = db.transaction(() => {
-        const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, tax, total, status, payment_method, payment_status, torob_clid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', ?)`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, taxTotal, total, payMethod, d.torob_clid || null);
-        const orderId = result.lastInsertRowid;
-        const itemStmt = db.prepare(`INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-        const stockStmt = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?`);
-        for (const v of validatedItems) {
-            itemStmt.run(orderId, v.product.id, v.product.name, v.product.sku, v.unit_price, v.quantity, v.total);
-            stockStmt.run(v.quantity, v.product.id);
+    let orderId;
+    try {
+        const tx = db.transaction(() => {
+            const stockStmt = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?`);
+            for (const v of validatedItems) {
+                const sr = stockStmt.run(v.quantity, v.product.id, v.quantity);
+                if (!sr || Number(sr.changes) === 0) {
+                    const err = new Error(`موجودی محصول «${v.product.name}» در لحظه ثبت سفارش به پایان رسید`);
+                    err.isStockRace = true;
+                    throw err;
+                }
+            }
+            const result = db.prepare(`INSERT INTO orders (order_number, user_id, customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_postal, notes, subtotal, shipping_cost, tax, total, status, payment_method, payment_status, torob_clid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', ?)`).run(orderNumber, user?.id || null, d.customer_name, d.customer_phone, d.customer_email || null, d.shipping_address, d.shipping_city || null, d.shipping_postal || null, d.notes || null, subtotal, shippingCost, taxTotal, total, payMethod, d.torob_clid || null);
+            const createdOrderId = result.lastInsertRowid;
+            const itemStmt = db.prepare(`INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+            for (const v of validatedItems) {
+                itemStmt.run(createdOrderId, v.product.id, v.product.name, v.product.sku, v.unit_price, v.quantity, v.total);
+            }
+            return createdOrderId;
+        });
+        orderId = tx();
+    }
+    catch (e) {
+        if (e && e.isStockRace) {
+            return c.json({ success: false, message: e.message, code: 409 }, 409);
         }
-        return orderId;
-    });
-    const orderId = tx();
+        throw e;
+    }
     logActivity({
         user_id: user?.id || null, user_name: user?.full_name || d.customer_name,
         action: 'create', entity_type: 'order', entity_id: orderId,

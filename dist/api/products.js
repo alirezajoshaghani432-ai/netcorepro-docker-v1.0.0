@@ -5,7 +5,7 @@ import { adminRequired } from '../middleware/auth.js';
 import { logActivity, friendlyDbError } from '../utils/helpers.js';
 import { catVisSql, visibleCats } from '../utils/catvis.js';
 import { searchClause } from '../utils/search.js';
-import { findActiveProductBySlug } from '../utils/torob.js';
+import { findActiveProductBySlug, resolveProductImages, isValidRasterImageUrl } from '../utils/torob.js';
 const products = new Hono();
 // Collect a category id and all of its descendant ids (nested subcategories)
 export function categoryDescendantIds(rootId) {
@@ -79,7 +79,12 @@ products.get('/', (c) => {
                LEFT JOIN categories c ON p.category_id = c.id
                LEFT JOIN brands b ON p.brand_id = b.id
                ${where} ORDER BY ${order} LIMIT ? OFFSET ?`;
-    const items = db.prepare(sql).all(...params, limit, offset);
+    const items = db.prepare(sql).all(...params, limit, offset).map(it => {
+        if (!it.image || !isValidRasterImageUrl(it.image)) {
+            it.image = resolveProductImages(it).mainImage;
+        }
+        return it;
+    });
     const countSql = `SELECT COUNT(*) AS total FROM products p
                     LEFT JOIN categories c ON p.category_id = c.id
                     LEFT JOIN brands b ON p.brand_id = b.id ${where}`;
@@ -87,11 +92,21 @@ products.get('/', (c) => {
     return c.json({ success: true, data: { items, total, page, limit, pages: Math.ceil(total / limit) }, code: 200 });
 });
 products.get('/featured', (c) => {
-    const items = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.featured = 1 AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 8`).all();
+    const items = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN brands b ON p.brand_id = b.id WHERE p.featured = 1 AND p.status = 'active'${catVisSql('p.category_id')} LIMIT 8`).all().map(it => {
+        if (!it.image || !isValidRasterImageUrl(it.image)) {
+            it.image = resolveProductImages(it).mainImage;
+        }
+        return it;
+    });
     return c.json({ success: true, data: items, code: 200 });
 });
 products.get('/categories', (c) => {
-    const cats = visibleCats(db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'active') AS product_count FROM categories c ORDER BY sort_order, name`).all());
+    const cats = visibleCats(db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND status = 'active') AS product_count FROM categories c ORDER BY sort_order, name`).all()).map(cat => {
+        if (cat.image && !isValidRasterImageUrl(cat.image)) {
+            cat.image = null;
+        }
+        return cat;
+    });
     return c.json({ success: true, data: cats, code: 200 });
 });
 products.get('/brands', (c) => {
@@ -222,6 +237,7 @@ products.get('/id/:id', adminRequired, (c) => {
 products.get('/:slug', (c) => {
     const slug = c.req.param('slug');
     const product = findActiveProductBySlug(slug, catVisSql('p.category_id'));
+    if (product && (!product.image || !isValidRasterImageUrl(product.image))) { product.image = resolveProductImages(product).mainImage; }
     if (!product)
         return c.json({ success: false, message: 'محصول یافت نشد', code: 404 }, 404);
     db.prepare(`UPDATE products SET views = views + 1 WHERE id = ?`).run(product.id);

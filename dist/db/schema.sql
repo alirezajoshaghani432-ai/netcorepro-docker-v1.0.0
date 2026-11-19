@@ -295,7 +295,18 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   phone TEXT NOT NULL,
   code TEXT NOT NULL,
   is_used INTEGER NOT NULL DEFAULT 0,
+  attempts INTEGER NOT NULL DEFAULT 0,
   expires_at DATETIME NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_codes(phone, is_used, expires_at);
+
+
+-- Persistent DB-backed image storage (survives Docker container rebuilds & root-owned bind-mounts)
+CREATE TABLE IF NOT EXISTS uploaded_files (
+  fname TEXT PRIMARY KEY,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL DEFAULT 0,
+  data BLOB NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

@@ -109,7 +109,17 @@ auth.post('/otp/verify', async (c) => {
     }
     const { phone, code } = parsed.data;
     const row = db.prepare(`SELECT * FROM otp_codes WHERE phone = ? AND is_used = 0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1`).get(phone);
-    if (!row || row.code !== code) {
+    if (!row) {
+        return c.json({ success: false, message: 'کد وارد شده اشتباه یا منقضی شده است', code: 400 }, 400);
+    }
+    const usedAttempts = Number(row.attempts || 0);
+    if (usedAttempts >= 5) {
+        db.prepare(`UPDATE otp_codes SET is_used = 1 WHERE id = ?`).run(row.id);
+        return c.json({ success: false, message: 'تعداد تلاش‌های مجاز به پایان رسید — لطفاً کد جدید دریافت کنید', code: 429 }, 429);
+    }
+    if (row.code !== code) {
+        const nextAttempts = usedAttempts + 1;
+        db.prepare(`UPDATE otp_codes SET attempts = ?, is_used = CASE WHEN ? >= 5 THEN 1 ELSE is_used END WHERE id = ?`).run(nextAttempts, nextAttempts, row.id);
         return c.json({ success: false, message: 'کد وارد شده اشتباه یا منقضی شده است', code: 400 }, 400);
     }
     db.prepare(`UPDATE otp_codes SET is_used = 1 WHERE id = ?`).run(row.id);

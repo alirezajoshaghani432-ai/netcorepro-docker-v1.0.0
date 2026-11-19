@@ -80,8 +80,10 @@ COPY --from=builder --chown=app:app /app/scripts      ./scripts
 COPY --from=builder --chown=app:app /app/package.json ./
 COPY --from=builder --chown=app:app /app/REPORT_V3.html ./REPORT_V3.html
 
-# پوشه‌های runtime (data و uploads باید volume باشند)
-RUN mkdir -p /app/data /app/uploads && chown -R app:app /app/data /app/uploads
+# پوشه‌های runtime (data، uploads و public/static/uploads با دسترسی نوشتن کامل حتی روی bind-mount های مختلف)
+RUN mkdir -p /app/data /app/uploads /app/public/static/uploads && \
+    chown -R app:app /app/data /app/uploads /app/public/static/uploads && \
+    chmod -R 0777 /app/uploads /app/public/static/uploads
 
 USER app
 

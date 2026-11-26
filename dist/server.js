@@ -26,7 +26,7 @@ import torobApi, { wcpeApi, recordTorobLog } from './api/torob.js'; // Torob Pro
 import { resolveSiteBaseUrl, requestOriginFromHono } from './utils/helpers.js';
 import { syncPersistentUploads, localImageFilePath, readUploadedImageFromDb } from './utils/torob.js';
 import { homeLandingPage, homePage, productsPage, productPage, categoriesPage, blogListPage, blogPostPage, cartPage, checkoutPage, orderSuccessPage, loginPage, registerPage, accountPage, aboutPage, contactPage, privacyPage, termsPage, notFoundPage } from './views/site/pages.js';
-import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminSmsPage, adminBackupPage, adminNotFoundPage } from './views/admin/pages.js';
+import { adminLoginPage, dashboardPage, adminProductsPage, adminOrdersPage, adminTicketsPage, adminCommentsPage, adminPostsPage, adminCategoriesPage, adminBrandsPage, adminCustomersPage, adminMessagesPage, adminNewsletterPage, adminActivityLogsPage, adminReportsPage, adminSettingsPage, adminProfilePage, adminSiteContentPage, adminBannersPage, adminHomePagesPage, adminProductOrderPage, adminPricingPage, adminNotFoundPage } from './views/admin/pages.js';
 import { adminMenuBuilderPage } from './views/admin/menu-builder.js';
 import { catVisSql, visibleCats } from './utils/catvis.js';
 // Sync persistent ./uploads volume with ./public/static/uploads on boot so Docker rebuilds never 404 product images
@@ -173,45 +173,6 @@ app.use('/static/*', async (c, next) => {
     else {
         c.header('Cache-Control', 'public, max-age=300');
     }
-});
-// --- 2026-11-26: precompressed static (gzip/brotli) ----------------------
-// scripts/perf/precompress.mjs writes .gz/.br siblings for text assets. When the
-// browser advertises gzip/br we answer with the pre-built file under the SAME
-// URL, so the server pays zero compression CPU per request (Tailwind CSS alone
-// is ~170 KB raw / ~26 KB brotli). hono's compress() skips responses that
-// already carry a Content-Encoding, so nothing is compressed twice.
-const STATIC_CT = { '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
-app.use('/static/*', async (c, next) => {
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD')
-        return next();
-    const enc = c.req.header('accept-encoding') || '';
-    const wantsBr = /\bbr\b/i.test(enc);
-    const wantsGz = /\bgzip\b/i.test(enc);
-    if (!wantsBr && !wantsGz)
-        return next();
-    let pathname;
-    try {
-        pathname = decodeURIComponent(new URL(c.req.url).pathname);
-    }
-    catch {
-        return next();
-    }
-    const ext = nodePath.extname(pathname).toLowerCase();
-    if (!STATIC_CT[ext])
-        return next();
-    const base = nodePath.join(process.cwd(), 'public', pathname.replace(/^\//, ''));
-    if (!nodeFs.existsSync(base))
-        return next(); // missing file -> normal static handling (404 there)
-    const pick = wantsBr && nodeFs.existsSync(base + '.br') ? [base + '.br', 'br']
-        : nodeFs.existsSync(base + '.gz') ? [base + '.gz', 'gzip'] : null;
-    if (!pick)
-        return next();
-    const buf = await nodeFs.promises.readFile(pick[0]);
-    c.header('Content-Type', STATIC_CT[ext]);
-    c.header('Content-Encoding', pick[1]);
-    c.header('Vary', 'Accept-Encoding');
-    c.header('X-NC-Precompressed', pick[1]);
-    return c.body(c.req.method === 'HEAD' ? null : buf, 200, { 'Content-Length': String(buf.length) });
 });
 // --- F2f: WebP content negotiation -------------------------------------
 // Legacy URLs such as /static/uploads/u-123.jpg are still requested by CSS
@@ -432,9 +393,7 @@ app.get('/site1/*', (c) => {
 });
 app.get('/', (c) => {
     const reqOrigin = requestOriginFromHono(c);
-    // 2026-11-26 speed: TTLs raised (admin edits still invalidate instantly via
-    // the /api/* mutation hook below, so freshness is not lost).
-    return c.html(cachedHtml('home:' + reqOrigin, 120_000, () => homePage(reqOrigin)));
+    return c.html(cachedHtml('home:' + reqOrigin, 30_000, () => homePage(reqOrigin)));
 });
 // Multiple home/landing pages (voice n9): admin-defined mini-homes per product family
 app.get('/h/:slug', (c) => {
@@ -450,7 +409,7 @@ app.get('/products', (c) => {
     const reqOrigin = requestOriginFromHono(c);
     // Only cache the parameterized listing briefly (filters vary a lot)
     const key = 'plist:' + reqOrigin + ':' + JSON.stringify(q);
-    return c.html(cachedHtml(key, 60_000, () => productsPage(q, reqOrigin)));
+    return c.html(cachedHtml(key, 20_000, () => productsPage(q, reqOrigin)));
 });
 // Short permanent product link by numeric ID (`/p/123` -> 301 redirect to `/product/:slug`)
 // Ensures even if a product slug is edited or product is deactivated later, ID-based links never 404!
@@ -472,7 +431,7 @@ app.get('/product/:slug', (c) => {
     const reqOrigin = requestOriginFromHono(c);
     const ua = c.req.header('user-agent') || '';
     const isBot = /torob|emalls|bot|crawler|spider|python-requests|go-http-client|slurp|bingpreview/i.test(ua);
-    const html = cachedHtml('prod:' + reqOrigin + ':' + slug, 60_000, () => productPage(slug, reqOrigin, { skipViewIncrement: isBot }));
+    const html = cachedHtml('prod:' + reqOrigin + ':' + slug, 20_000, () => productPage(slug, reqOrigin, { skipViewIncrement: isBot }));
     const status = html.includes('class="nc-error-page') ? 404 : 200;
     if (isBot) {
         recordTorobLog({ mode: 'html_crawl', slug, status, ua: ua.slice(0, 90) });
@@ -481,11 +440,11 @@ app.get('/product/:slug', (c) => {
 });
 app.get('/categories', (c) => {
     const reqOrigin = requestOriginFromHono(c);
-    return c.html(cachedHtml('cats:' + reqOrigin, 120_000, () => categoriesPage(reqOrigin)));
+    return c.html(cachedHtml('cats:' + reqOrigin, 30_000, () => categoriesPage(reqOrigin)));
 });
 app.get('/blog', (c) => {
     const reqOrigin = requestOriginFromHono(c);
-    return c.html(cachedHtml('blog:' + reqOrigin, 120_000, () => blogListPage(reqOrigin)));
+    return c.html(cachedHtml('blog:' + reqOrigin, 30_000, () => blogListPage(reqOrigin)));
 });
 app.get('/blog/:slug', (c) => {
     const ua = c.req.header('user-agent') || '';
@@ -509,8 +468,6 @@ app.get('/admin', (c) => c.html(dashboardPage()));
 app.get('/admin/products', (c) => c.html(adminProductsPage()));
 app.get('/admin/orders', (c) => c.html(adminOrdersPage()));
 app.get('/admin/tickets', (c) => c.html(adminTicketsPage()));
-app.get('/admin/sms', (c) => c.html(adminSmsPage()));
-app.get('/admin/backup', (c) => c.html(adminBackupPage()));
 app.get('/admin/comments', (c) => c.html(adminCommentsPage()));
 app.get('/admin/posts', (c) => c.html(adminPostsPage()));
 app.get('/admin/categories', (c) => c.html(adminCategoriesPage()));

@@ -77,8 +77,6 @@
 | **`/admin/site-content`** | **🆕 مدیریت محتوای صفحات + ساخت سریع اسلایدر/بنرها** |
 | `/admin/customers` `/admin/users` | کاربران |
 | `/admin/newsletter` `/admin/activity-logs` `/admin/reports` | سایر |
-| **`/admin/sms`** | **🆕 پنل پیامک — پترن‌نویسی رویدادها + گزارش ارسال‌ها** |
-| **`/admin/backup`** | **🆕 پشتیبان‌گیری کامل (DB + عکس‌ها) — ساخت/دانلود/حذف** |
 | `/admin/settings` `/admin/profile` | تنظیمات |
 
 ### API

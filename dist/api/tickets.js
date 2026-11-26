@@ -3,7 +3,6 @@ import { z } from 'zod';
 import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
 import { generateTicketNumber, logActivity } from '../utils/helpers.js';
-import { notifyTicketCreated, notifyTicketReply } from '../utils/sms.js';
 const tickets = new Hono();
 // Round 12 (2026-11-03): max lengths = DB column sizes (longer input used to crash
 // with MySQL «Data too long» -> «خطای داخلی سرور»).
@@ -28,8 +27,6 @@ tickets.post('/', authOptional, async (c) => {
     const ticketNumber = generateTicketNumber();
     const r = db.prepare(`INSERT INTO tickets (ticket_number, user_id, guest_name, guest_email, guest_phone, subject, message, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')`).run(ticketNumber, user?.id || null, d.guest_name || null, d.guest_email || null, d.guest_phone || null, d.subject, d.message, d.priority || 'normal');
     logActivity({ user_id: user?.id || null, user_name: user?.full_name || d.guest_name, action: 'create', entity_type: 'ticket', entity_id: r.lastInsertRowid, details: { ticket_number: ticketNumber } });
-    // 2026-11-26: SMS to the shop admin on every new ticket (پنل پیامک → «تیکت جدید»)
-    notifyTicketCreated({ ticket_number: ticketNumber, customer_name: user?.full_name || d.guest_name || '', subject: d.subject });
     return c.json({ success: true, data: { id: r.lastInsertRowid, ticket_number: ticketNumber }, message: 'تیکت با موفقیت ثبت شد', code: 200 });
 });
 // List
@@ -78,15 +75,6 @@ tickets.post('/:id/replies', authRequired, async (c) => {
     const newStatus = isAdmin ? 'answered' : 'open';
     db.prepare(`UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(newStatus, id);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'reply', entity_type: 'ticket', entity_id: id });
-    // 2026-11-26: SMS to the customer when SUPPORT (admin) answers (پنل پیامک → «پاسخ تیکت»)
-    if (isAdmin) {
-        const cust = db.prepare(`
-            SELECT t.ticket_number, COALESCE(u.phone, t.guest_phone) AS customer_phone, COALESCE(u.full_name, t.guest_name) AS customer_name
-            FROM tickets t
-            LEFT JOIN users u ON u.id = t.user_id
-            WHERE t.id = ?`).get(id);
-        if (cust) notifyTicketReply(cust);
-    }
     return c.json({ success: true, message: 'پاسخ ثبت شد', code: 200 });
 });
 // Update status (admin)

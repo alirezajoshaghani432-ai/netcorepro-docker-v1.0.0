@@ -8,8 +8,7 @@ const __PROJ_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 import db from '../db/index.js';
 import { adminRequired } from '../middleware/auth.js';
 import { getAllSettings, setSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
-import { sendText, sendTemplate, accountInfo, smsEnabled, SMS_MASK, notifyContactMessage, getSmsEvents, updateSmsEvent, getSmsEvent, fireSmsEvent, EVENT_VARS } from '../utils/sms.js';
-import { listBackups, createBackup, deleteBackup, backupFilePath } from '../utils/backup.js';
+import { sendText, sendTemplate, accountInfo, smsEnabled, SMS_MASK } from '../utils/sms.js';
 import { generateVariantsFor } from '../utils/imggen.js';
 import { saveUploadedImageHybrid, readUploadedImageFromDb } from '../utils/torob.js';
 const misc = new Hono();
@@ -70,8 +69,6 @@ misc.post('/messages', async (c) => {
     const d = parsed.data;
     const r = db.prepare(`INSERT INTO messages (name, email, phone, subject, body) VALUES (?, ?, ?, ?, ?)`).run(d.name, d.email || null, d.phone || null, d.subject || null, d.body);
     logActivity({ action: 'create', entity_type: 'message', entity_id: r.lastInsertRowid, ip_address: c.req.header('x-forwarded-for') || 'local' });
-    // 2026-11-26: SMS to the shop admin on every contact message (پنل پیامک → «پیام جدید فرم تماس»)
-    notifyContactMessage(d);
     return c.json({ success: true, message: 'پیام شما با موفقیت ارسال شد', code: 200 });
 });
 // === Admin: Newsletter ===
@@ -141,111 +138,8 @@ misc.get('/admin/sms/credit', adminRequired, async (c) => {
     return c.json({ success: true, data: { remaincredit: e.remaincredit, type: e.type, expiredate: e.expiredate }, code: 200 });
 });
 misc.get('/admin/sms/logs', adminRequired, (c) => {
-    const limit = Math.min(parseInt(c.req.query('limit') || '50', 10) || 50, 200);
-    const items = db.prepare(`SELECT id, phone, event, kind, status, response, created_at FROM sms_logs ORDER BY id DESC LIMIT ?`).all(limit);
+    const items = db.prepare(`SELECT id, phone, event, kind, status, response, created_at FROM sms_logs ORDER BY id DESC LIMIT 30`).all();
     return c.json({ success: true, data: items, code: 200 });
-});
-// === 2026-11-26: SMS event patterns (پنل پیامک /admin/sms) ===
-misc.get('/admin/sms/events', adminRequired, (c) => {
-    const events = getSmsEvents().map(e => ({ ...e, vars: EVENT_VARS[e.event_key] || [] }));
-    return c.json({
-        success: true,
-        data: {
-            events,
-            connection: {
-                sms_enabled: getAllSettings().sms_enabled || 'غیرفعال',
-                sms_sender: getAllSettings().sms_sender || '',
-                sms_admin_phone: getAllSettings().sms_admin_phone || '',
-                has_api_key: !!String(getAllSettings().sms_api_key || '').trim()
-            }
-        },
-        code: 200
-    });
-});
-misc.put('/admin/sms/events/:key', adminRequired, async (c) => {
-    const key = c.req.param('key');
-    const body = await c.req.json().catch(() => ({}));
-    const updated = updateSmsEvent(key, body);
-    if (!updated) return c.json({ success: false, message: 'رویداد پیدا نشد', code: 404 }, 404);
-    const user = c.get('user');
-    logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'sms_event', entity_id: key, details: { enabled: updated.enabled, target: updated.target } });
-    return c.json({ success: true, data: updated, message: 'الگوی پیامک ذخیره شد', code: 200 });
-});
-// Send a SAMPLE of one event (uses the real pattern + dummy variables) so the
-// owner can preview exactly what customers will receive before enabling it.
-misc.post('/admin/sms/events/:key/test', adminRequired, async (c) => {
-    const key = c.req.param('key');
-    const body = await c.req.json().catch(() => ({}));
-    const phone = String(body.phone || '').replace(/[^0-9]/g, '');
-    if (!/^09\d{9}$/.test(phone))
-        return c.json({ success: false, message: 'شماره موبایل معتبر نیست (مثال: 09123456789)', code: 400 }, 400);
-    const row = getSmsEvent(key);
-    if (!row) return c.json({ success: false, message: 'رویداد پیدا نشد', code: 404 }, 404);
-    if (!smsEnabled())
-        return c.json({ success: false, message: 'ابتدا سرویس پیامک را «فعال» و کلید API را ذخیره کنید', code: 400 }, 400);
-    const shop = getAllSettings().site_name || 'فروشگاه';
-    const demoVars = {
-        name: 'علی رضایی', order_number: 'NCP-123456789', total: '12500000', date: new Date().toLocaleDateString('fa-IR'),
-        status: 'تایید شده', ticket_number: 'TKT-123456', subject: 'سوال درباره گارانتی',
-        phone: '09121234567', message_short: 'سلام، موجودی این کالا را می‌خواستم...'
-    };
-    const fillTpl = (t, v) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined ? String(v[k]) : m));
-    const text = row.template ? `«${row.template}» (قالب کاوه‌نگار — توکن‌ها: ${(EVENT_VARS[key] || []).slice(0, 3).join(', ')})` : fillTpl(row.body, { shop, ...demoVars });
-    const r = row.template
-        ? await sendTemplate(phone, row.template, (EVENT_VARS[key] || []).slice(0, 3).map(k => demoVars[k] || shop), key + '_test')
-        : await sendText(phone, text, key + '_test');
-    return c.json({ success: r.ok, message: r.ok ? 'پیامک نمونه ارسال شد' : ('ارسال ناموفق: ' + (r.message || 'خطای نامشخص')), code: r.ok ? 200 : 502 }, r.ok ? 200 : 502);
-});
-// Save the connection settings right from the SMS panel (same keys as /admin/settings).
-misc.put('/admin/sms/connection', adminRequired, async (c) => {
-    const body = await c.req.json().catch(() => ({}));
-    const allowed = ['sms_enabled', 'sms_sender', 'sms_admin_phone'];
-    const user = c.get('user');
-    const keys = [];
-    for (const k of allowed) {
-        if (body[k] !== undefined) {
-            setSetting(k, String(body[k]).trim());
-            keys.push(k);
-        }
-    }
-    // API key: only overwrite when a new (unmasked) value is provided.
-    if (body.sms_api_key !== undefined && String(body.sms_api_key).trim() && !String(body.sms_api_key).includes('••')) {
-        setSetting('sms_api_key', String(body.sms_api_key).trim());
-        keys.push('sms_api_key');
-    }
-    if (keys.length) logActivity({ user_id: user.id, user_name: user.full_name, action: 'update', entity_type: 'settings', details: { keys } });
-    return c.json({ success: true, message: 'تنظیمات اتصال ذخیره شد', code: 200 });
-});
-
-// === 2026-11-26: Backup (پشتیبان‌گیری) ===
-misc.get('/admin/backups', adminRequired, (c) => {
-    return c.json({ success: true, data: listBackups(), code: 200 });
-});
-misc.post('/admin/backups', adminRequired, (c) => {
-    try {
-        const result = createBackup();
-        const user = c.get('user');
-        logActivity({ user_id: user.id, user_name: user.full_name, action: 'create', entity_type: 'backup', entity_id: result.name, details: { size: result.size } });
-        return c.json({ success: true, data: result, message: 'پشتیبان با موفقیت ساخته شد', code: 200 });
-    } catch (e) {
-        return c.json({ success: false, message: 'ساخت پشتیبان ناموفق بود: ' + (e.message || ''), code: 500 }, 500);
-    }
-});
-misc.get('/admin/backups/:name/download', adminRequired, (c) => {
-    const p = backupFilePath(c.req.param('name'));
-    if (!p) return c.json({ success: false, message: 'فایل پشتیبان پیدا نشد', code: 404 }, 404);
-    const buf = fs.readFileSync(p);
-    c.header('Content-Type', 'application/zip');
-    c.header('Content-Disposition', `attachment; filename="${path.basename(p)}"`);
-    c.header('Content-Length', String(buf.length));
-    return c.body(buf, 200);
-});
-misc.delete('/admin/backups/:name', adminRequired, (c) => {
-    const ok = deleteBackup(c.req.param('name'));
-    if (!ok) return c.json({ success: false, message: 'حذف ناموفق بود یا فایل پیدا نشد', code: 404 }, 404);
-    const user = c.get('user');
-    logActivity({ user_id: user.id, user_name: user.full_name, action: 'delete', entity_type: 'backup', entity_id: c.req.param('name') });
-    return c.json({ success: true, message: 'پشتیبان حذف شد', code: 200 });
 });
 
 // === Admin: Users CRUD ===
@@ -604,22 +498,7 @@ misc.delete('/admin/brands/:id', adminRequired, (c) => {
     return c.json({ success: true, message: 'حذف شد', code: 200 });
 });
 // === Admin: Dashboard summary + badges + sales/profit stats ===
-// 2026-11-26: dashboard stats micro-cache — the endpoint runs ~15 aggregate
-// queries per call (slow on MySQL over the sync bridge). Aggregates don't need
-// to be second-fresh: 15s TTL makes the dashboard feel instant while every
-// mutating API call clears it immediately (same hook as the SSR cache).
-let _dashCache = { html: null, exp: 0 };
-const DASH_TTL_MS = 15_000;
-// Any successful admin mutation (product edit, order status change, …) invalidates
-// the cached stats instantly so the badges/dashboard never show stale numbers.
-misc.use('*', async (c, next) => {
-    await next();
-    if (c.req.method !== 'GET' && c.res.status < 400) _dashCache = { json: null, exp: 0 };
-});
 misc.get('/admin/dashboard', adminRequired, (c) => {
-    const now = Date.now();
-    if (_dashCache.exp > now) return c.json(_dashCache.json, 200);
-
     // Sales analytics: sold vs unsold, revenue vs lost (cancelled) amounts
     const soldQty = db.prepare(`SELECT COALESCE(SUM(oi.quantity),0) AS t FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status != 'cancelled'`).get().t;
     const soldProducts = db.prepare(`SELECT COUNT(DISTINCT oi.product_id) AS t FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status != 'cancelled'`).get().t;
@@ -660,9 +539,7 @@ misc.get('/admin/dashboard', adminRequired, (c) => {
         recent_orders: db.prepare(`SELECT id, order_number, customer_name, total, status, created_at FROM orders ORDER BY created_at DESC LIMIT 5`).all(),
         recent_activity: db.prepare(`SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 8`).all()
     };
-    const payload = { success: true, data: stats, code: 200 };
-    _dashCache = { json: payload, exp: Date.now() + DASH_TTL_MS };
-    return c.json(payload, 200);
+    return c.json({ success: true, data: stats, code: 200 });
 });
 // === Admin: Activity Logs ===
 misc.get('/admin/activity-logs', adminRequired, (c) => {

@@ -4,7 +4,7 @@ const LOCAL_HEAD = `
 <link rel="stylesheet" href="/static/css/vazirmatn.css?v=20260708c">
 <link rel="stylesheet" href="/static/css/fontawesome.min.css">
 <link rel="stylesheet" href="/static/css/tailwind.min.css">
-<link rel="stylesheet" href="/static/css/app.css?v=20261126a">
+<link rel="stylesheet" href="/static/css/app.css?v=20261119b">
 <link rel="stylesheet" href="/static/css/admin-utils.css?v=20261103d">
 <script>
 /* Early toast stub: guarantees window.toast exists before any inline page script runs
@@ -60,6 +60,7 @@ window.toast = window.toast || function(message){ try { console.info('[toast]', 
   };
 })();
 </script>
+<script src="/static/js/chart.min.js" defer></script>
 <!-- admin.js loaded SYNCHRONOUSLY so its helpers (escAdmin, formatPrice, statusLabel,
      showModal, attrJson, uploadImage, ncpImageField, statusLabel, toast) are defined
      BEFORE any inline page <script> calls loadX(). DOM-dependent init runs on DOMContentLoaded. -->
@@ -87,10 +88,7 @@ export function adminLayout(opts, content) {
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
-<!-- Chart.js (205KB) is only fetched by pages that actually draw charts
-     (dashboard / reports). Every other admin page skips it entirely. -->
 ${LOCAL_HEAD}
-${opts.needsChart ? '<script src="/static/js/chart.min.js" defer></script>' : ''}
 <style>
   html, body { font-family: 'Vazirmatn', system-ui, sans-serif; }
   body { background: #f8fafc; color: #1e293b; }
@@ -131,12 +129,10 @@ ${opts.extraHead || ''}
     ${link('/admin/customers', 'fa-users', 'مشتریان')}
     ${link('/admin/users', 'fa-user-shield', 'کاربران سیستم')}
     <div class="px-4 mt-4 mb-1 text-[11px] text-white/50 font-bold">پشتیبانی</div>
-    ${link('/admin/sms', 'fa-tower-cell', 'پنل پیامک')}
     ${link('/admin/tickets', 'fa-headset', 'تیکت‌ها', 'tickets_open')}
     ${link('/admin/messages', 'fa-envelope', 'پیام‌ها', 'messages_unread')}
     ${link('/admin/newsletter', 'fa-paper-plane', 'خبرنامه')}
     <div class="px-4 mt-4 mb-1 text-[11px] text-white/50 font-bold">سیستم</div>
-    ${link('/admin/backup', 'fa-database', 'پشتیبان‌گیری')}
     ${link('/admin/activity-logs', 'fa-clipboard-list', 'گزارش فعالیت‌ها')}
     ${link('/admin/reports', 'fa-chart-line', 'گزارش‌ها')}
     ${link('/admin/settings', 'fa-gear', 'تنظیمات')}

@@ -4,7 +4,7 @@ import db from '../db/index.js';
 import { authOptional, authRequired, adminRequired } from '../middleware/auth.js';
 import { generateOrderNumber, getSetting, logActivity, friendlyDbError } from '../utils/helpers.js';
 import { toEnDigits } from '../utils/contact.js';
-import { notifyOrderCreated, notifyOrderStatus, notifyOrderPayment } from '../utils/sms.js';
+import { notifyOrderCreated, notifyOrderStatus } from '../utils/sms.js';
 import { catVisSql } from '../utils/catvis.js';
 import { searchClause } from '../utils/search.js';
 const orders = new Hono();
@@ -236,7 +236,7 @@ orders.put('/:id/payment', adminRequired, async (c) => {
     const ps = parsed.data.payment_status;
     db.prepare(`UPDATE orders SET payment_status = ?, paid_at = CASE WHEN ? = 'paid' THEN CURRENT_TIMESTAMP ELSE paid_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(ps, ps, id);
     logActivity({ user_id: user.id, user_name: user.full_name, action: 'update_payment', entity_type: 'order', entity_id: id, details: { payment_status: ps } });
-    if (ps === 'paid' || ps === 'failed' || ps === 'refunded') notifyOrderPayment(id, ps);
+    if (ps === 'paid' || ps === 'failed' || ps === 'refunded') notifyOrderStatus(id, ps);
     return c.json({ success: true, message: 'وضعیت پرداخت به‌روزرسانی شد', code: 200 });
 });
 

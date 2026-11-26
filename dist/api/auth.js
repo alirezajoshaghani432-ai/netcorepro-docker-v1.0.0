@@ -5,7 +5,7 @@ import db from '../db/index.js';
 import { signToken } from '../utils/jwt.js';
 import { authRequired } from '../middleware/auth.js';
 import { logActivity } from '../utils/helpers.js';
-import { smsEnabled, sendOtp, notifyUserRegistered } from '../utils/sms.js';
+import { smsEnabled, sendOtp } from '../utils/sms.js';
 import { randomInt } from 'node:crypto';
 const auth = new Hono();
 const loginSchema = z.object({
@@ -134,8 +134,6 @@ auth.post('/otp/verify', async (c) => {
         const result = db.prepare(`INSERT INTO users (email, password, full_name, phone, role, password_set) VALUES (?, ?, ?, ?, 'customer', 0)`).run(placeholderEmail, randomPass, fullName, phone);
         user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(result.lastInsertRowid);
         logActivity({ user_id: user.id, user_name: user.full_name, action: 'register', entity_type: 'user', entity_id: user.id, details: { via: 'otp' } });
-        // 2026-11-26: welcome SMS for OTP-created accounts too
-        notifyUserRegistered(user);
     }
     else if (user.status === 'blocked') {
         return c.json({ success: false, message: 'حساب کاربری شما مسدود شده است', code: 403 }, 403);
@@ -210,8 +208,6 @@ auth.post('/register', async (c) => {
         entity_type: 'user', entity_id: userId,
         ip_address: c.req.header('x-forwarded-for') || 'local'
     });
-    // 2026-11-26: welcome SMS (پنل پیامک → «ثبت‌نام کاربر جدید»)
-    if (phone) notifyUserRegistered({ full_name, phone });
     return c.json({
         success: true,
         data: { token, user: { id: userId, email, full_name, role: 'customer', phone, company } },

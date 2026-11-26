@@ -12,7 +12,7 @@ import { hiddenCategoryIds, catVisSql } from '../../utils/catvis.js';
 // Bump ASSET_V on every CSS/JS change: /static/* is served with
 // "immutable, max-age=1y", so without a version query browsers keep
 // the old (purple/unstyled) files forever.
-export const ASSET_V = '20261119b';
+export const ASSET_V = '20261126a';
 /**
  * F2 (performance): the storefront now loads ONE render-blocking stylesheet
  * (`nc-site.min.css`, built by `scripts/perf/build_css.py`) instead of four.
@@ -196,7 +196,7 @@ ${opts.extraHead || ''}
 <div class="nc-topbar">
   <div class="nc-container nc-topbar-inner">
     <div class="flex items-center gap-5">
-      <span class="nc-topbar-item"><i class="far fa-clock"></i> از ساعت ۹ تا ۱۷ در روزهای کاری پاسخگوی شما هستیم</span>
+      <span class="nc-topbar-item"><i class="far fa-clock"></i> مشاوره خرید و پشتیبانی فنی، شنبه تا پنجشنبه از ساعت ۹ تا ۱۷</span>
     </div>
     <div class="flex items-center gap-5">
       ${expert ? `<a href="${escapeAttr(expert.href)}"${expert.external ? ' target="_blank" rel="noopener"' : ''} class="nc-topbar-item"><i class="far fa-comment-dots"></i> ${escapeHtml(expertLabel)}</a>` : ''}
@@ -267,10 +267,15 @@ ${opts.extraHead || ''}
         ${topNav('/blog', 'مجله', 'fa-newspaper')}
         ${topNav('/about', 'درباره ما', 'fa-circle-info')}
         ${topNav('/terms', 'شرایط گارانتی', 'fa-shield-halved')}
-        ${topNav('/cart', 'صدور پیش‌فاکتور', 'fa-file-invoice')}
         ${topNav('/contact', 'تماس با ما', 'fa-envelope')}
       </div>
-      <a href="${escapeAttr(telHref)}" class="nc-navphone"><i class="fas fa-phone"></i> ${escapeHtml(phone)}</a>
+      <!-- 2026-11-26 (barghchi-style nav CTAs, own wording/links): outlined
+           corporate-purchase + filled proforma-invoice buttons at the left end
+           of the nav row; the phone stays in the top utility bar. -->
+      <div class="nc-navcta-group">
+        <a href="/contact" class="nc-navcta nc-navcta--outline"><i class="fas fa-briefcase"></i> خرید سازمانی</a>
+        <a href="/cart" class="nc-navcta nc-navcta--fill"><i class="fas fa-file-invoice"></i> صدور پیش‌فاکتور</a>
+      </div>
     </div>
   </nav>
 

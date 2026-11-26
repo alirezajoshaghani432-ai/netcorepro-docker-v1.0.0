@@ -108,6 +108,10 @@ try { db.prepare(`UPDATE products SET sku = NULL WHERE sku = ''`).run(); } catch
 // (menu, listings, home, sitemap) together with its sub-categories & products,
 // but NOTHING is deleted and product status is never touched.
 ensureColumn('categories', 'is_active', 'INTEGER NOT NULL DEFAULT 1');
+// 2026-11-26: `show_in_menu` existed only in schema.mysql.sql; older SQLite DBs
+// (and the fresh SQLite schema) lacked it, which broke every storefront page
+// that renders the header mega-menu ("no such column: show_in_menu").
+ensureColumn('categories', 'show_in_menu', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('categories', 'seo_title', 'TEXT');
 ensureColumn('categories', 'seo_description', 'TEXT');
 ensureColumn('categories', 'seo_keywords', 'TEXT');
@@ -206,6 +210,87 @@ try {
         )`);
     }
 } catch (e) { console.error('[db] sms_logs create error:', String(e.message).slice(0, 160)); }
+// ===== 2026-11-26: SMS event patterns (پنل پیامک) =====
+// One row per triggerable site event. Every row is editable from
+// /admin/sms without a code change or restart:
+//   enabled      این رویداد پیامک داشته باشد؟
+//   target       customer (مشتریِ رویداد) | admin (شماره مدیر) | custom (شماره دلخواه)
+//   custom_phone for target = custom
+//   template     Kavenegar lookup template name (empty = plain text via sender line)
+//   body         plain text with {placeholders} when no template is set
+try {
+    if (SELECTED_DB === 'mysql') {
+        db.exec(`CREATE TABLE IF NOT EXISTS sms_events (
+            event_key VARCHAR(64) PRIMARY KEY,
+            label VARCHAR(190) NOT NULL,
+            description VARCHAR(500),
+            enabled TINYINT DEFAULT 0,
+            target VARCHAR(20) DEFAULT 'customer',
+            custom_phone VARCHAR(32),
+            template VARCHAR(190) DEFAULT '',
+            body TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    } else {
+        db.exec(`CREATE TABLE IF NOT EXISTS sms_events (
+            event_key TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            description TEXT,
+            enabled INTEGER DEFAULT 0,
+            target TEXT DEFAULT 'customer',
+            custom_phone TEXT,
+            template TEXT DEFAULT '',
+            body TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )`);
+    }
+    // Seed the known events once — portable "insert if missing" (works on both
+    // SQLite and the MySQL bridge; a plain INSERT OR IGNORE is SQLite-only and
+    // would crash the MySQL startup).
+    const seedEvents = [
+        ['order_new', 'ثبت سفارش جدید (مشتری)', 'بعد از ثبت هر سفارش به مشتری پیامک می‌رود', 1, 'customer', '{name} عزیز، سفارش {order_number} با مبلغ {total} تومان در {shop} ثبت شد.'],
+        ['order_admin', 'ثبت سفارش جدید (مدیر فروشگاه)', 'بعد از ثبت هر سفارش به مدیر/شماره دلخواه پیامک می‌رود', 1, 'admin', 'سفارش جدید {order_number} از {name} به مبلغ {total} تومان در {shop} ثبت شد.'],
+        ['order_status', 'تغییر وضعیت سفارش', 'وقتی وضعیت سفارش (تایید/ارسال/تحویل/لغو) تغییر می‌کند', 1, 'customer', '{name} عزیز، وضعیت سفارش {order_number}: {status} ({shop})'],
+        ['payment_status', 'تغییر وضعیت پرداخت', 'وقتی پرداخت سفارش تایید/ناموفق/بازگشت وجه می‌شود', 0, 'customer', '{name} عزیز، وضعیت پرداخت سفارش {order_number}: {status} ({shop})'],
+        ['ticket_new', 'تیکت جدید (مدیر فروشگاه)', 'وقتی مشتری تیکت جدید ثبت می‌کند به مدیر پیامک می‌رود', 0, 'admin', 'تیکت جدید {ticket_number} از {name} در {shop}: {subject}'],
+        ['ticket_reply', 'پاسخ تیکت (مشتری)', 'وقتی پشتیبانی به تیکت پاسخ می‌دهد به مشتری پیامک می‌رود', 0, 'customer', '{name} عزیز، پاسخ جدیدی برای تیکت {ticket_number} در {shop} ثبت شد.'],
+        ['user_registered', 'ثبت‌نام کاربر جدید', 'پیامک خوش‌آمدگویی بعد از ثبت‌نام مشتری', 0, 'customer', '{name} عزیز، به {shop} خوش آمدید. حساب شما با موفقیت ساخته شد.'],
+        ['contact_message', 'پیام جدید فرم تماس (مدیر)', 'وقتی کسی فرم تماس با ما را پر می‌کند به مدیر پیامک می‌رود', 0, 'admin', 'پیام جدید از {name} در {shop}: {message_short}'],
+        ['order_cancelled', 'لغو سفارش', 'پیامک جداگانه هنگام لغو شدن سفارش (به مشتری)', 0, 'customer', '{name} عزیز، سفارش {order_number} در {shop} لغو شد.']
+    ];
+    const evExists = db.prepare(`SELECT event_key FROM sms_events WHERE event_key = ?`);
+    const evInsert = db.prepare(`INSERT INTO sms_events (event_key, label, description, enabled, target, custom_phone, template, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    // Respect the pre-2026-11-26 settings keys when upgrading an existing shop,
+    // so nobody suddenly starts/stops receiving messages after the update.
+    const legacyFlag = (k) => {
+        try {
+            const r = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k);
+            return r && r.value === 'فعال' ? 1 : 0;
+        } catch { return null; }
+    };
+    const legacyEnabled = {
+        order_new: legacyFlag('sms_order_new_enabled'),
+        order_admin: legacyFlag('sms_order_admin_enabled'),
+        order_status: legacyFlag('sms_status_enabled')
+    };
+    const legacyPhone = (() => {
+        try {
+            const r = db.prepare(`SELECT value FROM settings WHERE key = 'sms_admin_phone'`).get();
+            return r && r.value ? String(r.value) : '';
+        } catch { return ''; }
+    })();
+    for (const s of seedEvents) {
+        if (evExists.get(s[0])) continue;
+        // legacyFlag() returns 0/1; keys without a legacy setting fall back to
+        // the row's own default (s[3]). (undefined bind would store NULL!)
+        const legacy = legacyEnabled[s[0]];
+        const enabled = legacy === undefined ? s[3] : legacy;
+        const target = s[4] === 'admin' && legacyPhone ? 'admin' : s[4];
+        evInsert.run(s[0], s[1], s[2], enabled, target, '', '', s[5]);
+    }
+    // Normalize rows that an earlier buggy seed stored as NULL (undefined bind).
+    try { db.exec(`UPDATE sms_events SET enabled = 0 WHERE enabled IS NULL`); } catch { /* ignore */ }
+} catch (e) { console.error('[db] sms_events create error:', String(e.message).slice(0, 160)); }
 // ===== Round 2 (2026-11-03): undo for «تغییر گروهی قیمت» =====
 // Every bulk price change stores the before/after prices of the affected
 // products, so the LAST change can be reverted from the admin panel.

@@ -10,6 +10,7 @@
     "seed": "node dist/db/seed.js",
     "build:assets": "node scripts/build-assets.mjs",
     "fetch:vendors": "node scripts/fetch-vendors.mjs",
+    "precompress": "node scripts/perf/precompress.mjs",
     "build:tailwind": "tailwindcss -c tailwind.config.cjs -i tailwind.input.css -o public/static/css/tailwind.min.css --minify"
   },
   "dependencies": {

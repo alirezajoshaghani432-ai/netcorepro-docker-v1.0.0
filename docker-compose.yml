@@ -93,10 +93,12 @@ services:
       MYSQL_DATABASE: "${MYSQL_DATABASE:-netcorepro}"
       MYSQL_WAIT_SECONDS: "180"
     volumes:
-      # فایل SQLite قدیمی برای مهاجرت یک‌باره (فقط-خواندنی) + آپلودها
+      # فایل SQLite قدیمی برای مهاجرت یک‌باره (فقط-خواندنی) + آپلودها + پشتیبان‌ها
       - ./data:/app/data:ro
       - ./uploads:/app/uploads
       - ./public/static/uploads:/app/public/static/uploads
+      # 2026-11-26: فایل‌های پشتیبان (/admin/backup) روی هاست باقی بمانند
+      - ./backups:/app/backups
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
       interval: 30s

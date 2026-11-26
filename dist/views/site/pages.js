@@ -109,6 +109,11 @@ function productCard(p, opts = {}) {
     const badge = pct > 0
         ? `<span class="nc-prod-badge">${formatPrice(pct)}٪${variant === 'offer' ? ' <i class="fas fa-bolt"></i>' : ''}</span>`
         : '';
+    // 2026-11-26 (barghchi-style ribbons, own wording): a small amber ribbon on
+    // cards that belong to a special shelf, purely visual.
+    const ribbon = opts.ribbon
+        ? `<span class="nc-prod-ribbon"><i class="fas ${variant === 'offer' ? 'fa-bolt' : 'fa-star'}"></i>${esc(opts.ribbon)}</span>`
+        : '';
 
     let foot = '';
     if (variant === 'weekly') {
@@ -146,6 +151,7 @@ function productCard(p, opts = {}) {
 
     return `
   <div class="nc-prod">
+    ${ribbon}
     ${badge}
     <a href="/product/${esc(p.slug)}" class="nc-prod-img">
       ${ncImg((p.image && isValidRasterImageUrl(p.image)) ? p.image : (computeTorobProductData(p).mainImageRel || '/static/images/p1.svg'), { alt: p.name, sizes: SZ_PROD, ratio: false })}
@@ -338,7 +344,7 @@ export function homePage(reqOrigin = '') {
           <a href="/products" class="nc-offers-more-v">مشاهده همه <i class="fas fa-arrow-left"></i></a>
         </div>
         <div class="nc-prod-scroller nc-offers-scroll nc-carousel" id="nc-offers-scroll" data-auto="1">
-          ${offers.map(p => productCard(p, { variant: 'offer' })).join('')}
+          ${offers.map(p => productCard(p, { variant: 'offer', ribbon: 'پیشنهاد ویژه' })).join('')}
         </div>
       </div>
     </section>
@@ -354,7 +360,7 @@ export function homePage(reqOrigin = '') {
         </div>
       </div>
       <div class="nc-prod-scroller nc-carousel" id="best-carousel" data-auto="1">
-        ${bestSellers.map(p => productCard(p)).join('')}
+        ${bestSellers.map(p => productCard(p, { ribbon: 'پرفروش‌ترین' })).join('')}
       </div>
     </section>
 
@@ -381,7 +387,7 @@ export function homePage(reqOrigin = '') {
         </div>
       </div>
       <div class="nc-prod-scroller nc-carousel" id="weekly-carousel" data-auto="1">
-        ${weekly.map(p => productCard(p, { variant: 'weekly' })).join('')}
+        ${weekly.map(p => productCard(p, { variant: 'weekly', ribbon: 'محبوب‌ترین' })).join('')}
       </div>
     </section>
 
@@ -407,7 +413,7 @@ export function homePage(reqOrigin = '') {
         </div>
       </div>
       <div class="nc-prod-scroller nc-carousel" id="disc-carousel" data-auto="1">
-        ${discounted.map(p => productCard(p, { variant: 'weekly' })).join('')}
+        ${discounted.map(p => productCard(p, { variant: 'weekly', ribbon: 'بیشترین تخفیف' })).join('')}
       </div>
     </section>
 
@@ -422,7 +428,7 @@ export function homePage(reqOrigin = '') {
         </div>
       </div>
       <div class="nc-prod-scroller nc-carousel" id="new-carousel">
-        ${newest.map(p => productCard(p)).join('')}
+        ${newest.map(p => productCard(p, { ribbon: 'جدیدترین' })).join('')}
       </div>
     </section>
 
@@ -957,7 +963,9 @@ export function productPage(slug, reqOrigin = '', opts = {}) {
         </div>
 
         <!-- buy box (side) -->
-        <aside class="nc-buybox" data-product-id="${esc(torob.productId)}">
+        <!-- 2026-11-26: data-product-id removed — the product ID must never appear in the
+             page body (owner request). Torob reads it from <meta name="product_id"> in <head>. -->
+        <aside class="nc-buybox">
           <div class="nc-buybox-guarantee"><i class="fas fa-shield-halved"></i> ${esc(torob.guarantee)}</div>
           <div class="nc-buybox-rows">
             ${has ? `

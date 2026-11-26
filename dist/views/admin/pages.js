@@ -80,7 +80,7 @@ document.getElementById('admin-login-form').addEventListener('submit', async (e)
 </body></html>`;
 }
 // ===== Dashboard =====
-export function dashboardPage() {
+export function dashboardPage(opts = {}) {
     const content = `
     <!-- گزارش هفتگی (نمودار دایره‌ای) -->
     <div class="grid lg:grid-cols-3 gap-6 mb-6">
@@ -196,7 +196,7 @@ export function dashboardPage() {
       loadDash();
     </script>
   `;
-    return adminLayout({ title: 'داشبورد', currentPath: '/admin' }, content);
+    return adminLayout({ title: 'داشبورد', currentPath: '/admin', needsChart: opts.needsChart !== false }, content);
 }
 // ===== Products list =====
 export function adminProductsPage() {
@@ -1482,7 +1482,7 @@ export function adminActivityLogsPage() {
     return adminLayout({ title: 'گزارش فعالیت‌ها', currentPath: '/admin/activity-logs' }, content);
 }
 // ===== Reports =====
-export function adminReportsPage() {
+export function adminReportsPage(opts = {}) {
     const content = `
     <div id="reports-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
     <div class="grid lg:grid-cols-2 gap-6">
@@ -1524,7 +1524,7 @@ export function adminReportsPage() {
       loadReports();
     </script>
   `;
-    return adminLayout({ title: 'گزارش‌ها', currentPath: '/admin/reports' }, content);
+    return adminLayout({ title: 'گزارش‌ها', currentPath: '/admin/reports', needsChart: true }, content);
 }
 // ===== Settings =====
 export function adminSettingsPage() {
@@ -1598,20 +1598,8 @@ export function adminSettingsPage() {
         { k:'enamad_url', l:'لینک اینماد', ph:'https://trustseal.enamad.ir/?id=...&Code=...' },
         { sec:'اتصال به ترب (Torob) و موتورهای مقایسه قیمت', icon:'fa-tags', help:'متاتگ‌های رسمی ترب (product_id، product_name، product_price، product_old_price، availability، guarantee و og:image مطلق) به‌صورت خودکار در تمام صفحات محصول درج می‌شوند. همچنین وب‌سرویس رسمی Product API v3 ترب در آدرس /torob_api/v3/products آماده است.' },
         { k:'torob_require_jwt', l:'بررسی امنیتی توکن رسمی ترب (X-Torob-Token) روی API نسخه ۳', select:['فعال','غیرفعال'] },
-        { sec:'سرویس پیامک (کاوه‌نگار)', icon:'fa-sms', help:'پس از خرید سرویس از کاوه‌نگار، کلید API را از پنل کاوه‌نگار (بخش «تنظیمات حساب ← API») کپی و اینجا وارد کنید. تا وقتی «غیرفعال» باشد، ورود با موبایل در حالت آزمایشی (کد ثابت) کار می‌کند و پیامکی ارسال نمی‌شود. اگر نام قالب (Template) را وارد کنید پیام با متد «تایید/Lookup» و در غیر این صورت به‌صورت متن ساده از شماره خط ارسال می‌شود.' },
-        { k:'sms_enabled', l:'سرویس پیامک فعال باشد؟', select:['فعال','غیرفعال'] },
-        { k:'sms_api_key', l:'کلید API کاوه‌نگار', ph:'API Key' },
-        { k:'sms_sender', l:'شماره خط ارسال‌کننده (برای پیام‌های متنی)', ph:'مثلاً 10008663' },
+        { sec:'سرویس پیامک', icon:'fa-tower-cell', help:'مدیریت کامل پیامک‌ها (اتصال، پترن‌های رویداد و گزارش ارسال‌ها) به صفحه اختصاصی «پنل پیامک» منتقل شد: منوی پنل ← پشتیبانی ← پنل پیامک. تنها تنظیم مرتبط با ورود که اینجا باقی مانده، نام قالب کد ورود (OTP) است.' },
         { k:'sms_otp_template', l:'نام قالب کد ورود (اختیاری — token = کد تایید)', ph:'مثلاً verify' },
-        { k:'sms_order_new_enabled', l:'ارسال پیامک ثبت سفارش به مشتری؟', select:['فعال','غیرفعال'] },
-        { k:'sms_order_new_template', l:'نام قالب ثبت سفارش (اختیاری — token = شماره سفارش، token2 = مبلغ)', ph:'مثلاً order-new' },
-        { k:'sms_order_new_text', l:'متن پیامک ثبت سفارش (در صورت نبود قالب)  — متغیرها: {name} {order_number} {total} {shop}', textarea:true, ph:'{name} عزیز، سفارش {order_number} با مبلغ {total} تومان در {shop} ثبت شد.' },
-        { k:'sms_order_admin_enabled', l:'اطلاع‌رسانی سفارش جدید به مدیر فروشگاه؟', select:['فعال','غیرفعال'] },
-        { k:'sms_admin_phone', l:'شماره موبایل مدیر (برای اطلاع سفارش جدید)', ph:'09123456789' },
-        { k:'sms_order_admin_text', l:'متن پیامک مدیر', textarea:true, ph:'سفارش جدید {order_number} از {name} به مبلغ {total} تومان ثبت شد.' },
-        { k:'sms_status_enabled', l:'ارسال پیامک تغییر وضعیت سفارش / پرداخت به مشتری؟', select:['فعال','غیرفعال'] },
-        { k:'sms_status_template', l:'نام قالب تغییر وضعیت (اختیاری — token = شماره سفارش، token2 = وضعیت)', ph:'مثلاً order-status' },
-        { k:'sms_status_text', l:'متن پیامک تغییر وضعیت (در صورت نبود قالب) — متغیرها: {name} {order_number} {status} {shop}', textarea:true, ph:'{name} عزیز، وضعیت سفارش {order_number}: {status} ({shop})' },
         { sec:'مالیات بر ارزش افزوده', icon:'fa-percent', help:'مالیات فقط در مرحله پرداخت (پیش‌فاکتور نهایی و درگاه) به مبلغ سفارش اضافه می‌شود و در حین خرید نمایش داده نمی‌شود. زیر توضیحات هر محصول هم یک جمله کوچک درباره مالیات درج می‌شود. اگر برای محصولی «درصد مالیات» جداگانه ثبت کنید، همان جایگزین درصد سراسری می‌شود.' },
         { k:'tax_enabled', l:'مالیات فعال باشد؟', select:['فعال','غیرفعال'] },
         { k:'tax_percent', l:'درصد مالیات سراسری (مثلاً 9)', ph:'9' },
@@ -2679,4 +2667,270 @@ export function adminHomePagesPage() {
     </script>
   `;
     return adminLayout({ title: 'صفحات هوم چندگانه', currentPath: '/admin/home-pages' }, content);
+}
+
+// ===== 2026-11-26: پنل پیامک (/admin/sms) — event patterns, connection, logs =====
+// One card per sms_events row: the owner decides WHEN the shop sends SMS (which
+// event), to WHOM (customer / admin / custom number) and WHAT text or Kavenegar
+// template is used — all without touching code or restarting the server.
+export function adminSmsPage() {
+    const content = `
+    <div id="sms-connection" class="bg-white rounded-xl shadow-sm p-5">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800"><i class="fas fa-tower-cell ml-1 text-indigo-600"></i>تنظیمات اتصال سرویس پیامک (کاوه‌نگار)</h2>
+        <button type="button" id="sms-credit-btn" class="border border-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-50"><i class="fas fa-wallet ml-1"></i>مشاهده اعتبار</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4 leading-6">کلید API را از پنل کاوه‌نگار (تنظیمات حساب ← API) کپی کنید. تا وقتی سرویس «فعال» نباشد هیچ پیامکی ارسال نمی‌شود و فقط در «گزارش ارسال‌ها» با وضعیت «رد شده» ثبت می‌گردد.</p>
+      <div class="grid md:grid-cols-2 gap-4">
+        <label class="block"><span class="text-sm text-slate-600">سرویس پیامک</span>
+          <select id="sms-enabled" class="border rounded-lg px-3 py-2 text-sm w-full mt-1"><option value="فعال">فعال</option><option value="غیرفعال">غیرفعال</option></select></label>
+        <label class="block"><span class="text-sm text-slate-600">کلید API کاوه‌نگار</span>
+          <input id="sms-api-key" type="text" dir="ltr" placeholder="${'••••'} (در حال حاضر ذخیره شده — خالی بگذارید تا تغییر نکند)" class="border rounded-lg px-3 py-2 text-sm w-full mt-1"></label>
+        <label class="block"><span class="text-sm text-slate-600">شماره خط ارسال‌کننده (پیام‌های متنی)</span>
+          <input id="sms-sender" dir="ltr" placeholder="مثلاً 10008663" class="border rounded-lg px-3 py-2 text-sm w-full mt-1"></label>
+        <label class="block"><span class="text-sm text-slate-600">موبایل مدیر فروشگاه (گیرنده رویدادهای مدیریتی)</span>
+          <input id="sms-admin-phone" dir="ltr" placeholder="09123456789" class="border rounded-lg px-3 py-2 text-sm w-full mt-1"></label>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center mt-4">
+        <button type="button" id="sms-conn-save" class="btn-indigo text-white px-5 py-2 rounded-lg text-sm"><i class="fas fa-save ml-1"></i>ذخیره تنظیمات اتصال</button>
+        <input id="sms-test-phone" dir="ltr" placeholder="09123456789 — شماره برای پیامک آزمایشی" class="border rounded-lg px-3 py-2 text-sm w-72">
+        <button type="button" id="sms-test-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-paper-plane ml-1"></i>ارسال پیامک آزمایشی</button>
+        <span id="sms-conn-out" class="text-sm text-slate-500"></span>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-5 mt-5">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800"><i class="fas fa-diagram-project ml-1 text-indigo-600"></i>پترن‌های پیامک (رویدادها)</h2>
+        <span class="text-xs text-slate-400">هر رویداد را فعال/غیرفعال کنید، گیرنده و متن را عوض کنید — بدون نیاز به کدنویسی</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-4 leading-6">هر وقت «اتفاقی» در سایت بیفتد (ثبت سفارش، تغییر وضعیت، تیکت جدید، ثبت‌نام و…) اگر رویداد مربوطه «فعال» باشد پیامک ارسال می‌شود. اگر «نام قالب کاوه‌نگار» را پر کنید پیام با متد Lookup (قالب تاییدشده در پنل کاوه‌نگار) می‌رود؛ وگرنه «متن پیامک» از خط ارسال‌کننده ارسال می‌شود.</p>
+      <div id="sms-events" class="space-y-4"><div class="text-center py-10"><span class="spinner"></span></div></div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-5 mt-5">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <h2 class="font-bold text-slate-800"><i class="fas fa-list-check ml-1 text-indigo-600"></i>گزارش ارسال‌های پیامک</h2>
+        <button type="button" id="sms-logs-refresh" class="border border-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-50"><i class="fas fa-rotate ml-1"></i>به‌روزرسانی</button>
+      </div>
+      <div id="sms-logs" class="overflow-x-auto text-sm"></div>
+    </div>
+
+    <script>
+      var EVENT_ICONS = {
+        order_new: 'fa-cart-shopping', order_admin: 'fa-bell', order_status: 'fa-truck-fast',
+        payment_status: 'fa-credit-card', order_cancelled: 'fa-ban', ticket_new: 'fa-headset',
+        ticket_reply: 'fa-reply', user_registered: 'fa-user-plus', contact_message: 'fa-envelope'
+      };
+      function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+      async function loadConn() {
+        try {
+          const r = await axios.get('/api/admin/sms/events');
+          const conn = r.data.data.connection;
+          document.getElementById('sms-enabled').value = conn.sms_enabled || 'غیرفعال';
+          document.getElementById('sms-sender').value = conn.sms_sender || '';
+          document.getElementById('sms-admin-phone').value = conn.sms_admin_phone || '';
+          const keyInput = document.getElementById('sms-api-key');
+          keyInput.placeholder = conn.has_api_key ? '•••• (کلید ذخیره شده — خالی بگذارید تا تغییر نکند)' : 'API Key';
+        } catch (e) { toast(e.response?.data?.message || 'خطا در دریافت تنظیمات', 'error'); }
+      }
+
+      function bindConn() {
+        document.getElementById('sms-conn-save').addEventListener('click', async function () {
+          const payload = {
+            sms_enabled: document.getElementById('sms-enabled').value,
+            sms_sender: document.getElementById('sms-sender').value.trim(),
+            sms_admin_phone: document.getElementById('sms-admin-phone').value.trim()
+          };
+          const key = document.getElementById('sms-api-key').value.trim();
+          if (key) payload.sms_api_key = key;
+          try {
+            await axios.put('/api/admin/sms/connection', payload);
+            document.getElementById('sms-api-key').value = '';
+            toast('تنظیمات اتصال ذخیره شد', 'success');
+            loadConn();
+          } catch (e) { toast(e.response?.data?.message || 'خطا در ذخیره', 'error'); }
+        });
+        document.getElementById('sms-test-btn').addEventListener('click', async function () {
+          const phone = document.getElementById('sms-test-phone').value.trim();
+          try {
+            const r = await axios.post('/api/admin/sms/test', { phone });
+            toast(r.data.message, r.data.success ? 'success' : 'error');
+          } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+        });
+        document.getElementById('sms-credit-btn').addEventListener('click', async function () {
+          try {
+            const r = await axios.get('/api/admin/sms/credit');
+            toast('اعتبار باقی‌مانده: ' + (r.data.data.remaincredit || '?'), 'success');
+          } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+        });
+      }
+
+      function eventCard(e) {
+        const chips = (e.vars || []).map(v => '<code class="bg-slate-100 rounded px-1.5 py-0.5 text-[11px] text-slate-600" onclick="insertVar(this, \\''+e.event_key+'\\', \\''+v+'\\')" style="cursor:pointer">{'+v+'}</code>').join(' ');
+        const enabled = e.enabled == 1;
+        return '<div class="border rounded-xl p-4 ' + (enabled ? 'border-indigo-200 bg-indigo-50/40' : 'border-slate-200') + '" id="ev-' + e.event_key + '">' +
+          '<div class="flex items-start justify-between gap-3 flex-wrap">' +
+            '<div><h3 class="font-bold text-slate-800 text-sm"><i class="fas ' + (EVENT_ICONS[e.event_key] || 'fa-bell') + ' ml-1 text-indigo-500"></i>' + esc(e.label) + '</h3>' +
+            '<p class="text-xs text-slate-500 mt-1 leading-6">' + esc(e.description || '') + '</p></div>' +
+            '<label class="flex items-center gap-2 text-xs whitespace-nowrap"><input type="checkbox" id="ev-enabled-' + e.event_key + '"' + (enabled ? ' checked' : '') + ' class="w-4 h-4 accent-indigo-600"> <span>فعال</span></label>' +
+          '</div>' +
+          '<div class="grid md:grid-cols-3 gap-3 mt-3">' +
+            '<label class="block text-xs"><span class="text-slate-500">گیرنده</span>' +
+              '<select id="ev-target-' + e.event_key + '" class="border rounded-lg px-2 py-1.5 text-xs w-full mt-1">' +
+                '<option value="customer"' + (e.target === 'customer' ? ' selected' : '') + '>مشتری رویداد</option>' +
+                '<option value="admin"' + (e.target === 'admin' ? ' selected' : '') + '>موبایل مدیر</option>' +
+                '<option value="custom"' + (e.target === 'custom' ? ' selected' : '') + '>شماره دلخواه</option>' +
+              '</select></label>' +
+            '<label class="block text-xs"><span class="text-slate-500">شماره دلخواه (وقتی گیرنده = شماره دلخواه)</span>' +
+              '<input id="ev-phone-' + e.event_key + '" dir="ltr" value="' + esc(e.custom_phone || '') + '" placeholder="09123456789" class="border rounded-lg px-2 py-1.5 text-xs w-full mt-1"></label>' +
+            '<label class="block text-xs"><span class="text-slate-500">نام قالب کاوه‌نگار (اختیاری)</span>' +
+              '<input id="ev-template-' + e.event_key + '" dir="ltr" value="' + esc(e.template || '') + '" placeholder="مثلاً order-status" class="border rounded-lg px-2 py-1.5 text-xs w-full mt-1"></label>' +
+          '</div>' +
+          '<label class="block text-xs mt-3"><span class="text-slate-500">متن پیامک (وقتی قالب وارد نشده)</span>' +
+            '<textarea id="ev-body-' + e.event_key + '" rows="2" class="border rounded-lg px-3 py-2 text-xs w-full mt-1 leading-6">' + esc(e.body || '') + '</textarea></label>' +
+          '<div class="flex flex-wrap items-center gap-1 mt-2">' + chips + '</div>' +
+          '<div class="flex flex-wrap gap-2 mt-3">' +
+            '<button type="button" class="btn-indigo text-white px-4 py-1.5 rounded-lg text-xs" onclick="saveEvent(\\''+e.event_key+'\\')"><i class="fas fa-save ml-1"></i>ذخیره</button>' +
+            '<button type="button" class="border border-slate-200 px-4 py-1.5 rounded-lg text-xs hover:bg-slate-50" onclick="testEvent(\\''+e.event_key+'\\')"><i class="fas fa-vial ml-1"></i>ارسال نمونه</button>' +
+            '<span id="ev-out-' + e.event_key + '" class="text-xs text-slate-400 self-center"></span>' +
+          '</div>' +
+        '</div>';
+      }
+
+      async function loadEvents() {
+        try {
+          const r = await axios.get('/api/admin/sms/events');
+          const events = r.data.data.events || [];
+          document.getElementById('sms-events').innerHTML = events.map(eventCard).join('');
+        } catch (e) { toast(e.response?.data?.message || 'خطا در دریافت رویدادها', 'error'); }
+      }
+
+      window.insertVar = function (el, key, v) {
+        const ta = document.getElementById('ev-body-' + key);
+        if (!ta) return;
+        ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + '{' + v + '}';
+        ta.focus();
+      };
+
+      window.saveEvent = async function (key) {
+        const payload = {
+          enabled: document.getElementById('ev-enabled-' + key).checked ? 'فعال' : 'غیرفعال',
+          target: document.getElementById('ev-target-' + key).value,
+          custom_phone: document.getElementById('ev-phone-' + key).value.trim(),
+          template: document.getElementById('ev-template-' + key).value.trim(),
+          body: document.getElementById('ev-body-' + key).value
+        };
+        try {
+          await axios.put('/api/admin/sms/events/' + key, payload);
+          toast('الگوی «' + key + '» ذخیره شد', 'success');
+          loadEvents();
+        } catch (e) { toast(e.response?.data?.message || 'خطا در ذخیره', 'error'); }
+      };
+
+      window.testEvent = async function (key) {
+        const phone = document.getElementById('sms-test-phone').value.trim() || document.getElementById('sms-admin-phone').value.trim();
+        const out = document.getElementById('ev-out-' + key);
+        if (!/^09\\d{9}$/.test(phone || '')) { toast('شماره آزمایش را در کادر بالای صفحه وارد کنید', 'error'); return; }
+        try {
+          const r = await axios.post('/api/admin/sms/events/' + key + '/test', { phone });
+          if (out) out.textContent = r.data.message;
+          toast(r.data.message, r.data.success ? 'success' : 'error');
+        } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+      };
+
+      const STATUS_CLS = { sent: 'bg-emerald-100 text-emerald-700', failed: 'bg-red-100 text-red-700', skipped: 'bg-slate-100 text-slate-500' };
+      const STATUS_FA = { sent: 'ارسال شد', failed: 'ناموفق', skipped: 'رد شد' };
+      async function loadLogs() {
+        try {
+          const r = await axios.get('/api/admin/sms/logs?limit=50');
+          const items = r.data.data || [];
+          document.getElementById('sms-logs').innerHTML = items.length ? '<table class="w-full text-right"><thead><tr class="text-xs text-slate-400 border-b">' +
+            '<th class="py-2">شماره</th><th>رویداد</th><th>نوع</th><th>وضعیت</th><th>پاسخ سرویس</th><th>زمان</th></tr></thead><tbody>' +
+            items.map(l => '<tr class="border-b border-slate-50">' +
+              '<td class="py-2" dir="ltr">' + esc(l.phone || '-') + '</td>' +
+              '<td>' + esc(l.event || '') + '</td>' +
+              '<td>' + (l.kind === 'template' ? 'قالب' : 'متن') + '</td>' +
+              '<td><span class="px-2 py-0.5 rounded-full text-xs ' + (STATUS_CLS[l.status] || 'bg-slate-100') + '">' + (STATUS_FA[l.status] || esc(l.status)) + '</span></td>' +
+              '<td class="text-xs text-slate-400 max-w-[220px] truncate" title="' + esc(l.response || '') + '">' + esc(l.response || '') + '</td>' +
+              '<td class="text-xs text-slate-400" dir="ltr">' + esc(l.created_at || '') + '</td>' +
+            '</tr>').join('') + '</tbody></table>'
+            : '<p class="text-sm text-slate-400 py-6 text-center">هنوز پیامکی ارسال نشده است.</p>';
+        } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        bindConn();
+        loadConn();
+        loadEvents();
+        loadLogs();
+        document.getElementById('sms-logs-refresh').addEventListener('click', loadLogs);
+      });
+    </script>
+  `;
+    return adminLayout({ title: 'پنل پیامک', currentPath: '/admin/sms' }, content);
+}
+
+// ===== 2026-11-26: پشتیبان‌گیری (/admin/backup) — create / download / delete =====
+export function adminBackupPage() {
+    const content = `
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800"><i class="fas fa-database ml-1 text-indigo-600"></i>پشتیبان‌گیری کامل</h2>
+        <button type="button" id="backup-create" class="btn-indigo text-white px-5 py-2.5 rounded-lg text-sm"><i class="fas fa-cloud-arrow-down ml-1"></i>ساخت پشتیبان جدید</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4 leading-6">هر پشتیبان یک فایل ZIP شامل <code>database.sql</code> (تمام داده‌های دیتابیس: محصولات، سفارش‌ها، مشتریان، تنظیمات و…) به‌همراه <b>تمام عکس‌های آپلودشده</b> است. ۱۰ پشتیبان آخر نگه‌داری می‌شوند و بقیه خودکار حذف می‌گردند. فایل را دانلود کنید و روی کامپیوتر خود یا فضای ابری نگه دارید.</p>
+      <div id="backup-out" class="text-sm text-slate-500 mb-3"></div>
+      <div id="backup-list" class="overflow-x-auto text-sm"><div class="text-center py-8"><span class="spinner"></span></div></div>
+    </div>
+    <script>
+      function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+      function fmtSize(b) { return b > 1048576 ? (b/1048576).toFixed(1) + ' MB' : (b/1024).toFixed(0) + ' KB'; }
+
+      async function loadBackups() {
+        try {
+          const r = await axios.get('/api/admin/backups');
+          const items = r.data.data || [];
+          document.getElementById('backup-list').innerHTML = items.length
+            ? '<table class="w-full text-right"><thead><tr class="text-xs text-slate-400 border-b"><th class="py-2">فایل</th><th>حجم</th><th>تاریخ</th><th class="w-40">عملیات</th></tr></thead><tbody>' +
+              items.map(b => '<tr class="border-b border-slate-50">' +
+                '<td class="py-2" dir="ltr"><i class="fas fa-file-zipper text-amber-500 ml-1"></i>' + esc(b.name) + '</td>' +
+                '<td>' + fmtSize(b.size) + '</td>' +
+                '<td class="text-xs text-slate-400" dir="ltr">' + esc((b.created_at || '').replace('T', ' ').slice(0, 16)) + '</td>' +
+                '<td><a href="/api/admin/backups/' + encodeURIComponent(b.name) + '/download" class="text-indigo-600 hover:underline text-xs ml-2"><i class="fas fa-download ml-1"></i>دانلود</a>' +
+                '<button type="button" class="text-rose-600 hover:underline text-xs" onclick="delBackup(\\'' + esc(b.name) + '\\')"><i class="fas fa-trash ml-1"></i>حذف</button></td>' +
+              '</tr>').join('') + '</tbody></table>'
+            : '<p class="text-sm text-slate-400 py-6 text-center">هنوز پشتیبانی ساخته نشده است.</p>';
+        } catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+      }
+
+      window.delBackup = function (name) {
+        confirmDialog('پشتیبان «' + name + '» برای همیشه حذف شود؟', async () => {
+          try { await axios.delete('/api/admin/backups/' + encodeURIComponent(name)); toast('حذف شد', 'success'); loadBackups(); }
+          catch (e) { toast(e.response?.data?.message || 'خطا', 'error'); }
+        });
+      };
+
+      document.addEventListener('DOMContentLoaded', function () {
+        loadBackups();
+        document.getElementById('backup-create').addEventListener('click', async function () {
+          const btn = this;
+          const out = document.getElementById('backup-out');
+          btn.disabled = true;
+          out.innerHTML = '<span class="spinner"></span> در حال ساخت پشتیبان (چند لحظه طول می‌کشد)...';
+          try {
+            const r = await axios.post('/api/admin/backups', {}, { timeout: 180000 });
+            out.innerHTML = '<span class="text-emerald-600"><i class="fas fa-circle-check ml-1"></i>' + (r.data.message || 'انجام شد') + ' — حجم: ' + fmtSize(r.data.data.size) + '</span>';
+            toast('پشتیبان ساخته شد', 'success');
+            loadBackups();
+          } catch (e) {
+            out.innerHTML = '<span class="text-rose-600">' + esc(e.response?.data?.message || 'خطا در ساخت پشتیبان') + '</span>';
+          }
+          btn.disabled = false;
+        });
+      });
+    </script>
+  `;
+    return adminLayout({ title: 'پشتیبان‌گیری', currentPath: '/admin/backup' }, content);
 }
